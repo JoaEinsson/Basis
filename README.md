@@ -12,13 +12,15 @@ driven by the following documents, in this order:
 2. [`AGENTS.md`](AGENTS.md) — the operating contract for agents/LLMs.
 3. [`docs/DECISIONS.md`](docs/DECISIONS.md) — locked product and engineering
    decisions accepted by the product owner.
-4. [`docs/TODAY_PLAN.md`](docs/TODAY_PLAN.md) — the executable sequence, gates,
+4. [`docs/DESIGN_UX.md`](docs/DESIGN_UX.md) — the normative application-shell,
+   navigation, search, Now Playing, responsive, and visual-composition contract.
+5. [`docs/TODAY_PLAN.md`](docs/TODAY_PLAN.md) — the executable sequence, gates,
    and exit criteria for each milestone.
-5. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — resolved technical decisions
+6. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — resolved technical decisions
    that prevent implementation forks.
-6. [`docs/ACCEPTANCE.md`](docs/ACCEPTANCE.md) — the test and smoke-test matrix.
-7. [`docs/PROGRESS.md`](docs/PROGRESS.md) — live status, evidence, and blockers.
-8. [`docs/RELEASE_AND_SIGNING.md`](docs/RELEASE_AND_SIGNING.md) — Tauri updater,
+7. [`docs/ACCEPTANCE.md`](docs/ACCEPTANCE.md) — the test and smoke-test matrix.
+8. [`docs/PROGRESS.md`](docs/PROGRESS.md) — live status, evidence, and blockers.
+9. [`docs/RELEASE_AND_SIGNING.md`](docs/RELEASE_AND_SIGNING.md) — Tauri updater,
    signing, and release workflow.
 
 ## Completion rule

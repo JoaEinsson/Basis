@@ -11,6 +11,15 @@ Do **not** expand today's scope into EQ, convolution, WASAPI exclusive, PipeWire
 The locked product/display name is `Basis`; package/executable name is `basis`;
 Tauri bundle identifier is `io.github.joaeinsson.basis`.
 
+## Interface contract
+
+`docs/DESIGN_UX.md` is the normative contract for shell composition,
+data-driven primary navigation, main-canvas search, navigation restoration, Now
+Playing layout, responsive recomposition, and the anti-dashboard visual rules.
+It supersedes conflicting interface examples in this specification. Numbered
+decisions D70–D80 lock the associated behavior, including the strict
+Layout/Theme Engine ownership boundary.
+
 ---
 
 # 1. Product thesis
@@ -135,7 +144,7 @@ Examples:
 - static playlists
 - smart playlists
 - custom tags/overrides
-- portable workspace/sidebar representation
+- portable workspace/pinned-navigation representation
 - user-created theme definitions and theme selection
 - per-device event/history logs
 - schema/version information
@@ -256,7 +265,10 @@ Portable representation/preferences, e.g.:
 }
 ```
 
-View/sidebar organization should therefore follow the library to another machine.
+The schema v1 field `sidebar` is retained for compatibility but represents the
+ordered pinned Views shown in the top toolbar; it does not authorize a permanent
+left sidebar. This portable navigation organization follows the library to
+another machine. See D71–D72 and `docs/DESIGN_UX.md`.
 
 Device-specific things such as output device and window geometry must **not** go here.
 
@@ -471,7 +483,7 @@ interface ViewDefinition {
     coverSize?: number;
     visibleFields?: string[];
   };
-  pinToSidebar: boolean;
+  pinToSidebar: boolean; // legacy schema name: pin to primary navigation
 }
 ```
 
@@ -503,9 +515,9 @@ From any result set, user can:
 - select visible table fields;
 - change cover/card size for grid;
 - save current configuration as a named View;
-- pin/unpin to sidebar;
+- pin/unpin to primary navigation;
 - duplicate a built-in view and modify it;
-- reorder sidebar entries by drag-and-drop;
+- reorder pinned navigation entries by drag-and-drop or keyboard;
 - hide built-in views they do not care about.
 
 This is required in the first usable prototype.
@@ -518,23 +530,10 @@ The first build should feel like a product, not a database demo.
 
 ## 9.1 App shell
 
-Three conceptual regions:
-
-```text
-┌──────────────┬──────────────────────────────────┐
-│ Sidebar      │ Main content                     │
-│              │                                  │
-│ Home         │                                  │
-│ Albums       │                                  │
-│ Artists      │                                  │
-│ custom views │                                  │
-│ playlists    │                                  │
-├──────────────┴──────────────────────────────────┤
-│ persistent Now Playing / transport / queue      │
-└─────────────────────────────────────────────────┘
-```
-
-Sidebar resizable, compact, reorderable.
+Use the shell in `docs/DESIGN_UX.md`: compact top toolbar with pinned Views,
+optional secondary View toolbar, main canvas, optional temporary context pane,
+and persistent bottom transport. There is no permanent left navigation sidebar.
+Music content must remain visually stronger than application chrome.
 
 ## 9.2 Navigation
 
@@ -544,9 +543,13 @@ Implement:
 - breadcrumbs where useful
 - keyboard shortcuts
 - `Ctrl+K` command palette
-- `/` or `Ctrl+F` focus search
+- `/` or `Ctrl+F` opens/focuses main-canvas SearchView
 - `Space` play/pause when appropriate
 - media key integration if Tauri/platform support is quick
+
+Back/Forward restoration, the explicit navigation-state model, deliberate
+Now Playing navigation, and the rule that automatic playback never steals focus
+are defined in `docs/DESIGN_UX.md` and D74–D76.
 
 ## 9.3 Albums
 
@@ -639,17 +642,20 @@ Tracks should support Ctrl/Shift selection and bulk queue/playlist actions.
 
 ## 9.10 Visual design
 
-- dark-first, understated, contemporary;
-- prioritize typography/spacing/artwork over chrome;
-- avoid "audiophile equipment" skeuomorphism;
-- restrained motion, ~150–220ms for navigation/state transitions;
-- clear hover/focus/selected states;
-- no giant borders around every element;
-- support keyboard focus visibly;
+- prioritize semantic hierarchy, artwork, and music content over chrome;
+- request clear hover/focus/selected semantic states without defining their
+  visual values in feature components;
+- do not add structural wrappers or borders solely to manufacture hierarchy;
+- support keyboard focus visibly through Theme Engine state tokens;
 - use skeleton/progressive loading during first scan rather than freezing;
-- handle small and large desktop windows gracefully.
+- handle small and large desktop windows through responsive recomposition.
 
-All visual styling must flow through the mandatory Theme Engine in section 10. Do not hardcode ad-hoc colors/radii/spacing in feature components.
+Nocturne's built-in theme direction is dark, understated, and contemporary,
+but that is not a hard-coded shell aesthetic. Motion duration, typography,
+spacing, radius, borders, shadows, glow, and every other visual treatment flow
+through the mandatory Theme Engine. Feature and layout components contain no
+ad-hoc visual literals or built-in-theme conditionals. See D80 and
+`docs/DESIGN_UX.md`.
 
 ---
 
@@ -879,6 +885,7 @@ Base spacing should follow a 4px-oriented rhythm while retaining useful 2/6/10px
 - `shape.radius.xl`
 - `shape.radius.2xl`
 - `shape.radius.pill`
+- `shape.radius.surface`
 - `shape.radius.card`
 - `shape.radius.artwork`
 - `stroke.thin`
@@ -887,6 +894,7 @@ Base spacing should follow a 4px-oriented rhythm while retaining useful 2/6/10px
 #### Elevation/effects
 
 - `elevation.0` … `elevation.4`
+- `elevation.surface`
 - `effects.backdropBlur`
 - `effects.surfaceOpacity`
 - `effects.artworkShadow`
@@ -945,8 +953,22 @@ Example:
   --mv-color-bg-surface: #13151a;
   --mv-color-text-primary: #f4f5f7;
   --mv-color-accent-primary: #8b7cff;
+  --mv-shape-radius-surface: 12px;
+  --mv-elevation-surface: 0 8px 24px rgb(0 0 0 / 18%);
   --mv-radius-card: 12px;
   --mv-motion-normal: 180ms;
+}
+```
+
+Literal values such as these exist only in generated resolved-theme output or
+the Theme Engine's built-in definitions. A layout component references roles:
+
+```css
+.content-surface {
+  color: var(--mv-color-text-primary);
+  background: var(--mv-color-bg-surface);
+  border-radius: var(--mv-shape-radius-surface);
+  box-shadow: var(--mv-elevation-surface);
 }
 ```
 
@@ -1078,7 +1100,34 @@ Goal: visibly demonstrate why theming is data-driven and make the player feel co
 
 ## 10.9 Theme scope boundary
 
-For MVP, themes control **appearance**, not information architecture.
+For MVP, themes control **appearance**, not information architecture. The
+Layout/Theme Engine ownership boundary in D80 and `docs/DESIGN_UX.md` is
+normative.
+
+Layout owns application regions, navigation placement, content hierarchy, pane
+behavior, responsive recomposition, entity presentation structure, and
+navigation/search/Now Playing state transitions. The Theme Engine owns colors,
+typography, border radii, borders, shadows/elevation, blur/glow, bounded spacing
+density, artwork treatment, interaction/selection styling, lyric emphasis,
+progress styling, and motion timing/easing.
+
+Every layout component consumes semantic CSS variables produced by the single
+Theme Engine boundary. Never encode Paper-, Nocturne-, or Chromatic-specific
+values or branches into layout components. A user theme may make Basis
+substantially different visually while preserving navigation and information
+architecture.
+
+Layout review uses these rules:
+
+- Do not introduce containers solely to showcase border radius. Radius itself
+  is theme-controlled.
+- Do not introduce elevation solely to manufacture hierarchy. Elevation styling
+  is theme-controlled.
+- Prefer semantic hierarchy and layout over unnecessary containers. Surface
+  appearance is theme-controlled.
+
+These replace earlier wording that could be read as mandating flat surfaces,
+small radii, restrained shadows, or restricted glow across all themes.
 
 Allowed:
 
@@ -1098,7 +1147,7 @@ Not allowed in MVP:
 - arbitrary CSS
 - custom JavaScript
 - remote assets/imports
-- moving sidebar to another edge
+- changing the shell/navigation placement defined by `docs/DESIGN_UX.md`
 - reordering player controls
 - defining new UI components
 - hiding mandatory update/security controls
@@ -1663,7 +1712,8 @@ src/
 # 22. First-run flow
 
 1. Launch.
-2. Show minimal onboarding: “Choose your music folder”.
+2. Show the quiet Library empty state and singular `Add folder` action defined
+   in `docs/DESIGN_UX.md`; do not use a welcome/marketing composition.
 3. Native folder picker.
 4. Create/read `.musiclib/manifest.json`.
 5. Load/validate selected portable theme (or safe built-in fallback) and apply it before rendering the full shell.
@@ -1760,13 +1810,13 @@ Acceptance: Albums are correct and clicking one shows only its tracks.
 
 ## M3 — refined UX/personalization + theme engine (target 90–150 min)
 
-- sidebar
+- compact top toolbar with ordered pinned Views and overflow
 - grid/list/table renderer
 - filter chips/builder
 - sorting/grouping
 - view editor with live preview
 - save/pin custom view
-- sidebar reorder/hide
+- pinned-View reorder/hide with portable persistence
 - Ctrl+K fuzzy palette
 - navigation history
 - semantic Theme Engine + CSS variable resolver
@@ -1911,7 +1961,8 @@ The prototype is done when all of these are true:
 6. Search is fast and supports free text plus field filters.
 7. User can create a custom representation using filter + sort + group + layout.
 8. Custom views are human-readable files in `.musiclib/views/`.
-9. User can reorder/hide/pin sidebar representations.
+9. User can reorder/hide/pin primary-navigation Views in the top toolbar; excess
+   Views use overflow and no permanent left sidebar is rendered.
 10. The app ships the three mandatory built-ins: **Paper**, **Nocturne**, and **Chromatic**.
 11. User can duplicate/create/edit/rename/delete/import/export a custom theme with live preview.
 12. Custom themes are sparse, human-readable files in `.musiclib/themes/`, inherit from a stable built-in base, and contain no executable CSS/JS.

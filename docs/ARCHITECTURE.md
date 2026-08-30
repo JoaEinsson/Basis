@@ -7,6 +7,7 @@ recorded in `PROGRESS.md`.
 The locked identity is **Basis**, package `basis`, bundle identifier
 `io.github.joaeinsson.basis`, version `0.1.0`, and repository
 `JoaEinsson/Basis`. `DECISIONS.md` is authoritative for all numbered decisions.
+`DESIGN_UX.md` is authoritative for interface composition and interaction.
 
 ## Selected stack
 
@@ -142,22 +143,90 @@ Built-ins are immutable `ViewDefinition` values supplied by the app and rendered
 by the same `GenericView`. Saving a change to a built-in means duplicating it to
 `.musiclib/views/`, never mutating the embedded definition.
 
+Global search is a Query Service projection, not a frontend-only FTS list. It
+returns entity-grouped results with deterministic ranking tiers and relationship
+expansion under D75. For example, an artist match projects related album and
+track entities even when their titles do not contain the query. The command
+palette is a separate bounded Nucleo interaction and never substitutes for the
+main-canvas SearchView.
+
 Minimum routes:
 
 ```text
 /onboarding
 /home
 /views/:viewId
+/search
 /albums/:albumKey
 /artists/:artistKey
 /playlists/:playlistId
-/lyrics
+/now-playing
 /settings/appearance
 /settings/about
 ```
 
+`/onboarding` is an implementation route name only. Its visible surface is the
+quiet Library empty state in `DESIGN_UX.md`, not a welcome or marketing page.
+
 Album detail receives an album key/query and lists only that album's tracks,
 ordered by disc and track number. Do not reuse the global list with scrolling.
+
+## Frontend shell and navigation
+
+The shell owns a compact top toolbar, optional View toolbar, main canvas,
+optional temporary context pane, and persistent bottom transport. There is no
+permanent left navigation sidebar. The schema v1 `workspace.sidebar` field is a
+compatibility name for the ordered pinned Views displayed in the top toolbar.
+
+Page identity is a discriminated navigation state, reflected in routes and
+history entries. An entry stores or can restore its View/search/detail identity,
+filters, sort, grouping, representation, pagination/window state, scroll, and
+selection where practical. Do not derive mutually exclusive pages from an
+accumulation of booleans.
+
+React Router owns route/history transitions. A small navigation store owns only
+restorable UI state that is unsuitable for the URL. Scroll restoration waits
+until the virtualized content window is ready. The persistent transport and
+`PlayerService` are mounted outside the routed canvas and are never reconstructed
+by Back/Forward.
+
+Primary play actions may push `/now-playing`. Automatic track advance only
+updates PlayerService/transport state and never pushes or replaces a route.
+Clicking current-track artwork/title in the transport pushes `/now-playing` as
+an explicit user navigation.
+
+Toolbar Search pushes `/search` with a serializable query and uses `Ctrl+F` or
+`/`; `Ctrl+K` opens the separate command palette. Search results occupy the main
+canvas. Autocomplete is an optional bounded overlay and not a result surface.
+
+Responsive composition and context-pane behavior follow D77 and
+`DESIGN_UX.md`. Theme tokens may style these regions but cannot rearrange them.
+
+## Layout and Theme Engine boundary
+
+The frontend has two one-way responsibilities:
+
+```text
+navigation state + View data
+        -> layout components choose regions and semantic roles
+        -> CSS variables from the resolved Theme Engine determine appearance
+```
+
+Layout components own region existence, placement, content order, pane behavior,
+responsive recomposition, entity structure, and state transitions. They contain
+no concrete color, font, radius, border, shadow, blur, glow, density, artwork,
+selection, lyric, progress, or motion values. They also contain no conditionals
+for Paper, Nocturne, or Chromatic.
+
+The Theme Engine owns those visual values through the canonical registry and
+the single `--mv-*` conversion boundary. Components select semantic roles such
+as surface, selected state, active lyric, or progress; they do not parse JSON or
+choose the role's appearance. A custom theme may substantially alter the visual
+treatment without changing navigation or information architecture.
+
+Container existence is a layout decision only when the container has a
+structural/content purpose. Radius and elevation never justify creating it;
+their appearance is theme-controlled. See D80.
 
 ## PortableService
 
@@ -195,6 +264,9 @@ values, with deterministic fallback and corrected contrast.
 Custom inheritance, accepted color syntax, runtime-only contrast correction,
 light/dark system selections, import collisions, token bounds, and Chromatic
 extraction follow D46–D53.
+
+Legacy sidebar-named tokens remain parseable to preserve the versioned theme
+contract, but shell components must not use them to render permanent navigation.
 
 ## Player and queue
 

@@ -90,8 +90,9 @@ Order:
 1. add Rust/TS types for `Expr`, sort, pagination, and `ViewDefinition`;
 2. parse text/quotes/predicates into the AST;
 3. compile parameterized SQL using allowlists and abuse tests;
-4. synchronize FTS5 and implement global search;
-5. query track/album/artist/folder/genre entities;
+4. synchronize FTS5 and implement entity-aware global search;
+5. query track/album/artist/folder/genre entities and relationally expand
+   search results under D75;
 6. express built-ins through the same engine;
 7. implement `GenericView` with grid/list/table and virtualization;
 8. add album/artist detail routes.
@@ -99,33 +100,51 @@ Order:
 Gate:
 
 - free text and the structured filters in the spec work together;
+- Search results are grouped by entity and an exact artist result exposes its
+  related albums/tracks even when their titles do not contain the query;
 - Albums derives grouping from metadata;
 - clicking an album navigates to a page containing only that album;
 - the track table virtualizes and paginates;
-- malicious values cannot alter SQL structure.
+- malicious values cannot alter SQL structure;
 - grammar, operators, public fields, page limits, FTS tokenizer, and grouping
   match D19–D24 exactly.
 
-## M3a — personalization and navigation
+## M3a — shell, personalization, search presentation, and navigation
 
 Goal: turn results into persistent representations.
 
 Deliverables:
 
-- resizable sidebar with reorder, pin/unpin, and hide;
-- back/forward, useful breadcrumbs, and keyboard shortcuts;
+- compact top toolbar with ordered pinned Views, adaptive overflow, and no
+  permanent left sidebar;
+- explicit main-canvas navigation states with Back/Forward restoration of View,
+  search, detail, filters, representation, scroll, and selection state;
+- main-canvas SearchView with grouped entity representations and a toolbar
+  search control that expands only while active;
 - filter chips and builder using the same AST;
 - sort, group, grid/list/table, density, cover size, and visible fields;
 - save/duplicate/rename/delete views under `.musiclib/views/`;
-- accessible fuzzy `Ctrl+K` for entities/views/actions;
-- context menu and multiselect with available queue/playlist actions.
+- accessible fuzzy `Ctrl+K` command palette for entities/views/actions,
+  separate from `Ctrl+F`/`/` global SearchView;
+- context menu and multiselect with available queue/playlist actions;
+- quiet Library empty/indexing/error states without marketing/dashboard
+  composition;
+- keyboard-accessible pin/unpin/reorder/hide behavior;
+- layout components that express only structure and semantic token roles, with
+  no built-in-theme values or branches.
 
 Gate:
 
 - create a filtered/grouped view, pin it, restart, and recover it;
 - duplicating a built-in does not modify its original definition;
-- sidebar order/items survive through `workspace.json`;
-- keyboard navigation works in the palette, lists, and controls with visible focus.
+- pinned navigation order/items survive through the schema v1
+  `workspace.sidebar` compatibility field without rendering a sidebar;
+- clearing Search and Back/Forward restore the exact prior View/search state;
+- keyboard navigation works in the palette, lists, and controls with visible
+  focus;
+- switching themes can change surface, radius, elevation, typography, density,
+  and motion treatment without changing shell/navigation code;
+- the shell passes the anti-dashboard audit in `DESIGN_UX.md`.
 
 ## M3b — Theme Engine and editor
 
@@ -150,7 +169,10 @@ Gate:
 - a custom theme contains overrides only, persists, and survives restart;
 - import/export preserves an unknown future key;
 - a missing base, invalid token, or low contrast cannot break critical controls;
-- no component interprets a theme or injects arbitrary CSS.
+- no component interprets a theme or injects arbitrary CSS;
+- no layout component hardcodes Paper/Nocturne/Chromatic values, and a test
+  theme can vary radius/elevation/glow/density substantially while preserving
+  identical navigation and information architecture;
 - system light/dark selections, custom-base flattening, color syntax, collision
   behavior, and bounds match D46–D53.
 
@@ -167,14 +189,20 @@ Order:
 5. add shuffle and repeat off/track/queue;
 6. prime the next track/gapless when the adapter supports it;
 7. add the persistent bottom player and queue panel;
-8. make device/codec errors recoverable;
-9. target MP3, FLAC, AAC/M4A, ALAC/M4A, Ogg Vorbis, WAV, and Opus when the
+8. add Now Playing as a main-canvas state with dominant artwork, a clear Back
+   action, and transport-to-Now-Playing navigation;
+9. ensure deliberate primary play may open Now Playing while automatic track
+   changes never steal focus from a canvas the user selected;
+10. make device/codec errors recoverable;
+11. target MP3, FLAC, AAC/M4A, ALAC/M4A, Ogg Vorbis, WAV, and Opus when the
    selected adapter supports it reliably.
 
 Gate:
 
 - playing an album materializes a queue separate from its source;
 - controls and automatic track changes work with real audio;
+- Back restores the exact album/search source after Now Playing, and automatic
+  queue advance leaves the current browsing canvas unchanged;
 - MP3, FLAC, AAC/M4A, ALAC/M4A, Ogg Vorbis, and WAV are covered by a fixture or
   smoke test; include Opus when enabled/stable in the selected adapter;
 - closing/reopening restores reasonable local state quickly without making the
@@ -214,6 +242,8 @@ Deliverables:
 - preference for synchronized lyrics;
 - atomic `<stem>.lrc` persistence without overwriting a better version;
 - highlighting, auto-scroll, click-to-seek, and safe plain-text rendering;
+- integrate synchronized/plain/loading/unavailable lyric states into the
+  responsive Now Playing canvas defined by `DESIGN_UX.md`;
 - non-fatal loading/offline/not-found/rate-limit/error states.
 
 Gate:
@@ -259,6 +289,8 @@ Deliverables:
 
 - incremental watcher with debounce and portable-data reload;
 - empty/loading/error states and small/large window behavior;
+- responsive shell recomposition at the DESIGN_UX width bands, including
+  navigation overflow, context-pane behavior, and stacked Now Playing;
 - reviewed shortcuts, focus, reduced motion, and contrast;
 - payload limits, CSP, and capability audit;
 - complete suite, audits, and release build;
@@ -274,6 +306,9 @@ Final gate:
   or `TODO`/mock/unimplemented core MVP flow;
 - repository search finds no Syncthing-specific conflict detection, warning,
   merge, or policy code;
+- every `DESIGN_UX.md` acceptance scenario passes and repository/UI inspection
+  finds no permanent navigation sidebar, hero/marketing composition, generic
+  card wrapping, readiness banner, or permanent dashboard search field;
 - `PROGRESS.md` contains the final result and any genuine limitations.
 
 ## M9 — only after the final gate

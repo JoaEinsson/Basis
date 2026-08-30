@@ -11,16 +11,19 @@ the definition of done is satisfied or a genuine external blocker exists.
 
 1. `DATA_DRIVEN_MUSIC_PLAYER_SPEC.md`.
 2. `docs/DECISIONS.md`.
-3. `docs/TODAY_PLAN.md`.
-4. `docs/ARCHITECTURE.md`.
-5. `docs/ACCEPTANCE.md`.
-6. `docs/PROGRESS.md`.
-7. `docs/RELEASE_AND_SIGNING.md` before M7.
+3. `docs/DESIGN_UX.md`.
+4. `docs/TODAY_PLAN.md`.
+5. `docs/ARCHITECTURE.md`.
+6. `docs/ACCEPTANCE.md`.
+7. `docs/PROGRESS.md`.
+8. `docs/RELEASE_AND_SIGNING.md` before M7.
 
 The specification is the canonical product source. `docs/DECISIONS.md` resolves
 its optional or ambiguous choices and records explicit product-owner overrides.
 The remaining documents convert both into an execution order; they do not reduce
 requirements except where a later explicit decision says so.
+`docs/DESIGN_UX.md` is authoritative for application-shell composition,
+navigation, search presentation, Now Playing composition, and responsive UX.
 
 ## Non-negotiable rules
 
@@ -32,8 +35,18 @@ requirements except where a later explicit decision says so.
 - Queue is not playlist.
 - Library pages use the same Query/View Engine; avoid separate subsystems for
   Albums, Artists, Genres, or Folders.
+- Primary navigation is an ordered set of pinned Views in the compact top
+  toolbar. Do not render a permanent left navigation sidebar.
+- Global search is an entity-aware main-canvas state. The command palette is a
+  separate interaction and does not replace SearchView.
+- Back/Forward restore View/search/detail state; automatic playback changes
+  never steal focus from the canvas selected by the user.
 - Themes are sparse JSON and non-executable data. Theme files may not contain
   CSS/JS/HTML/remote URLs; components consume semantic variables.
+- Layout owns structure and state transitions; the Theme Engine owns every
+  visual value and treatment. Shell/layout components must consume semantic
+  tokens and contain no built-in-theme literals or conditionals. Do not turn
+  structural anti-container guidance into a fixed flat/radius/shadow aesthetic.
 - LRCLIB, the portable theme editor, and the signed updater are mandatory MVP.
 - Basis is English-only for the MVP and uses the locked identity/release targets
   in `docs/DECISIONS.md`.

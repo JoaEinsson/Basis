@@ -74,6 +74,23 @@ writes, corrupt-file and symlink isolation, unchanged-file skipping, generated
 MP3/FLAC/M4A/WAV scanning without a network provider, separate copied-root
 databases, and rebuilding after deletion of only the local SQLite file.
 
+2026-08-30 04:03 BRT — interface/interaction documentation contract
+Result: PASS
+Evidence: `docs/DESIGN_UX.md` defines the normative shell, pinned-View
+navigation, SearchView, history restoration, Now Playing, responsive behavior,
+required states, UX01–UX09, and anti-drift checklist. D70–D80 lock the resolved
+ambiguities; the specification, plan, architecture, acceptance matrix, agent
+contract, and README reference it. `git diff --check` passes and repository
+search finds no remaining affirmative requirement for a permanent sidebar.
+
+2026-08-30 04:10 BRT — Layout/Theme Engine ownership clarification
+Result: PASS
+Evidence: D80 and the normative boundary in `docs/DESIGN_UX.md` assign
+structure/state transitions to layout and all visual treatment to the Theme
+Engine. The specification, architecture, plan, acceptance matrix, and agent
+contract now require semantic tokens and explicitly avoid prescribing flatness,
+radius size, shadow amount, glow amount, or another fixed theme aesthetic.
+
 Format for new entries:
 
 ```text
@@ -89,6 +106,8 @@ Evidence: <objective summary, relevant test/file/log>
 | 2026-08-29 | D01–D69 accepted; product renamed to Basis | Product-owner decision recorded in `DECISIONS.md` | All implementation follows the locked contracts |
 | 2026-08-29 | MusicBrainz WS2 selected for future opt-in enrichment | Official API supports tag-based entity search; local normalization remains authoritative | No MusicBrainz work in M0–M8 |
 | 2026-08-29 | No Syncthing-specific conflict handling | Product owner assigns versioning/conflict policy to Syncthing/user strategy | Remove conflict detector/warning acceptance work |
+| 2026-08-30 | D70–D79 accepted as the shell/navigation/search/Now Playing contract | Product-owner redesign prompt consolidated in `DESIGN_UX.md` | Replace the planned sidebar/dashboard composition with top-toolbar pinned Views, main-canvas SearchView, restorable history, and non-focus-stealing playback navigation; no implementation milestone was advanced by this documentation change |
+| 2026-08-30 | D80 accepted as the strict Layout/Theme Engine boundary | Product owner clarified that structural anti-container rules must not prescribe flatness, radius, shadow, glow, or another aesthetic | Layout owns structure/state transitions; Theme Engine owns all visual treatment through semantic tokens, permitting substantially different themes without changing information architecture |
 
 ## External blockers
 

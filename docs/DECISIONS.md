@@ -1,6 +1,7 @@
 # Locked product and engineering decisions
 
-Status: **accepted by the product owner on August 29, 2026**.
+Status: **D01–D69 accepted by the product owner on August 29, 2026; D70–D80
+accepted on August 30, 2026**.
 
 These decisions remove implementation freedom where two reasonable choices
 would produce incompatible behavior. They override earlier optional/suggested
@@ -51,7 +52,7 @@ recorded here and in `PROGRESS.md`.
 | D28 | Before the first write of a migration, create one `<filename>.bak`. Validate the migrated document before atomic replacement. The MVP never prunes these backups automatically. |
 | D29 | All portable writes share one cross-platform Rust atomic-write implementation: temp file in the same directory, validation, flush, sync when supported, and OS-appropriate atomic replace. |
 | D30 | Missing static-playlist paths may relink only by normalized title + primary artist + album, duration within ±2 seconds, and equal disc/track when present. There must be exactly one candidate, and the user confirms before the new path is persisted. |
-| D31 | Unknown/dangling sidebar references are not rendered but are preserved on roundtrip so an older app does not erase future entries. |
+| D31 | Unknown/dangling primary-navigation references are not rendered but are preserved on roundtrip so an older app does not erase future entries. The workspace schema v1 field is still named `sidebar` for compatibility; see D72. |
 
 ## Events and history
 
@@ -87,7 +88,7 @@ recorded here and in `PROGRESS.md`.
 | D49 | Workspace theme state stores `light_selection`, `dark_selection`, and `follow_system_appearance`. Defaults are Paper and Nocturne; Chromatic may be selected for dark appearance. A single selection field is insufficient. |
 | D50 | Import rejects built-in ID collisions. A colliding custom ID imports as a new UUID by default; replacement requires an explicit user action. |
 | D51 | Deleting the selected theme atomically falls back to Paper for light or Nocturne for dark and displays a warning. |
-| D52 | The versioned token registry owns all ranges. Initial global ranges: density `0.75–1.5`, type scale `0.8–1.4`, blur `0–40px`, opacity `0.4–1`, track row `28–72px`, sidebar `180–420px`, and motion `0–1000ms`. Components may not invent their own bounds. |
+| D52 | The versioned token registry owns all ranges. Initial global ranges: density `0.75–1.5`, type scale `0.8–1.4`, blur `0–40px`, opacity `0.4–1`, track row `28–72px`, legacy sidebar dimensions `180–420px`, and motion `0–1000ms`. Components may not invent their own bounds. Legacy sidebar tokens remain compatible data but may not reintroduce a permanent sidebar under D71. |
 | D53 | Chromatic extracts a deterministic color from a sanitized thumbnail no larger than 64×64, caches it by artwork key, and modifies only accent/ambient tokens. Transition is 200ms and disabled by reduced motion. |
 
 ## Artwork, lyrics, watcher, and network
@@ -115,6 +116,22 @@ recorded here and in `PROGRESS.md`.
 | D67 | Updater tests use a disposable key pair whose private key remains outside the repository. It is never reused for production. |
 | D68 | GitHub Actions builds Windows x86_64 NSIS and Linux x86_64 AppImage, signs updater artifacts with CI secrets, publishes them to GitHub Releases, and publishes `latest.json` at `https://github.com/JoaEinsson/Basis/releases/latest/download/latest.json`. |
 | D69 | Commit short synthetic or CC0 audio samples for every target codec with attribution. Automated tests never depend on a developer's private music library. |
+
+## Interface, navigation, and search
+
+| ID | Locked decision |
+|---|---|
+| D70 | `docs/DESIGN_UX.md` is the normative interface and interaction contract. It supersedes conflicting shell, navigation, search-presentation, Now Playing, and responsive-layout examples elsewhere without changing the data, portability, Theme Engine, playback, or security contracts. |
+| D71 | Basis has no permanent left navigation sidebar. The shell uses a compact top app toolbar, an optional contextual View toolbar, a main canvas, and a persistent bottom transport. Primary navigation consists of user-pinned Views and a compact overflow. |
+| D72 | For workspace schema v1 compatibility, `workspace.sidebar` and `pinToSidebar` retain their serialized names but mean the ordered pinned primary-navigation Views. This redesign does not rewrite portable files merely to rename those fields. |
+| D73 | Toolbar Search and `Ctrl/Cmd+F` or `/` open the global SearchView in the main canvas. `Ctrl/Cmd+K` remains the accessible fuzzy command palette for entities and actions. Suggestions may assist typing but never replace SearchView. |
+| D74 | Main-canvas navigation uses explicit typed states/history entries. Back/Forward restores query, filters, sort, grouping, representation, scroll, and selection where practical. The persistent transport and playback service remain outside the navigation stack. |
+| D75 | Global search is entity-aware and relationship-aware. Results are grouped by entity and use appropriate representations; ranking tiers are exact entity, exact metadata/facet, prefix, direct textual/fuzzy, then relational expansion. A search for an artist returns related albums and tracks even when their titles do not contain the query. |
+| D76 | A deliberate primary play action opens Now Playing by default; `Play next` and `Add to queue` do not navigate. Automatic track advance or playback updates never change the user's current canvas. Clicking the current track artwork/title in the transport opens Now Playing explicitly. |
+| D77 | At widths at least 1200px, use the full toolbar and side-by-side artwork/lyrics where applicable; at 800–1199px, overflow lower-priority navigation and adapt panes; below 800px, recompose controls and stack Now Playing. Queue/Info tools are temporary closable context panes, not permanent navigation. |
+| D78 | Empty states are quiet desktop-software states. Cards are reserved for naturally card-like entities. Hero sections, marketing copy, feature/explanation cards, readiness/success banners, permanent dashboard search fields, generic card containers, and decorative SaaS composition are forbidden in normal product flows. |
+| D79 | D04 remains unchanged: the MVP has one active library root. The Library empty-state action is singular (`Add folder`) and must not imply merged multi-root search or playback. |
+| D80 | Layout owns regions, navigation placement, content hierarchy, pane behavior, responsive recomposition, entity structure, and navigation state transitions. The Theme Engine exclusively owns colors, typography, radii, borders, elevation, shadows, blur/glow, bounded density, artwork treatment, state/selection/lyric/progress styling, and motion timing. Layout components consume semantic tokens and contain no Paper/Nocturne/Chromatic-specific values. Layout review forbids containers/elevation added solely to manufacture hierarchy; it does not prescribe flatness, radius size, shadow amount, glow amount, or another theme aesthetic. |
 
 ## Metadata normalization and optional online enrichment
 
