@@ -1,23 +1,40 @@
-import { invoke } from "@tauri-apps/api/core";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import type { UnlistenFn } from "@tauri-apps/api/event";
+import { commands, events } from "./bindings";
 import type { AppHealth, LibraryScanEvent, LibrarySummary } from "./types";
 
 export function getAppHealth(): Promise<AppHealth> {
-  return invoke<AppHealth>("app_health");
+  return commands.appHealth();
 }
 
-export function chooseLibraryRoot(): Promise<LibrarySummary | null> {
-  return invoke<LibrarySummary | null>("library_choose_root");
+export async function chooseLibraryRoot(): Promise<LibrarySummary | null> {
+  return unwrapResult(await commands.libraryChooseRoot());
 }
 
-export function getLibraryStatus(): Promise<LibrarySummary | null> {
-  return invoke<LibrarySummary | null>("library_status");
+export async function getLibraryStatus(): Promise<LibrarySummary | null> {
+  return unwrapResult(await commands.libraryStatus());
 }
 
 export function onLibraryScanProgress(
   handler: (event: LibraryScanEvent) => void,
 ): Promise<UnlistenFn> {
-  return listen<LibraryScanEvent>("library://scan-progress", (event) => {
+  return events.libraryScanProgress.listen((event) => {
     handler(event.payload);
   });
+}
+
+function unwrapResult<T>(
+  result:
+    | {
+        status: "ok";
+        data: T;
+      }
+    | {
+        status: "error";
+        error: string;
+      },
+): T {
+  if (result.status === "error") {
+    throw new Error(result.error);
+  }
+  return result.data;
 }

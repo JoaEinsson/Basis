@@ -34,7 +34,7 @@ pub struct LibrarySummary {
     pub library_id: Uuid,
     pub root_instance_hash: String,
     pub root_path: String,
-    pub track_count: u64,
+    pub track_count: u32,
     pub status: LibraryStatus,
 }
 
@@ -49,10 +49,10 @@ pub enum LibraryStatus {
 #[derive(Debug, Clone, Default, Deserialize, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ScanProgress {
-    pub discovered: u64,
-    pub indexed: u64,
-    pub skipped_unchanged: u64,
-    pub failed: u64,
+    pub discovered: u32,
+    pub indexed: u32,
+    pub skipped_unchanged: u32,
+    pub failed: u32,
     pub current_path: Option<String>,
     pub current_title: Option<String>,
     pub complete: bool,

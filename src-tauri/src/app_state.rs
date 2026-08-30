@@ -69,7 +69,7 @@ impl AppState {
         };
         library.progress = progress;
         if complete {
-            library.summary.track_count = library.database.track_count()?;
+            library.summary.track_count = ui_count(library.database.track_count()?);
         }
         Ok(Some(library.summary.clone()))
     }
@@ -91,4 +91,8 @@ impl AppState {
             .lock()
             .map_err(|_| "Basis library state is unavailable after an internal failure".to_owned())
     }
+}
+
+fn ui_count(count: u64) -> u32 {
+    u32::try_from(count).unwrap_or(u32::MAX)
 }

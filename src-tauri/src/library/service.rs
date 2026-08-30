@@ -42,7 +42,7 @@ pub fn open_library(
         .join("index.sqlite3");
     let database = IndexDatabase::open(database_path)?;
     let artwork_cache_dir = app_cache_dir.join("basis").join("artwork");
-    let track_count = database.track_count()?;
+    let track_count = u32::try_from(database.track_count()?).unwrap_or(u32::MAX);
     let root_path = canonical_root
         .to_str()
         .ok_or_else(|| "Selected library path must be valid UTF-8".to_owned())?

@@ -50,7 +50,7 @@ where
         let entry = match entry {
             Ok(entry) => entry,
             Err(error) => {
-                progress.failed += 1;
+                progress.failed = progress.failed.saturating_add(1);
                 progress.current_path = Some(format!("Scanner entry error: {error}"));
                 publish(&progress);
                 continue;
@@ -69,7 +69,7 @@ where
         let rel_path = match normalize_from_absolute(root, entry.path()) {
             Ok(path) => path,
             Err(error) => {
-                progress.failed += 1;
+                progress.failed = progress.failed.saturating_add(1);
                 progress.current_path = Some(error);
                 publish(&progress);
                 continue;
@@ -78,7 +78,7 @@ where
         let metadata = match fs::metadata(entry.path()) {
             Ok(metadata) => metadata,
             Err(error) => {
-                progress.failed += 1;
+                progress.failed = progress.failed.saturating_add(1);
                 progress.current_path = Some(rel_path.clone());
                 session.record_failure(
                     &rel_path,
@@ -92,12 +92,12 @@ where
         };
         let file_size = i64::try_from(metadata.len()).unwrap_or(i64::MAX);
         let mtime_ns = modified_ns(&metadata);
-        progress.discovered += 1;
+        progress.discovered = progress.discovered.saturating_add(1);
         progress.current_path = Some(rel_path.clone());
 
         if session.is_unchanged(&rel_path, file_size, mtime_ns)? {
             session.touch_unchanged(&rel_path)?;
-            progress.skipped_unchanged += 1;
+            progress.skipped_unchanged = progress.skipped_unchanged.saturating_add(1);
         } else {
             match read_track(
                 entry.path(),
@@ -110,12 +110,12 @@ where
                 Ok(track) => {
                     progress.current_title = track.title.clone();
                     session.upsert_track(&track)?;
-                    progress.indexed += 1;
+                    progress.indexed = progress.indexed.saturating_add(1);
                 }
                 Err(error) => {
                     progress.current_title = None;
                     session.record_failure(&rel_path, file_size, mtime_ns, &error)?;
-                    progress.failed += 1;
+                    progress.failed = progress.failed.saturating_add(1);
                 }
             }
         }
