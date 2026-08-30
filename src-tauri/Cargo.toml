@@ -1,0 +1,31 @@
+[package]
+name = "basis"
+version = "0.1.0"
+description = "A local-first, data-driven music player"
+authors = ["JoaEinsson"]
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "basis_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+blake3 = "1.8"
+ignore = "0.4"
+lofty = "0.25"
+rusqlite = { version = "0.40", features = ["bundled", "modern_sqlite"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+specta = { version = "2.0.0-rc.25", features = ["derive", "uuid"] }
+specta-typescript = "0.0.12"
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-single-instance = "2"
+tauri-specta = { version = "2.0.0-rc.25", features = ["derive", "typescript"] }
+time = { version = "0.3", features = ["formatting"] }
+unicode-normalization = "0.1"
+uuid = { version = "1", features = ["v4", "v5", "serde"] }

@@ -6,8 +6,8 @@ the resolution.
 
 ## Milestones
 
-- [ ] M0 — bootstrap and command roundtrip
-- [ ] M1 — library, metadata, artwork, and rebuildable index
+- [x] M0 — bootstrap and command roundtrip
+- [x] M1 — library, metadata, artwork, and rebuildable index
 - [ ] M2 — query/FTS/View Engine and album/artist detail
 - [ ] M3a — UX, navigation, views, and command palette
 - [ ] M3b — Theme Engine, built-ins, and portable editor
@@ -19,22 +19,22 @@ the resolution.
 
 ## Current gate
 
-`M0 — not started`
+`M2 — query/FTS/View Engine and album/artist detail`
 
-Next concrete action: create the Tauri 2/React/TypeScript scaffold at the
-repository root without removing the specification or documentation, then prove
-a Rust -> React invoke.
+Next concrete action: implement the serializable query AST, constrained parser,
+parameterized SQLite compiler, FTS5 synchronization, and the first generic
+track/album/artist view routes.
 
 ## Verification
 
-- [ ] frontend format
-- [ ] frontend lint
-- [ ] frontend typecheck
-- [ ] frontend tests
-- [ ] frontend production build
-- [ ] rustfmt
-- [ ] clippy `-D warnings`
-- [ ] cargo tests
+- [x] frontend format
+- [x] frontend lint
+- [x] frontend typecheck
+- [x] frontend tests
+- [x] frontend production build
+- [x] rustfmt
+- [x] clippy `-D warnings`
+- [x] cargo tests
 - [ ] cargo audit
 - [ ] pnpm production audit
 - [ ] Tauri release build
@@ -44,7 +44,35 @@ a Rust -> React invoke.
 
 ## Latest verification
 
-Not run yet: the repository contains only the specification and documentation.
+2026-08-29 23:45 BRT — M0 frontend checks
+Result: PASS
+Evidence: `pnpm typecheck`, `pnpm test` (1 passing test), `pnpm lint`,
+`pnpm format:check`, and `pnpm build` all pass.
+
+2026-08-29 23:45 BRT — M0 Rust and desktop smoke
+Result: PASS
+Evidence: `cargo check`, `cargo fmt --check`, `cargo test --all-features`
+(1 passing app-health test), and `cargo clippy -- -D warnings` pass. `pnpm tauri
+dev` compiled and launched `target\\debug\\basis.exe` with the Vite shell.
+
+2026-08-29 23:45 BRT — production JavaScript dependency audit
+Result: PASS
+Evidence: `pnpm audit --prod` reported no known vulnerabilities.
+
+2026-08-30 00:23 BRT — M1 frontend and desktop startup
+Result: PASS
+Evidence: `pnpm typecheck`, `pnpm test`, `pnpm lint`, `pnpm format:check`, and
+`pnpm build` pass. `pnpm tauri dev` compiled and launched the Basis desktop
+process with the native folder-picker integration and progressive scan status.
+
+2026-08-30 00:25 BRT — M1 library/index contract
+Result: PASS
+Evidence: `cargo fmt`, `cargo test --all-features`, and strict
+`cargo clippy --all-targets --all-features -- -D warnings` pass. The 10 Rust
+tests cover portable path rejection/normalization, atomic manifest/workspace
+writes, corrupt-file and symlink isolation, unchanged-file skipping, generated
+MP3/FLAC/M4A/WAV scanning without a network provider, separate copied-root
+databases, and rebuilding after deletion of only the local SQLite file.
 
 Format for new entries:
 

@@ -1,0 +1,9 @@
+node_modules/
+.pnpm-store/
+dist/
+src-tauri/target/
+src-tauri/gen/
+basis-scaffold/
+docs/
+*.md
+pnpm-lock.yaml
