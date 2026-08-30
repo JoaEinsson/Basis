@@ -30,11 +30,13 @@ when permitted, and do not confuse “not run” with “passed.” CI uses
 
 | ID | Test | Level | Milestone |
 |---|---|---|---|
-| A01 | normalize Windows/Linux paths to relative paths using `/` | Rust unit | M1 |
-| A02 | reject absolute, drive, UNC, and `..` escaping paths | Rust unit | M1 |
+| A01 | normalize Windows/Linux paths to UTF-8/NFC relative paths using `/` | Rust unit | M1 |
+| A02 | reject absolute, drive, UNC, NUL, non-UTF-8, and `..` escaping paths | Rust unit | M1 |
 | A03 | manifest/workspace roundtrip and atomic write | Rust unit/integration | M1 |
 | A04 | scanner ignores symlinks and isolates an invalid file | Rust integration | M1 |
 | A05 | incremental scan does not reparse unchanged size+mtime | Rust integration | M1 |
+| A05b | copied roots with one `library_id` use distinct local databases | Rust integration | M1 |
+| A05c | metadata normalization/grouping is identical with network disabled | Rust integration | M1 |
 | A06 | free-text/quotes/predicate parser produces AST | Rust unit | M2 |
 | A07 | AST compiles parameterized SQL using allowlists | Rust unit/integration | M2 |
 | A08 | FTS follows insert/update/delete | Rust integration | M2 |
@@ -82,6 +84,8 @@ Run against a disposable copy of a real folder; the app does not expose delete.
 2. Select a folder containing MP3, FLAC, and M4A; the shell opens during scanning
    and displays progress.
 3. Verify title/artist/album/disc/track/duration for a known sample.
+   Disable network, add another tagged file, and confirm that normalization and
+   grouping remain fully functional without MusicBrainz or another provider.
 4. Navigate to Albums; open the first and confirm that only its tracks appear in
    disc/track order.
 5. Run free-text search and every structured example from spec section 7.2.
@@ -103,12 +107,16 @@ Run against a disposable copy of a real folder; the app does not expose delete.
 15. Repeat with an invalid signature and an offline endpoint; the app remains
     usable.
 16. Modify/add audio outside the app; the watcher updates without a full rescan.
-17. Create a Syncthing conflict name under `.musiclib`; the app only warns.
-18. Close the app, copy the library to another absolute path, and open the copy.
-19. Verify views, playlists, themes, favorites, and lyrics; no portable file
+17. Close the app, copy the library to another absolute path, and open the copy.
+18. Verify views, playlists, themes, favorites, and lyrics; no portable file
     references the former root.
+19. Confirm that original and copied roots use separate local SQLite/session
+    state despite carrying the same portable `library_id`.
 20. Delete only the local SQLite database for that copy, reopen, and verify a
     rebuild with no loss of authored data.
+21. Build/release validation produces Windows x86_64 NSIS, Linux x86_64 AppImage,
+    signatures, and one coherent `latest.json`. Release messaging states that
+    Authenticode is not available and does not conflate it with Tauri signing.
 
 ## Definition-of-done traceability
 
@@ -128,4 +136,3 @@ Run against a disposable copy of a real folder; the app does not expose delete.
 A mandatory failure keeps the milestone open. Fix flaky tests; do not disable
 them. A hardware/network-dependent test may use a deterministic harness plus a
 separate real smoke test, but the progress board must distinguish the two.
-

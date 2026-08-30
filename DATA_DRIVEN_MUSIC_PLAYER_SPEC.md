@@ -1,4 +1,4 @@
-# SPEC — Data-Driven Local Music Player
+# SPEC — Basis: Data-Driven Local Music Player
 
 ## 0. Execution instruction for Codex
 
@@ -6,9 +6,10 @@ Build this application now. Do not stop at scaffolding, mockups, pseudocode, or 
 
 The target is a usable desktop prototype in a few hours, not a perfect audiophile player. Prioritize the data model, library UX, search, custom representations, playlists, a portable data-driven theme system with an in-app theme editor, solid playback, LRCLIB synced lyrics, and a signed updater. Keep architecture clean enough that DSP/output work can be added later without rewriting the app.
 
-Do **not** expand today's scope into EQ, convolution, WASAPI exclusive, PipeWire graph introspection, fingerprinting, MusicBrainz enrichment, Last.fm auth, cloud accounts, mobile, or a custom decoder. Those are backlog items. **LRCLIB integration, a signed application updater, and the portable data-driven theme system/theme editor are mandatory MVP features, not stretch goals.**
+Do **not** expand today's scope into EQ, convolution, WASAPI exclusive, PipeWire graph introspection, fingerprinting, automatic MusicBrainz enrichment, Last.fm auth, cloud accounts, mobile, or a custom decoder. Those are backlog items. MusicBrainz Web Service 2 is the selected future opt-in metadata provider, but it is never part of required scanning/normalization. **LRCLIB integration, a signed application updater, and the portable data-driven theme system/theme editor are mandatory MVP features, not stretch goals.**
 
-Working title/package name can be `music-vault` until renamed.
+The locked product/display name is `Basis`; package/executable name is `basis`;
+Tauri bundle identifier is `io.github.joaeinsson.basis`.
 
 ---
 
@@ -205,6 +206,7 @@ Music/
     ├── views/
     ├── playlists/
     ├── themes/
+    ├── lyrics/
     ├── events/
     └── overrides/
 ```
@@ -233,7 +235,8 @@ Portable representation/preferences, e.g.:
   "schema_version": 1,
   "default_view": "builtin:home",
   "theme": {
-    "selection": "builtin:nocturne",
+    "light_selection": "builtin:paper",
+    "dark_selection": "builtin:nocturne",
     "follow_system_appearance": false
   },
   "sidebar": [
@@ -266,7 +269,8 @@ Do not block the project on perfect content identity/fingerprinting.
 For MVP:
 
 - canonical portable reference = normalized relative path;
-- compute a local deterministic `track_id` from library UUID + normalized relative path for indexing;
+- compute `track_id` as UUIDv5 using the library UUID as namespace and the
+  normalized relative path as name;
 - static playlist entries also store metadata hints for recovery:
   - title
   - artist
@@ -292,6 +296,10 @@ Example:
 ```
 
 If an external rename makes the path unresolved, attempt conservative relinking using the hints. Do not silently relink ambiguous matches.
+
+The portable `library_id` intentionally survives a copied/moved library. Local
+database/session identity is `(library_id, blake3(canonical_library_root))`, so
+two copies opened on one device never share a local SQLite database.
 
 Backlog: add a stronger identity strategy/audio fingerprint later.
 
@@ -340,7 +348,10 @@ Also derive materialized/indexed entity tables if it materially simplifies/faste
 - `albums`
 - `artists`
 
-An album key may initially be derived from normalized `(album_artist, album, year?)`. Be conservative with collisions.
+Derive `album_key` as UUIDv5 using `library_id` and
+`normalized_album_artist + NUL + normalized_album + NUL + year_or_empty`.
+Different non-null years remain separate; contradictory metadata is separated
+rather than combined. See D15–D18 in `docs/DECISIONS.md` for missing-tag rules.
 
 ## FTS5
 
@@ -401,7 +412,10 @@ samplerate:>48000
 favorite:true
 ```
 
-Whitespace can mean AND for MVP. Quoted values must work.
+Whitespace means AND. Quoted values, explicit case-insensitive OR, unary NOT/`-`,
+parentheses, and precedence `NOT > AND > OR` must work. Unknown field names are
+parse errors. D19–D24 define the permanent fields, operators, pagination, FTS,
+and grouping contract.
 
 The graphical filter builder must create the same AST.
 
@@ -678,8 +692,8 @@ Suggested format:
 
 ```json
 {
-  "$schema": "https://example.invalid/music-vault/theme.schema.json",
-  "format": "music-vault-theme",
+  "$schema": "https://raw.githubusercontent.com/JoaEinsson/Basis/main/schemas/basis-theme.schema.v1.json",
+  "format": "basis-theme",
   "schema_version": 1,
   "id": "uuid",
   "name": "My Theme",
@@ -1191,6 +1205,11 @@ Benefits:
 
 For MVP, it is acceptable to write `played`, `skipped`, and `favorite_set` only.
 
+Event thresholds and conflict semantics are fixed by D32–D37: played means
+natural completion or actual listened time reaching `min(50%, 240 seconds)`;
+explicit abandonment before that threshold is skipped; favorite state uses
+last-write-wins by UTC timestamp and event UUID.
+
 Scrobbling semantics are not required today.
 
 ---
@@ -1227,6 +1246,9 @@ Adapt to actual Voxio APIs rather than forcing this exact signature.
 - repeat off / track / queue
 - gapless priming when available
 - resume UI state quickly when track changes
+
+Queue ordering, shuffle, previous, repeat, paused restore, volume, and output
+device semantics are fixed by D38–D45.
 
 Use events from the audio engine where available. Do not poll excessively from React.
 
@@ -1311,7 +1333,9 @@ Requirements:
 - the public verification key ships with the app;
 - the private signing key must never be committed to the repository;
 - signing secrets belong in CI/release secrets;
-- support a configurable update endpoint suitable for GitHub Releases/static update metadata;
+- use the stable production endpoint
+  `https://github.com/JoaEinsson/Basis/releases/latest/download/latest.json`,
+  with endpoint override limited to controlled test builds;
 - expose **Check for updates** in Settings/About;
 - perform an automatic update check at app startup at most once per sensible interval (e.g. 12–24h), without blocking startup;
 - if an update exists, show version + concise release notes when available;
@@ -1332,6 +1356,11 @@ Updater state is device/application state, **not library data**, so it must not 
 
 For the first build, prioritize a correct signed update flow over elaborate release UI. If CI packaging cannot be fully exercised locally, still wire the production updater path, document the required signing environment variables, and provide a repeatable release workflow/script.
 
+GitHub Actions must publish Windows x86_64 NSIS and Linux x86_64 AppImage updater
+artifacts. Tauri updater signing is mandatory. Windows Authenticode is not
+available initially and release messaging must disclose the expected SmartScreen
+warning rather than conflating Tauri signatures with publisher trust.
+
 Security requirements:
 
 - HTTPS update endpoint;
@@ -1350,7 +1379,8 @@ After initial scan, watch:
 - `.musiclib/events/`;
 - sidecar lyrics/artwork if practical.
 
-Debounce burst events (e.g. Syncthing writes) ~300–800ms.
+Debounce burst events for exactly 500ms, coalesce by normalized path, and wait
+for stable size/mtime before reindexing.
 
 On file change:
 
@@ -1363,7 +1393,10 @@ On portable view/playlist change:
 
 - reload and update UI without app restart.
 
-Detect Syncthing-style conflict filenames under `.musiclib` and surface a non-destructive warning rather than silently choosing one.
+Basis intentionally does not detect, classify, merge, or warn about Syncthing
+conflict filenames. Conflict/versioning policy belongs to the user's Syncthing
+configuration and synchronization strategy. The watcher processes the resulting
+filesystem state through normal validation only.
 
 ---
 
@@ -1846,7 +1879,8 @@ Do not implement today:
 - metadata writing/editor
 - automatic filesystem organization/rename
 - fingerprinting/AcoustID
-- MusicBrainz lookup
+- automatic MusicBrainz lookup/enrichment (MusicBrainz Web Service 2 is the
+  selected optional post-MVP provider; see `docs/DECISIONS.md`)
 - Last.fm login/scrobbling
 - DSP EQ/FIR/crossfeed
 - bit-perfect status

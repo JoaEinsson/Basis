@@ -4,6 +4,10 @@ This document resolves decisions that the specification leaves optional. They
 may be changed only for a technical reason observed during implementation and
 recorded in `PROGRESS.md`.
 
+The locked identity is **Basis**, package `basis`, bundle identifier
+`io.github.joaeinsson.basis`, version `0.1.0`, and repository
+`JoaEinsson/Basis`. `DECISIONS.md` is authoritative for all numbered decisions.
+
 ## Selected stack
 
 - Tauri 2, Rust, React, TypeScript, and Vite.
@@ -15,7 +19,8 @@ recorded in `PROGRESS.md`.
 - Custom token-based CSS and CSS custom properties. Do not add Tailwind or a
   large visual framework: the Theme Engine is already the design system.
 - `rusqlite` with bundled SQLite/FTS5; `lofty`; `ignore`; `notify`; `uuid`;
-  `serde`; use `reqwest` only if there is no existing suitable client.
+  `serde`; Rust `reqwest` for LRCLIB and future optional metadata providers;
+  pinned `tauri-specta` for generated command/event DTO bindings.
 - Voxio behind `AudioEngine`, subject to the fallback policy in `AGENTS.md`.
 
 Use current versions compatible with Tauri 2 and pin them in the lockfiles. Do
@@ -48,7 +53,7 @@ progress, not repeated dumps of the entire library.
 | Manifest/workspace | no | `.musiclib/` root | atomic writes |
 | Views/playlists/themes | no | one readable JSON file per item | stable ID, versioned schema |
 | Events | `device_id` originates locally | `events/<device_id>.jsonl` | append-only per device |
-| SQLite/FTS | app-data | no | disposable by `library_id` |
+| SQLite/FTS | app-data | no | disposable by `library_id + root_instance_hash` |
 | Thumbnails | app-cache | no | derived and bounded |
 | Device/volume/window/updater | app-data | no | never synchronize |
 | Queue/session | optional app-data | no | separate from playlists |
@@ -56,11 +61,11 @@ progress, not repeated dumps of the entire library.
 Suggested local layout:
 
 ```text
-<app-data>/music-vault/
+<app-data>/basis/
   settings.json
-  libraries/<library_id>/index.sqlite3
-  sessions/<library_id>.json
-<app-cache>/music-vault/
+  libraries/<library_id>/<root_instance_hash>/index.sqlite3
+  sessions/<library_id>/<root_instance_hash>.json
+<app-cache>/basis/
   artwork/<cache-key>-<size>.webp
 ```
 
@@ -69,28 +74,32 @@ Suggested local layout:
 At the input boundary:
 
 1. canonicalize the library root;
-2. reject empty or absolute references, drive/prefix components, UNC paths, and
-   `..` escapes;
-3. normalize the serialized separator to `/`;
+2. reject empty or absolute references, drive/prefix components, UNC paths,
+   NUL, non-UTF-8 paths, and `..` escapes;
+3. normalize portable paths to Unicode NFC and `/`, preserving filename case;
 4. resolve at runtime and confirm the canonicalized target remains below the
    root before every write;
 5. do not follow symlinks during the default scan.
 
-Use `track_id = UUIDv5(library_id, normalized_relative_path)` or an equivalent
-deterministic hash. The local ID supports indexes; the relative path remains the
-canonical portable reference. An external rename uses conservative hints and
-never chooses between ambiguous matches.
+Use exactly `track_id = UUIDv5(library_id, normalized_relative_path)`. The local
+ID supports indexes; the relative path remains the canonical portable reference.
+An external rename follows D30 and never chooses between ambiguous matches.
+
+Scan only the case-insensitive extension allowlist in D10. Do not honor Git
+ignore files, follow symlinks, enter `.musiclib/`, or treat generic `.mp4` as
+audio.
 
 ## Startup and concurrency
 
 1. load local settings and the most recent root, when present;
 2. open/create the manifest and workspace;
 3. validate/resolve the theme before rendering the complete shell;
-4. open the database by `library_id` and run transactional migrations;
+4. compute `root_instance_hash = blake3(canonical_root)`, open that local
+   library instance database, and run transactional migrations;
 5. display the shell and existing results immediately;
 6. start scanning in a blocking worker and publish rate-limited progress;
 7. apply index updates in batches/transactions;
-8. start the watcher only after the base scan, with 300–800 ms debounce.
+8. start the watcher only after the base scan, with exactly 500 ms debounce.
 
 Cancellation or a new scan must invalidate the previous worker through a token
 or generation number. A metadata/artwork failure is attached to the individual
@@ -106,9 +115,12 @@ file and increments the error summary; it does not abort the batch.
 - Incremental indexing compares `file_size + mtime_ns`. A changed file removes
   and reinserts its FTS/metadata within the same transaction boundary.
 - Results are paginated and DTOs never carry raw artwork.
-- Albums/artists may be derived tables or aggregate queries. An album key must
-  include at least normalized album artist + album, with explicit fallback for
-  missing tags and conservative collision handling.
+- Preserve original metadata display values and use normalized relation tables
+  for structured artists and genres; never split an artist display string by
+  punctuation heuristics.
+- Albums/artists may be derived tables or aggregate queries. Album identity and
+  missing-metadata behavior follow D15–D18 exactly.
+- FTS5 uses `unicode61 remove_diacritics 2` and BM25 ranking.
 
 ## Query and View Engine
 
@@ -120,6 +132,11 @@ smart playlists. The SQL compiler contains:
 - bind parameters for every value;
 - limits on depth, node count, text length, and pagination;
 - allowlisted sorting, never persisted SQL text.
+
+Grammar, public fields, operators, page limits, deterministic tie-breaking,
+group depth, and Nucleo candidate limits follow D19–D24. Unknown fields are
+parse errors, not free-text fallback. Rust generates frontend DTOs through
+`tauri-specta`; generated bindings are not hand-edited.
 
 Built-ins are immutable `ViewDefinition` values supplied by the app and rendered
 by the same `GenericView`. Saving a change to a built-in means duplicating it to
@@ -149,8 +166,10 @@ ordered by disc and track number. Do not reuse the global list with scrolling.
   directory -> flush/sync when available -> atomic rename/replace.
 - Migration sequence: read -> preserve unknown fields -> migrate in memory ->
   validate -> atomic backup -> replace.
-- File names derive from a UUID/sanitized slug, never from an unvalidated path.
-- Detect Syncthing conflict files and warn only; never merge or delete silently.
+- Authored item filenames are exactly `<uuid>.json`; mutable names remain inside
+  the document.
+- Basis implements no Syncthing-specific conflict detection, warning, merge, or
+  policy. It validates the filesystem state it receives like any other input.
 
 ## Theme Engine
 
@@ -173,6 +192,10 @@ The three built-in definitions use the same exportable schema:
 color from an already sanitized, small thumbnail; it changes only accent/ambient
 values, with deterministic fallback and corrected contrast.
 
+Custom inheritance, accepted color syntax, runtime-only contrast correction,
+light/dark system selections, import collisions, token bounds, and Chromatic
+extraction follow D46–D53.
+
 ## Player and queue
 
 `PlayerService` owns the queue, current index, shuffle/repeat state, and adapter.
@@ -188,24 +211,38 @@ When playing a collection:
 A playlist/view/album never becomes queue state through a mutable reference. The
 service materializes the ordered selection into queue items.
 
+Queue ordering, previous/repeat behavior, paused session restore, volume mapping,
+default-device recovery, and the Rodio fallback are fixed by D38–D45.
+
 ## Lyrics and network
 
 Resolution order: `.lrc` sidecar -> convenient embedded lyrics -> prior portable
 cache -> LRCLIB. The request uses metadata and duration; the response is bounded,
-untrusted text and is never rendered as HTML. Synchronized lyrics may be written
-atomically next to the audio only after verifying that the destination remains
-inside the library root.
+untrusted text and is never rendered as HTML. Synchronized lyrics are written
+atomically beside the audio when writable; otherwise they mirror the relative
+path under `.musiclib/lyrics/`. Matching and persistence follow D55–D59.
 
-LRCLIB and updater calls have timeouts, cancellation, and non-fatal errors. No
+Network calls originate in Rust, with the official updater plugin as the only
+separate stack. Apply the D60 timeouts and response limit. LRCLIB and updater
+calls have cancellation and non-fatal errors. No
 network is required for scanning, search, playback, views, playlists, themes, or
 already saved lyrics.
 
+Metadata normalization is always local and offline. MusicBrainz Web Service 2
+is selected only as a future, opt-in enrichment provider; it never participates
+in required scanning or silently changes identity/tags. See D11–D18 and the
+metadata provider section in `DECISIONS.md`.
+
 ## Updater
 
-Use the official Tauri v2 plugin and only its signature-verified mechanism.
+Use the official Tauri v2 plugin and only its signature-verified mechanism. The
+stable endpoint is
+`https://github.com/JoaEinsson/Basis/releases/latest/download/latest.json`.
 Preferences and `last_update_check` are local. The startup check runs in the
 background at most once every 24 hours; installation always requires explicit
-consent in the MVP. See `RELEASE_AND_SIGNING.md`.
+consent in the MVP. GitHub Actions publishes Windows x86_64 NSIS and Linux
+x86_64 AppImage artifacts. Tauri signing is mandatory; Authenticode is not
+available initially and must not be implied. See `RELEASE_AND_SIGNING.md`.
 
 ## Trust limits
 
@@ -216,4 +253,3 @@ consent in the MVP. See `RELEASE_AND_SIGNING.md`.
 - strict CSP, minimum Tauri capabilities, no shell plugin;
 - no `dangerouslySetInnerHTML`;
 - use `#![forbid(unsafe_code)]` in first-party modules where feasible.
-

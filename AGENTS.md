@@ -10,14 +10,17 @@ the definition of done is satisfied or a genuine external blocker exists.
 ## Required reading before changing code
 
 1. `DATA_DRIVEN_MUSIC_PLAYER_SPEC.md`.
-2. `docs/TODAY_PLAN.md`.
-3. `docs/ARCHITECTURE.md`.
-4. `docs/ACCEPTANCE.md`.
-5. `docs/PROGRESS.md`.
-6. `docs/RELEASE_AND_SIGNING.md` before M7.
+2. `docs/DECISIONS.md`.
+3. `docs/TODAY_PLAN.md`.
+4. `docs/ARCHITECTURE.md`.
+5. `docs/ACCEPTANCE.md`.
+6. `docs/PROGRESS.md`.
+7. `docs/RELEASE_AND_SIGNING.md` before M7.
 
-The specification is the canonical product source. These documents convert the
-specification into an execution order; they do not reduce its requirements.
+The specification is the canonical product source. `docs/DECISIONS.md` resolves
+its optional or ambiguous choices and records explicit product-owner overrides.
+The remaining documents convert both into an execution order; they do not reduce
+requirements except where a later explicit decision says so.
 
 ## Non-negotiable rules
 
@@ -32,6 +35,12 @@ specification into an execution order; they do not reduce its requirements.
 - Themes are sparse JSON and non-executable data. Theme files may not contain
   CSS/JS/HTML/remote URLs; components consume semantic variables.
 - LRCLIB, the portable theme editor, and the signed updater are mandatory MVP.
+- Basis is English-only for the MVP and uses the locked identity/release targets
+  in `docs/DECISIONS.md`.
+- Metadata normalization, identity, scanning, and grouping are deterministic and
+  offline. MusicBrainz is a future opt-in provider, not part of the scan path.
+- Do not implement Syncthing-specific conflict detection, warnings, merging, or
+  policy; synchronization behavior belongs to the user's Syncthing setup.
 - No telemetry and no destructive operations on music files.
 - Metadata, artwork, lyrics, playlists, and themes are untrusted input.
 - Never disable signature verification to make the updater “work.”
@@ -95,4 +104,3 @@ Declare the MVP done only when `docs/PROGRESS.md` shows M0–M8 green and the
 matrix in `docs/ACCEPTANCE.md` has evidence. If an external blocker remains,
 report exactly what is ready, the minimum external action required, and how to
 repeat the verification afterward; do not call the MVP complete.
-

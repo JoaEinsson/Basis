@@ -38,6 +38,8 @@ Goal: the desktop process starts and React communicates with Rust.
 Deliverables:
 
 - Tauri 2 + React + TypeScript + Vite scaffold while preserving the spec/docs;
+- locked Basis identity: package `basis`, bundle ID
+  `io.github.joaeinsson.basis`, English UI, and single-instance behavior;
 - `dev`, `tauri`, `build`, `lint`, `typecheck`, `test`, and `format:check` scripts;
 - initial shell with error boundary, loading state, and onboarding route;
 - global Tauri state and a typed health/version command;
@@ -58,10 +60,11 @@ Goal: choose a real library and see metadata progressively.
 Order:
 
 1. implement path normalization/validation with tests;
-2. add the folder picker and create/read `.musiclib/manifest.json`;
+2. add the folder picker, writable-root probe, and create/read
+   `.musiclib/manifest.json`;
 3. add the default workspace and portable directories;
-4. add app-data by `library_id`, SQLite, and migrations;
-5. add the `ignore` scanner, target extensions, and disabled symlink following;
+4. add app-data by `library_id + root_instance_hash`, SQLite, and migrations;
+5. add the exact D10 scanner allowlist without Git-ignore behavior or symlinks;
 6. parse with Lofty using string/artwork limits and per-file error isolation;
 7. implement incremental upsert and progress events;
 8. implement bounded artwork resolution/cache.
@@ -71,8 +74,11 @@ Gate:
 - selecting an arbitrary folder creates only `.musiclib/` inside it;
 - real MP3, FLAC, and M4A tracks appear before scanning finishes;
 - the UI remains responsive and shows counts/progress/errors;
+- adding/indexing music while offline produces the same normalized metadata keys
+  and album grouping as when online; no metadata provider is required;
 - a rescan with no changes uses `mtime + size` and does not reparse everything;
 - no portable JSON contains an absolute root;
+- original and copied roots with the same `library_id` use separate local DBs;
 - deleting the local DB and reopening rebuilds the index.
 
 ## M2 — AST, FTS, and View Engine
@@ -97,6 +103,8 @@ Gate:
 - clicking an album navigates to a page containing only that album;
 - the track table virtualizes and paginates;
 - malicious values cannot alter SQL structure.
+- grammar, operators, public fields, page limits, FTS tokenizer, and grouping
+  match D19–D24 exactly.
 
 ## M3a — personalization and navigation
 
@@ -143,6 +151,8 @@ Gate:
 - import/export preserves an unknown future key;
 - a missing base, invalid token, or low contrast cannot break critical controls;
 - no component interprets a theme or injects arbitrary CSS.
+- system light/dark selections, custom-base flattening, color syntax, collision
+  behavior, and bounds match D46–D53.
 
 ## M4 — audio and queue
 
@@ -169,6 +179,8 @@ Gate:
   smoke test; include Opus when enabled/stable in the selected adapter;
 - closing/reopening restores reasonable local state quickly without making the
   queue portable data.
+- queue, shuffle, previous, repeat, restore, volume, device, and fallback behavior
+  match D38–D45 exactly.
 
 ## M5 — playlists and events
 
@@ -219,13 +231,18 @@ Follow `RELEASE_AND_SIGNING.md`.
 
 Deliverables:
 
-- updater/process plugins configured for Windows/Linux;
+- updater/process plugins configured for Windows x86_64 NSIS and Linux x86_64
+  AppImage;
 - public key and configurable production HTTPS endpoint;
 - private secret available only through environment/CI;
 - Check for updates in About;
 - asynchronous startup check with a local 24-hour interval;
 - consent, progress, error, install, and relaunch states;
 - repeatable workflow/script that creates signed artifacts and metadata.
+- GitHub Actions publishes to `JoaEinsson/Basis` and updates through
+  `https://github.com/JoaEinsson/Basis/releases/latest/download/latest.json`;
+- release notes accurately disclose that Authenticode is not initially
+  available and that Tauri updater signing is a different mechanism.
 
 Gate:
 
@@ -241,7 +258,6 @@ Goal: demonstrate one complete product, not a collection of features.
 Deliverables:
 
 - incremental watcher with debounce and portable-data reload;
-- non-destructive Syncthing conflict warning;
 - empty/loading/error states and small/large window behavior;
 - reviewed shortcuts, focus, reduced motion, and contrast;
 - payload limits, CSP, and capability audit;
@@ -256,10 +272,11 @@ Final gate:
   the workflow;
 - repository search finds no secret, developer-specific absolute fixture path,
   or `TODO`/mock/unimplemented core MVP flow;
+- repository search finds no Syncthing-specific conflict detection, warning,
+  merge, or policy code;
 - `PROGRESS.md` contains the final result and any genuine limitations.
 
 ## M9 — only after the final gate
 
 Local “Start Radio” recommendations and word-by-word lyrics. Do not begin either
 as a substitute for a mandatory criterion.
-
