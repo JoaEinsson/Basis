@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/JoaEinsson/Basis/main/schemas/basis-theme.schema.v1.json",
+  "title": "Basis Theme v1",
+  "type": "object",
+  "required": [
+    "format",
+    "schema_version",
+    "id",
+    "name",
+    "based_on",
+    "appearance",
+    "tokens",
+    "behavior"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "format": { "const": "basis-theme" },
+    "schema_version": { "const": 1 },
+    "id": { "type": "string", "minLength": 1, "maxLength": 16384 },
+    "name": { "type": "string", "minLength": 1, "maxLength": 16384 },
+    "author": { "type": "string", "maxLength": 16384 },
+    "based_on": { "type": ["string", "null"] },
+    "appearance": { "enum": ["light", "dark"] },
+    "min_app_version": { "type": "string", "maxLength": 128 },
+    "capabilities": {
+      "type": "array",
+      "maxItems": 64,
+      "items": { "type": "string", "maxLength": 128 }
+    },
+    "tokens": {
+      "type": "object",
+      "maxProperties": 512,
+      "additionalProperties": true
+    },
+    "behavior": {
+      "type": "object",
+      "required": ["accent_source", "contrast_policy"],
+      "properties": {
+        "accent_source": { "enum": ["fixed", "artwork"] },
+        "contrast_policy": { "enum": ["warn", "correct-critical"] }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

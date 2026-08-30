@@ -634,11 +634,13 @@ not replace the player; a scan-file failure must not replace the library.
 
 This design is delivered incrementally without temporary competing shells:
 
-- M2 owns entity queries, relational search support, Generic View data, album
-  detail data, and artist detail data.
+- M2 owns headless entity queries, relational search support, Generic View DTOs,
+  album detail data, and artist detail data. It creates no provisional shell,
+  route presentation, or disposable visual implementation.
 - M3a owns the top toolbar, pinned-View navigation, SearchView presentation,
-  explicit history/restoration, Generic View renderers, keyboard behavior, and
-  removal of dashboard composition.
+  explicit history/restoration, Generic View renderers, album/artist pages,
+  responsive structure, keyboard behavior, semantic token consumption, and
+  removal of dashboard composition. It is the first complete interface phase.
 - M3b supplies all appearance through semantic tokens; it does not alter shell
   structure.
 - M4 owns the persistent transport, deliberate playback navigation, Now Playing

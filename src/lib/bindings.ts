@@ -20,19 +20,128 @@ export const commands = {
 	trackCount: number,
 	status: LibraryStatus,
 } | null, string>(__TAURI_INVOKE("library_status")),
+	artworkThumbnail: (artworkKey: string, dimension: number) => typedError<string | null, string>(__TAURI_INVOKE("artwork_thumbnail", { artworkKey, dimension })),
+	queryParse: (input: string) => typedError<Expr, string>(__TAURI_INVOKE("query_parse", { input })),
+	queryExecute: (request: QueryRequest) => typedError<QueryPage, string>(__TAURI_INVOKE("query_execute", { request })),
+	searchGlobal: (request: SearchRequest) => typedError<GlobalSearchResults, string>(__TAURI_INVOKE("search_global", { request })),
+	viewsList: () => typedError<ViewDefinition[], string>(__TAURI_INVOKE("views_list")),
+	viewsSave: (view: ViewDefinition) => typedError<ViewDefinition, string>(__TAURI_INVOKE("views_save", { view })),
+	viewsDuplicate: (sourceId: string, name: string) => typedError<ViewDefinition, string>(__TAURI_INVOKE("views_duplicate", { sourceId, name })),
+	viewsDelete: (id: string) => typedError<null, string>(__TAURI_INVOKE("views_delete", { id })),
+	viewsSetPinned: (ids: string[]) => typedError<string[], string>(__TAURI_INVOKE("views_set_pinned", { ids })),
+	albumDetail: (albumKey: string) => typedError<{
+	album: AlbumDto,
+	tracks: TrackDto[],
+} | null, string>(__TAURI_INVOKE("album_detail", { albumKey })),
+	artistDetail: (artistKey: string) => typedError<{
+	artist: ArtistDto,
+	albums: AlbumDto[],
+	tracks: TrackDto[],
+} | null, string>(__TAURI_INVOKE("artist_detail", { artistKey })),
+	playerPlayCollection: (trackIds: string[], startTrackId: string, mode: QueueInsertMode) => typedError<PlayerSnapshot, string>(__TAURI_INVOKE("player_play_collection", { trackIds, startTrackId, mode })),
+	playerGetState: () => typedError<PlayerSnapshot, string>(__TAURI_INVOKE("player_get_state")),
+	playerPause: () => typedError<PlayerSnapshot, string>(__TAURI_INVOKE("player_pause")),
+	playerResume: () => typedError<PlayerSnapshot, string>(__TAURI_INVOKE("player_resume")),
+	playerSeek: (positionMs: number | null) => typedError<PlayerSnapshot, string>(__TAURI_INVOKE("player_seek", { positionMs })),
+	playerNext: () => typedError<PlayerSnapshot, string>(__TAURI_INVOKE("player_next")),
+	playerPrevious: () => typedError<PlayerSnapshot, string>(__TAURI_INVOKE("player_previous")),
+	playerSetVolume: (volume: number) => typedError<PlayerSnapshot, string>(__TAURI_INVOKE("player_set_volume", { volume })),
+	playerSetShuffle: (enabled: boolean) => typedError<PlayerSnapshot, string>(__TAURI_INVOKE("player_set_shuffle", { enabled })),
+	playerSetRepeat: (repeat: RepeatMode) => typedError<PlayerSnapshot, string>(__TAURI_INVOKE("player_set_repeat", { repeat })),
+	themesList: () => typedError<ThemeCatalog, string>(__TAURI_INVOKE("themes_list")),
+	themeGetEditable: (id: string) => typedError<EditableTheme, string>(__TAURI_INVOKE("theme_get_editable", { id })),
+	themeResolve: (id: string, artworkKey: string | null) => typedError<ResolvedTheme, string>(__TAURI_INVOKE("theme_resolve", { id, artworkKey })),
+	themeDuplicate: (sourceId: string, name: string) => typedError<ThemeSummary, string>(__TAURI_INVOKE("theme_duplicate", { sourceId, name })),
+	themeSaveEdits: (id: string, name: string, tokens: { [key in string]: ThemeTokenValue }) => typedError<ThemeSummary, string>(__TAURI_INVOKE("theme_save_edits", { id, name, tokens })),
+	themeImport: (json: string, replace: boolean) => typedError<ThemeSummary, string>(__TAURI_INVOKE("theme_import", { json, replace })),
+	themeExport: (id: string) => typedError<string, string>(__TAURI_INVOKE("theme_export", { id })),
+	themeDelete: (id: string) => typedError<ThemeSelectionDto, string>(__TAURI_INVOKE("theme_delete", { id })),
+	themeSelection: () => typedError<ThemeSelectionDto, string>(__TAURI_INVOKE("theme_selection")),
+	themeSetSelection: (appearance: ThemeAppearance, id: string, followSystemAppearance: boolean) => typedError<ThemeSelectionDto, string>(__TAURI_INVOKE("theme_set_selection", { appearance, id, followSystemAppearance })),
+	themeTokenRegistry: () => __TAURI_INVOKE<ThemeTokenDescriptor[]>("theme_token_registry"),
 };
 
 /** Events */
 export const events = {
 	libraryScanProgress: makeEvent<LibraryScanEvent>("library://scan-progress"),
+	playerError: makeEvent<PlayerErrorEvent>("player://error"),
+	playerQueueChanged: makeEvent<PlayerQueueChangedEvent>("player://queue-changed"),
+	playerState: makeEvent<PlayerStateEvent>("player://state"),
+	playerTrackChanged: makeEvent<PlayerTrackChangedEvent>("player://track-changed"),
 };
 
 /* Types */
+export type AlbumDetailDto = {
+	album: AlbumDto,
+	tracks: TrackDto[],
+};
+
+export type AlbumDto = {
+	albumKey: string,
+	title: string,
+	albumArtist: string,
+	year: number | null,
+	trackCount: number,
+	durationMs: number | null,
+	artworkKey: string | null,
+	unknown: boolean,
+};
+
 export type AppHealth = {
 	appName: string,
 	version: string,
 	status: string,
 };
+
+export type ArtistDetailDto = {
+	artist: ArtistDto,
+	albums: AlbumDto[],
+	tracks: TrackDto[],
+};
+
+export type ArtistDto = {
+	artistKey: string,
+	name: string,
+	albumCount: number,
+	trackCount: number,
+};
+
+export type EditableTheme = {
+	id: string,
+	name: string,
+	appearance: ThemeAppearance,
+	basedOn: string | null,
+	builtIn: boolean,
+	tokens: { [key in string]: ThemeTokenValue },
+};
+
+export type EntityKind = "track" | "album" | "artist" | "folder" | "genre";
+
+export type Expr = { kind: "and"; items: Expr[] } | { kind: "or"; items: Expr[] } | { kind: "not"; item: Expr } | { kind: "text"; value: string } | { kind: "predicate"; field: QueryField; op: QueryOperator; value: QueryValue };
+
+export type FolderDto = {
+	path: string,
+	name: string,
+	trackCount: number,
+};
+
+export type GenreDto = {
+	name: string,
+	trackCount: number,
+};
+
+export type GlobalSearchResults = {
+	query: Expr,
+	artists: ArtistDto[],
+	albums: AlbumDto[],
+	tracks: TrackDto[],
+	folders: FolderDto[],
+	genres: GenreDto[],
+	playlists: NamedSearchResult[],
+	views: NamedSearchResult[],
+};
+
+export type LayoutKind = "grid" | "list" | "table";
 
 export type LibraryScanEvent = {
 	summary: LibrarySummary,
@@ -50,6 +159,94 @@ export type LibrarySummary = {
 	status: LibraryStatus,
 };
 
+export type NamedSearchResult = {
+	id: string,
+	name: string,
+	kind: string,
+};
+
+export type PlaybackStatus = "idle" | "loading" | "playing" | "paused" | "error";
+
+export type PlayerErrorEvent = {
+	message: string,
+	recoverable: boolean,
+};
+
+export type PlayerQueueChangedEvent = {
+	queue: PlayerQueueItem[],
+	playOrder: string[],
+	currentIndex: number | null,
+};
+
+export type PlayerQueueItem = {
+	queueId: string,
+	track: TrackDto,
+};
+
+export type PlayerSnapshot = {
+	status: PlaybackStatus,
+	queue: PlayerQueueItem[],
+	playOrder: string[],
+	currentIndex: number | null,
+	currentTrack: PlayerQueueItem | null,
+	positionMs: number | null,
+	durationMs: number | null,
+	volume: number,
+	shuffle: boolean,
+	repeat: RepeatMode,
+	error: string | null,
+	outputDevice: string | null,
+};
+
+export type PlayerStateEvent = {
+	snapshot: PlayerSnapshot,
+};
+
+export type PlayerTrackChangedEvent = {
+	currentTrack: PlayerQueueItem | null,
+};
+
+export type QueryField = "title" | "artist" | "albumArtist" | "album" | "genre" | "composer" | "year" | "track" | "disc" | "duration" | "codec" | "sampleRate" | "bitDepth" | "channels" | "bitrate" | "path" | "addedAt" | "lastPlayed" | "playCount" | "favorite";
+
+export type QueryItems = { kind: "tracks"; items: TrackDto[] } | { kind: "albums"; items: AlbumDto[] } | { kind: "artists"; items: ArtistDto[] } | { kind: "folders"; items: FolderDto[] } | { kind: "genres"; items: GenreDto[] };
+
+export type QueryOperator = "eq" | "neq" | "contains" | "gt" | "gte" | "lt" | "lte" | "in";
+
+export type QueryPage = {
+	entity: EntityKind,
+	page: number,
+	pageSize: number,
+	hasMore: boolean,
+	items: QueryItems,
+};
+
+export type QueryRequest = {
+	entity: EntityKind,
+	query: Expr,
+	sort: QuerySort[],
+	page: number,
+	pageSize: number,
+};
+
+export type QuerySort = {
+	field: QueryField,
+	direction: SortDirection,
+};
+
+export type QueryValue = string | number | null | boolean | string[] | (number | null)[];
+
+export type QueueInsertMode = "replace" | "next" | "append";
+
+export type RepeatMode = "off" | "track" | "queue";
+
+export type ResolvedTheme = {
+	id: string,
+	name: string,
+	appearance: ThemeAppearance,
+	tokens: { [key in string]: ThemeTokenValue },
+	warnings: string[],
+};
+
 export type ScanProgress = {
 	discovered: number,
 	indexed: number,
@@ -58,6 +255,97 @@ export type ScanProgress = {
 	currentPath: string | null,
 	currentTitle: string | null,
 	complete: boolean,
+};
+
+export type SearchRequest = {
+	input: string,
+	limitPerSection: number,
+};
+
+export type SortDirection = "asc" | "desc";
+
+export type ThemeAppearance = "light" | "dark";
+
+export type ThemeCatalog = {
+	themes: ThemeSummary[],
+	warnings: string[],
+};
+
+export type ThemeSelectionDto = {
+	lightSelection: string,
+	darkSelection: string,
+	followSystemAppearance: boolean,
+};
+
+export type ThemeSummary = {
+	id: string,
+	name: string,
+	appearance: ThemeAppearance,
+	basedOn: string | null,
+	builtIn: boolean,
+};
+
+export type ThemeTokenDescriptor = {
+	id: string,
+	label: string,
+	category: string,
+	kind: ThemeTokenKind,
+	minimum: number | null,
+	maximum: number | null,
+	defaultValue: ThemeTokenValue,
+};
+
+export type ThemeTokenKind = "color" | "number" | "text" | "boolean";
+
+export type ThemeTokenValue = string | number | null | boolean;
+
+export type TrackDto = {
+	id: string,
+	relPath: string,
+	title: string | null,
+	artist: string | null,
+	artists: string[],
+	albumArtist: string | null,
+	album: string | null,
+	year: number | null,
+	trackNo: number | null,
+	discNo: number | null,
+	genres: string[],
+	composer: string | null,
+	durationMs: number | null,
+	codec: string | null,
+	container: string | null,
+	sampleRate: number | null,
+	bitDepth: number | null,
+	channels: number | null,
+	bitrate: number | null,
+	artworkKey: string | null,
+	addedAt: number | null,
+	lastPlayed: number | null,
+	playCount: number,
+	favorite: boolean,
+};
+
+export type ViewDefinition = {
+	schema_version: number,
+	id: string,
+	name: string,
+	icon: string | null,
+	entity: EntityKind,
+	query: Expr,
+	group_by: QueryField[],
+	sort: QuerySort[],
+	layout: ViewLayout,
+	pin_to_sidebar: boolean,
+};
+
+export type ViewDensity = "compact" | "comfortable" | "spacious";
+
+export type ViewLayout = {
+	kind: LayoutKind,
+	density: ViewDensity,
+	cover_size: number | null,
+	visible_fields: QueryField[],
 };
 
 /* Tauri Specta runtime */

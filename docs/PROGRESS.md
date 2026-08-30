@@ -8,9 +8,9 @@ the resolution.
 
 - [x] M0 — bootstrap and command roundtrip
 - [x] M1 — library, metadata, artwork, and rebuildable index
-- [ ] M2 — query/FTS/View Engine and album/artist detail
-- [ ] M3a — UX, navigation, views, and command palette
-- [ ] M3b — Theme Engine, built-ins, and portable editor
+- [x] M2 — query/FTS/View Engine and album/artist detail
+- [x] M3a — UX, navigation, views, and command palette
+- [x] M3b — Theme Engine, built-ins, and portable editor
 - [ ] M4 — playback and queue
 - [ ] M5 — playlists, events, and Home
 - [ ] M6 — LRC/LRCLIB and offline reuse
@@ -19,11 +19,11 @@ the resolution.
 
 ## Current gate
 
-`M2 — query/FTS/View Engine and album/artist detail`
+`M4 — playback and queue`
 
-Next concrete action: implement the serializable query AST, constrained parser,
-parameterized SQLite compiler, FTS5 synchronization, and the first generic
-track/album/artist view routes.
+Next concrete action: implement the AudioEngine adapter, explicit transient
+queue and transport state, persistent volume/repeat/shuffle state, and the
+non-focus-stealing Now Playing surface defined by `docs/DESIGN_UX.md`.
 
 ## Verification
 
@@ -91,6 +91,63 @@ Engine. The specification, architecture, plan, acceptance matrix, and agent
 contract now require semantic tokens and explicitly avoid prescribing flatness,
 radius size, shadow amount, glow amount, or another fixed theme aesthetic.
 
+2026-08-30 04:40 BRT — M2 headless Query/View Engine gate
+Result: PASS
+Evidence: generated commands expose parser, paginated entity query, global
+search, built-in Views, album detail, and artist detail DTOs. SQLite schema v3
+adds FTS5 `unicode61 remove_diacritics 2`, trigger synchronization, deterministic
+album identity, migration hydration, and local history projection columns. Rust
+tests: 20 passing, covering A06–A10/A09b including precedence/unknown fields,
+bound malicious values, FTS insert/update/delete, View roundtrip, combined free
+text + structured filters, relational artist search, and isolated disc/track
+album order. Strict Clippy passes. `pnpm format:check`, `pnpm lint`,
+`pnpm typecheck`, `pnpm test`, and `pnpm build` pass. A brief `cargo run`
+regenerated TypeScript bindings and reached `basis.exe` without a startup panic.
+
+2026-08-30 16:21 BRT — M3a definitive interface gate
+Result: PASS
+Evidence: the React shell now uses a compact top toolbar with portable ordered
+pinned Views and adaptive overflow, never a permanent sidebar. GenericView
+provides paginated Grid/List/Table representations, filter AST composition,
+sorting, grouping, density, cover size, visible fields, multiselect, and a
+selection context menu. Search is a grouped main-canvas route distinct from the
+fuzzy `Ctrl+K` palette; album and artist routes consume M2 DTOs. Custom Views
+roundtrip atomically under `.musiclib/views/`, built-ins duplicate rather than
+mutate, `workspace.sidebar` persists pin/order/hide state, and app-data restores
+the recent root without leaking absolute paths into portable state. Six
+component tests cover the quiet empty state, shell/sidebar invariant, keyboard
+entry points, relational SearchView, and Back scroll restoration; 22 Rust tests
+cover View persistence and recent-root bounds. Frontend format/lint/typecheck,
+tests, production build, rustfmt, strict Clippy, and `git diff --check` pass. A
+brief desktop run reached `basis.exe`. Browser checks at 1280, 1000, and 720 px
+reported canvas/document widths equal to the viewport with no horizontal
+overflow; real `Ctrl+K` focus and `Ctrl+F` Search navigation also passed. Static
+audits find no obsolete dashboard/sidebar composition and no visual literals
+outside the resolved token boundary.
+
+2026-08-30 17:10 BRT — M3b Theme Engine and portable editor gate
+Result: PASS
+Evidence: the Rust Theme Engine now owns a complete versioned public token
+registry, hard defaults and bounds, sparse built-in inheritance, strict
+hex/OKLCH parsing, forward-key preservation, runtime contrast correction,
+last-known-good-compatible failures, atomic custom writes, ID collision rules,
+selection fallback, v0 migration backups, and a checked-in JSON Schema. Paper,
+Nocturne, and Chromatic share the public JSON format. `Settings → Appearance`
+provides live Light/Dark selection, system following, preview cards,
+Duplicate/Save As, custom rename/delete, searchable Basic/Advanced token
+editing, token/section/full reset, contrast status, file/text import with
+explicit replacement, and copy/download export. One typed boundary resolves
+validated tokens into `--mv-*`; layout components do not parse Theme JSON.
+Artwork is decoded with allocation/dimension limits, rendered only from
+generated 64/128/256/512 WebP thumbnails, and supplies a cached deterministic
+64px OKLCH accent to Chromatic. Missing artwork uses a deterministic
+theme-derived treatment. `cargo test --all-features` passes 30 tests including
+A14–A19/schema/migration/artwork cases; strict Clippy and rustfmt pass. Eight
+frontend tests include live Paper/Nocturne/Chromatic switching while retaining
+the same navigation DOM and density/type scaling at the CSS boundary. Prettier,
+ESLint, TypeScript, Vitest, the production Vite build, generated Tauri bindings,
+`git diff --check`, and repeated brief `basis.exe` launches pass.
+
 Format for new entries:
 
 ```text
@@ -108,6 +165,8 @@ Evidence: <objective summary, relevant test/file/log>
 | 2026-08-29 | No Syncthing-specific conflict handling | Product owner assigns versioning/conflict policy to Syncthing/user strategy | Remove conflict detector/warning acceptance work |
 | 2026-08-30 | D70–D79 accepted as the shell/navigation/search/Now Playing contract | Product-owner redesign prompt consolidated in `DESIGN_UX.md` | Replace the planned sidebar/dashboard composition with top-toolbar pinned Views, main-canvas SearchView, restorable history, and non-focus-stealing playback navigation; no implementation milestone was advanced by this documentation change |
 | 2026-08-30 | D80 accepted as the strict Layout/Theme Engine boundary | Product owner clarified that structural anti-container rules must not prescribe flatness, radius, shadow, glow, or another aesthetic | Layout owns structure/state transitions; Theme Engine owns all visual treatment through semantic tokens, permitting substantially different themes without changing information architecture |
+| 2026-08-30 | D81 assigns the definitive layout to M3a | Building GenericView/detail routes in M2 would create a provisional UI and avoidable rework | M2 remains headless data/contracts; M3a implements the final shell/search/detail/navigation structure; M3b supplies theme values |
+| 2026-08-30 | Manual Light/Dark appearance is device-local while both selected Theme IDs remain portable | D49 defines two portable slots plus system following but no portable active-manual slot; the active device appearance is rendering state, not library content | The editor persists Paper/dark selections and follow-system in `workspace.json`; when system following is off, the last manually activated appearance is retained only in the local webview profile |
 
 ## External blockers
 

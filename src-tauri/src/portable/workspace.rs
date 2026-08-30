@@ -1,9 +1,7 @@
 use std::{collections::BTreeMap, fs, io::Write, path::Path};
 
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use uuid::Uuid;
-
 use super::manifest::MUSICLIB_DIRECTORY;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 pub const WORKSPACE_FILE: &str = "workspace.json";
 
@@ -94,39 +92,31 @@ pub fn write_atomic_json<T: Serialize>(path: &Path, value: &T) -> Result<(), Str
     fs::create_dir_all(parent)
         .map_err(|error| format!("Could not create {}: {error}", parent.display()))?;
 
-    let temporary = parent.join(format!(
-        ".{}.{}.tmp",
-        path.file_name()
-            .and_then(|name| name.to_str())
-            .unwrap_or("basis"),
-        Uuid::new_v4()
-    ));
+    let mut temporary = tempfile::Builder::new()
+        .prefix(".basis-")
+        .suffix(".tmp")
+        .tempfile_in(parent)
+        .map_err(|error| format!("Could not create temporary portable file: {error}"))?;
     let write_result = (|| -> Result<(), String> {
-        let mut file = fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&temporary)
-            .map_err(|error| format!("Could not create temporary portable file: {error}"))?;
-        file.write_all(&serialized)
+        temporary
+            .write_all(&serialized)
             .map_err(|error| format!("Could not write temporary portable file: {error}"))?;
-        file.write_all(b"\n")
+        temporary
+            .write_all(b"\n")
             .map_err(|error| format!("Could not finalize temporary portable file: {error}"))?;
-        file.sync_all()
+        temporary
+            .as_file()
+            .sync_all()
             .map_err(|error| format!("Could not sync temporary portable file: {error}"))?;
-        drop(file);
-
-        fs::rename(&temporary, path).map_err(|error| {
+        temporary.persist(path).map_err(|error| {
             format!(
-                "Could not atomically replace portable file {}: {error}",
-                path.display()
+                "Could not atomically replace portable file {}: {}",
+                path.display(),
+                error.error
             )
         })?;
         Ok(())
     })();
-
-    if write_result.is_err() && temporary.exists() {
-        let _ = fs::remove_file(&temporary);
-    }
     write_result
 }
 

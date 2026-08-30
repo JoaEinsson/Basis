@@ -1,6 +1,5 @@
 use std::{
     fs,
-    io::Write,
     path::Path,
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -8,12 +7,12 @@ use std::{
 use ignore::WalkBuilder;
 use lofty::{
     file::{AudioFile, TaggedFileExt},
-    picture::MimeType,
     tag::{Accessor, ItemKey},
 };
 use uuid::Uuid;
 
 use crate::{
+    domain::metadata::album_key,
     domain::track::{IndexedTrack, ScanProgress},
     index::db::IndexDatabase,
     portable::paths::normalize_from_absolute,
@@ -181,21 +180,38 @@ fn read_track(
     let date_year = tag
         .and_then(|tag| tag.date())
         .map(|date| i64::from(date.year));
+    let album_artist = tag
+        .and_then(|tag| tag.get_string(ItemKey::AlbumArtist))
+        .map(str::to_owned);
+    let album = tag
+        .and_then(|tag| tag.album())
+        .map(|value| value.into_owned());
+    let artist = artists.first().cloned().or(fallback_artist);
+    let compilation = tag
+        .and_then(|tag| tag.get_string(ItemKey::FlagCompilation))
+        .is_some_and(is_true_tag_value);
+    let album_key = album_key(
+        library_id,
+        &rel_path,
+        album_artist.as_deref(),
+        artist.as_deref(),
+        album.as_deref(),
+        date_year,
+        compilation,
+    );
+    let artwork_key = cache_artwork(tag, &rel_path, file_size, mtime_ns, artwork_cache_dir);
 
     Ok(IndexedTrack {
         id: Uuid::new_v5(&library_id, rel_path.as_bytes()),
+        album_key,
         rel_path,
         title: tag
             .and_then(|tag| tag.title())
             .map(|value| value.into_owned()),
-        artist: artists.first().cloned().or(fallback_artist),
+        artist,
         artists,
-        album_artist: tag
-            .and_then(|tag| tag.get_string(ItemKey::AlbumArtist))
-            .map(str::to_owned),
-        album: tag
-            .and_then(|tag| tag.album())
-            .map(|value| value.into_owned()),
+        album_artist,
+        album,
         year: date_year,
         track_no: tag.and_then(|tag| tag.track()).map(i64::from),
         disc_no: tag.and_then(|tag| tag.disk()).map(i64::from),
@@ -220,56 +236,32 @@ fn read_track(
         bitrate: properties.audio_bitrate().map(i64::from),
         file_size,
         mtime_ns,
-        artwork_key: cache_artwork(tag, artwork_cache_dir),
+        artwork_key,
+        compilation,
     })
 }
 
-fn cache_artwork(tag: Option<&lofty::tag::Tag>, cache_dir: &Path) -> Option<String> {
+fn is_true_tag_value(value: &str) -> bool {
+    matches!(
+        value.trim().to_ascii_lowercase().as_str(),
+        "1" | "true" | "yes"
+    )
+}
+
+fn cache_artwork(
+    tag: Option<&lofty::tag::Tag>,
+    relative_path: &str,
+    file_size: i64,
+    mtime_ns: i64,
+    cache_dir: &Path,
+) -> Option<String> {
     let picture = tag.and_then(|tag| tag.pictures().first())?;
     let bytes = picture.data();
     if bytes.is_empty() || bytes.len() > MAX_EMBEDDED_ARTWORK_BYTES {
         return None;
     }
-    let key = blake3::hash(bytes).to_hex().to_string();
-    let extension = match picture.mime_type() {
-        Some(MimeType::Png) => "png",
-        Some(MimeType::Jpeg) => "jpg",
-        Some(MimeType::Tiff) => "tiff",
-        Some(MimeType::Bmp) => "bmp",
-        Some(MimeType::Gif) => "gif",
-        _ => "bin",
-    };
-    let path = cache_dir.join(format!("{key}.{extension}"));
-    if path.exists() || write_atomic_bytes(&path, bytes).is_ok() {
-        Some(key)
-    } else {
-        None
-    }
-}
-
-fn write_atomic_bytes(path: &Path, bytes: &[u8]) -> Result<(), std::io::Error> {
-    let parent = path.parent().ok_or_else(|| {
-        std::io::Error::new(
-            std::io::ErrorKind::InvalidInput,
-            "Artwork cache has no parent",
-        )
-    })?;
-    fs::create_dir_all(parent)?;
-    let temporary = parent.join(format!(".{}.tmp", uuid::Uuid::new_v4()));
-    let write_result = (|| -> Result<(), std::io::Error> {
-        let mut file = fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&temporary)?;
-        file.write_all(bytes)?;
-        file.sync_all()?;
-        drop(file);
-        fs::rename(&temporary, path)
-    })();
-    if write_result.is_err() && temporary.exists() {
-        let _ = fs::remove_file(&temporary);
-    }
-    write_result
+    super::artwork::cache_embedded_artwork(bytes, relative_path, file_size, mtime_ns, cache_dir)
+        .ok()
 }
 
 fn is_supported_audio_path(path: &Path) -> bool {

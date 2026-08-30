@@ -2,7 +2,10 @@ use std::{fs, path::PathBuf};
 
 use rusqlite::{params, Connection, OptionalExtension};
 
-use crate::domain::track::IndexedTrack;
+use crate::domain::{
+    metadata::{album_key, comparison_key},
+    track::IndexedTrack,
+};
 
 #[derive(Debug, Clone)]
 pub struct IndexDatabase {
@@ -23,6 +26,12 @@ impl IndexDatabase {
         let database = Self { path };
         let mut connection = database.connect()?;
         migrate(&mut connection)?;
+        Ok(database)
+    }
+
+    pub fn open_for_library(path: PathBuf, library_id: uuid::Uuid) -> Result<Self, String> {
+        let database = Self::open(path)?;
+        database.hydrate_migrated_album_keys(library_id)?;
         Ok(database)
     }
 
@@ -76,7 +85,57 @@ impl IndexDatabase {
         })
     }
 
-    fn connect(&self) -> Result<Connection, String> {
+    fn hydrate_migrated_album_keys(&self, library_id: uuid::Uuid) -> Result<(), String> {
+        let mut connection = self.connect()?;
+        let rows = {
+            let mut statement = connection
+                .prepare(
+                    r#"
+                    SELECT rel_path, album_artist, artist, album, year, compilation
+                    FROM tracks
+                    WHERE album_key = ''
+                    "#,
+                )
+                .map_err(sql_error)?;
+            let mapped = statement
+                .query_map([], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, Option<String>>(1)?,
+                        row.get::<_, Option<String>>(2)?,
+                        row.get::<_, Option<String>>(3)?,
+                        row.get::<_, Option<i64>>(4)?,
+                        row.get::<_, i64>(5)? != 0,
+                    ))
+                })
+                .map_err(sql_error)?;
+            mapped.collect::<Result<Vec<_>, _>>().map_err(sql_error)?
+        };
+        if rows.is_empty() {
+            return Ok(());
+        }
+        let transaction = connection.transaction().map_err(sql_error)?;
+        for (rel_path, album_artist, artist, album, year, compilation) in rows {
+            let key = album_key(
+                library_id,
+                &rel_path,
+                album_artist.as_deref(),
+                artist.as_deref(),
+                album.as_deref(),
+                year,
+                compilation,
+            );
+            transaction
+                .execute(
+                    "UPDATE tracks SET album_key = ?1 WHERE rel_path = ?2",
+                    params![key.to_string(), rel_path],
+                )
+                .map_err(sql_error)?;
+        }
+        transaction.commit().map_err(sql_error)
+    }
+
+    pub(crate) fn connect(&self) -> Result<Connection, String> {
         let connection = Connection::open(&self.path).map_err(sql_error)?;
         connection
             .execute_batch(
@@ -141,28 +200,40 @@ impl IndexScanSession {
     pub fn upsert_track(&self, track: &IndexedTrack) -> Result<(), String> {
         let genres_json = serde_json::to_string(&track.genres)
             .map_err(|error| format!("Could not serialize indexed genres: {error}"))?;
+        let artists_text = track.artists.join("\n");
+        let genres_text = track.genres.join("\n");
+        let year_text = track.year.map(|year| year.to_string()).unwrap_or_default();
         self.connection()
             .execute(
                 r#"
                 INSERT INTO tracks (
-                    id, rel_path, title, artist, album_artist, album, year, track_no, disc_no,
-                    genres_json, composer, duration_ms, codec, container, sample_rate, bit_depth,
-                    channels, bitrate, file_size, mtime_ns, artwork_key, added_at, scanned_at
+                    id, album_key, rel_path, title, artist, artists_text, album_artist, album,
+                    year, year_text, track_no, disc_no, genres_json, genres_text, composer,
+                    duration_ms, codec, container, sample_rate, bit_depth, channels, bitrate,
+                    file_size, mtime_ns, artwork_key, added_at, scanned_at, compilation,
+                    title_search, album_artist_search, album_search, composer_search,
+                    codec_search, path_search
                 ) VALUES (
-                    ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9,
-                    ?10, ?11, ?12, ?13, ?14, ?15, ?16,
-                    ?17, ?18, ?19, ?20, ?21, ?22, ?23
+                    ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8,
+                    ?9, ?10, ?11, ?12, ?13, ?14, ?15,
+                    ?16, ?17, ?18, ?19, ?20, ?21, ?22,
+                    ?23, ?24, ?25, ?26, ?27, ?28,
+                    ?29, ?30, ?31, ?32, ?33, ?34
                 )
                 ON CONFLICT(rel_path) DO UPDATE SET
                     id = excluded.id,
+                    album_key = excluded.album_key,
                     title = excluded.title,
                     artist = excluded.artist,
+                    artists_text = excluded.artists_text,
                     album_artist = excluded.album_artist,
                     album = excluded.album,
                     year = excluded.year,
+                    year_text = excluded.year_text,
                     track_no = excluded.track_no,
                     disc_no = excluded.disc_no,
                     genres_json = excluded.genres_json,
+                    genres_text = excluded.genres_text,
                     composer = excluded.composer,
                     duration_ms = excluded.duration_ms,
                     codec = excluded.codec,
@@ -174,19 +245,30 @@ impl IndexScanSession {
                     file_size = excluded.file_size,
                     mtime_ns = excluded.mtime_ns,
                     artwork_key = excluded.artwork_key,
-                    scanned_at = excluded.scanned_at
+                    scanned_at = excluded.scanned_at,
+                    compilation = excluded.compilation,
+                    title_search = excluded.title_search,
+                    album_artist_search = excluded.album_artist_search,
+                    album_search = excluded.album_search,
+                    composer_search = excluded.composer_search,
+                    codec_search = excluded.codec_search,
+                    path_search = excluded.path_search
                 "#,
                 params![
                     track.id.to_string(),
+                    track.album_key.to_string(),
                     track.rel_path,
                     track.title,
                     track.artist,
+                    artists_text,
                     track.album_artist,
                     track.album,
                     track.year,
+                    year_text,
                     track.track_no,
                     track.disc_no,
                     genres_json,
+                    genres_text,
                     track.composer,
                     track.duration_ms,
                     track.codec,
@@ -200,6 +282,13 @@ impl IndexScanSession {
                     track.artwork_key,
                     self.marker,
                     self.marker,
+                    track.compilation,
+                    track.title.as_deref().map(comparison_key),
+                    track.album_artist.as_deref().map(comparison_key),
+                    track.album.as_deref().map(comparison_key),
+                    track.composer.as_deref().map(comparison_key),
+                    track.codec.as_deref().map(comparison_key),
+                    comparison_key(&track.rel_path),
                 ],
             )
             .map_err(sql_error)?;
@@ -301,7 +390,7 @@ fn migrate(connection: &mut Connection) -> Result<(), String> {
     let version: i64 = connection
         .query_row("PRAGMA user_version", [], |row| row.get(0))
         .map_err(sql_error)?;
-    if version > 2 {
+    if version > 3 {
         return Err(format!(
             "Local index schema version {version} is newer than Basis supports"
         ));
@@ -380,6 +469,102 @@ fn migrate(connection: &mut Connection) -> Result<(), String> {
             .map_err(sql_error)?;
         transaction.commit().map_err(sql_error)?;
     }
+    if version < 3 {
+        let transaction = connection.transaction().map_err(sql_error)?;
+        transaction
+            .execute_batch(
+                r#"
+                ALTER TABLE tracks ADD COLUMN album_key TEXT NOT NULL DEFAULT '';
+                ALTER TABLE tracks ADD COLUMN artists_text TEXT NOT NULL DEFAULT '';
+                ALTER TABLE tracks ADD COLUMN genres_text TEXT NOT NULL DEFAULT '';
+                ALTER TABLE tracks ADD COLUMN year_text TEXT NOT NULL DEFAULT '';
+                ALTER TABLE tracks ADD COLUMN compilation INTEGER NOT NULL DEFAULT 0;
+                ALTER TABLE tracks ADD COLUMN title_search TEXT;
+                ALTER TABLE tracks ADD COLUMN album_artist_search TEXT;
+                ALTER TABLE tracks ADD COLUMN album_search TEXT;
+                ALTER TABLE tracks ADD COLUMN composer_search TEXT;
+                ALTER TABLE tracks ADD COLUMN codec_search TEXT;
+                ALTER TABLE tracks ADD COLUMN path_search TEXT NOT NULL DEFAULT '';
+                ALTER TABLE tracks ADD COLUMN last_played INTEGER;
+                ALTER TABLE tracks ADD COLUMN play_count INTEGER NOT NULL DEFAULT 0;
+                ALTER TABLE tracks ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0;
+
+                UPDATE tracks SET
+                    artists_text = COALESCE(artist, ''),
+                    genres_text = genres_json,
+                    year_text = COALESCE(CAST(year AS TEXT), ''),
+                    title_search = LOWER(title),
+                    album_artist_search = LOWER(album_artist),
+                    album_search = LOWER(album),
+                    composer_search = LOWER(composer),
+                    codec_search = LOWER(codec),
+                    path_search = LOWER(rel_path),
+                    mtime_ns = -1;
+
+                CREATE VIRTUAL TABLE tracks_fts USING fts5(
+                    title,
+                    artists_text,
+                    album_artist,
+                    album,
+                    year_text,
+                    genres_text,
+                    composer,
+                    codec,
+                    rel_path,
+                    content = 'tracks',
+                    content_rowid = 'rowid',
+                    tokenize = 'unicode61 remove_diacritics 2'
+                );
+
+                CREATE TRIGGER tracks_fts_insert AFTER INSERT ON tracks BEGIN
+                    INSERT INTO tracks_fts(
+                        rowid, title, artists_text, album_artist, album, year_text,
+                        genres_text, composer, codec, rel_path
+                    ) VALUES (
+                        new.rowid, new.title, new.artists_text, new.album_artist, new.album,
+                        new.year_text, new.genres_text, new.composer, new.codec, new.rel_path
+                    );
+                END;
+
+                CREATE TRIGGER tracks_fts_delete AFTER DELETE ON tracks BEGIN
+                    INSERT INTO tracks_fts(
+                        tracks_fts, rowid, title, artists_text, album_artist, album,
+                        year_text, genres_text, composer, codec, rel_path
+                    ) VALUES (
+                        'delete', old.rowid, old.title, old.artists_text, old.album_artist,
+                        old.album, old.year_text, old.genres_text, old.composer, old.codec,
+                        old.rel_path
+                    );
+                END;
+
+                CREATE TRIGGER tracks_fts_update AFTER UPDATE OF
+                    title, artists_text, album_artist, album, year_text,
+                    genres_text, composer, codec, rel_path
+                ON tracks BEGIN
+                    INSERT INTO tracks_fts(
+                        tracks_fts, rowid, title, artists_text, album_artist, album,
+                        year_text, genres_text, composer, codec, rel_path
+                    ) VALUES (
+                        'delete', old.rowid, old.title, old.artists_text, old.album_artist,
+                        old.album, old.year_text, old.genres_text, old.composer, old.codec,
+                        old.rel_path
+                    );
+                    INSERT INTO tracks_fts(
+                        rowid, title, artists_text, album_artist, album, year_text,
+                        genres_text, composer, codec, rel_path
+                    ) VALUES (
+                        new.rowid, new.title, new.artists_text, new.album_artist, new.album,
+                        new.year_text, new.genres_text, new.composer, new.codec, new.rel_path
+                    );
+                END;
+
+                INSERT INTO tracks_fts(tracks_fts) VALUES ('rebuild');
+                PRAGMA user_version = 3;
+                "#,
+            )
+            .map_err(sql_error)?;
+        transaction.commit().map_err(sql_error)?;
+    }
     Ok(())
 }
 
@@ -396,16 +581,4 @@ fn truncate(value: &str, max_bytes: usize) -> &str {
         end -= 1;
     }
     &value[..end]
-}
-
-fn comparison_key(value: &str) -> String {
-    use unicode_normalization::UnicodeNormalization;
-
-    value
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
-        .nfkc()
-        .flat_map(char::to_lowercase)
-        .collect()
 }

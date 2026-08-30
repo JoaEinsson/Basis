@@ -17,7 +17,7 @@ Tauri bundle identifier is `io.github.joaeinsson.basis`.
 data-driven primary navigation, main-canvas search, navigation restoration, Now
 Playing layout, responsive recomposition, and the anti-dashboard visual rules.
 It supersedes conflicting interface examples in this specification. Numbered
-decisions D70–D80 lock the associated behavior, including the strict
+decisions D70–D81 lock the associated behavior, including the strict
 Layout/Theme Engine ownership boundary.
 
 ---
@@ -1805,12 +1805,22 @@ Acceptance: point at current music folder and see correct track metadata.
 - generic result query
 - built-in Album/Artist/Track/Folder views
 - album aggregation
+- entity/relationship search projections
+- album/artist detail DTO queries
+- no provisional shell or disposable presentation
 
-Acceptance: Albums are correct and clicking one shows only its tracks.
+Acceptance: headless query/integration evidence proves Albums are correct and an
+album-detail query returns only its tracks in disc/track order. The actual click,
+route, and page presentation belong to M3.
 
 ## M3 — refined UX/personalization + theme engine (target 90–150 min)
 
-- compact top toolbar with ordered pinned Views and overflow
+- final compact top toolbar with ordered pinned Views and overflow
+- GenericView Grid/List/Table renderers
+- main-canvas SearchView with entity-grouped results
+- album and artist detail routes/pages
+- explicit navigation history and state restoration
+- responsive shell/content recomposition
 - grid/list/table renderer
 - filter chips/builder
 - sorting/grouping
@@ -1828,7 +1838,11 @@ Acceptance: Albums are correct and clicking one shows only its tracks.
 - contrast warnings and safe fallback
 - Chromatic artwork-derived accent with deterministic fallback
 
-Acceptance: create a custom filtered/grouped view and persist it under `.musiclib/views/`; duplicate/edit/export a built-in theme, restart and keep it intact; switch among all three built-ins live without reload.
+Acceptance: browse the definitive shell, open album/artist/search states with
+restorable Back/Forward history, create a custom filtered/grouped view and
+persist it under `.musiclib/views/`; duplicate/edit/export a built-in theme,
+restart and keep it intact; switch among all three built-ins live without
+reload.
 
 ## M4 — playback (target 45–60 min)
 

@@ -44,6 +44,7 @@ when permitted, and do not confuse “not run” with “passed.” CI uses
 | A09b | global search groups entities and expands an exact artist match to related albums/tracks with stable ranking tiers | Rust integration | M2 |
 | A09c | Back/Forward restores Search/View query, representation, selection, and scroll state | component/integration | M3a |
 | A10 | album query isolates an album and orders disc/track | Rust integration | M2 |
+| A10b | definitive album/artist routes consume M2 DTOs and restore prior View/search state without a provisional shell | component/integration | M3a |
 | A11 | static and smart playlists roundtrip | Rust unit | M5 |
 | A12 | DB rebuild recovers portable data/events | Rust integration | M5 |
 | A13 | append-only events derive favorite/played state | Rust integration | M5 |

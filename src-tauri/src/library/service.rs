@@ -7,11 +7,14 @@ use std::{
 use blake3::Hash;
 
 use crate::{
-    app_state::ActiveLibrary,
+    app_state::{ActiveLibrary, AppState},
+    commands::library::start_scan,
     domain::track::{LibraryStatus, LibrarySummary, ScanProgress},
     index::db::IndexDatabase,
+    local_settings::recent_library_roots,
     portable::{manifest::ensure_layout, paths::resolve_inside_root, workspace::ensure_workspace},
 };
+use tauri::{AppHandle, Manager};
 
 pub fn open_library(
     root: PathBuf,
@@ -40,7 +43,7 @@ pub fn open_library(
         .join(manifest.library_id.to_string())
         .join(&root_instance_hash)
         .join("index.sqlite3");
-    let database = IndexDatabase::open(database_path)?;
+    let database = IndexDatabase::open_for_library(database_path, manifest.library_id)?;
     let artwork_cache_dir = app_cache_dir.join("basis").join("artwork");
     let track_count = u32::try_from(database.track_count()?).unwrap_or(u32::MAX);
     let root_path = canonical_root
@@ -64,6 +67,28 @@ pub fn open_library(
             ..ScanProgress::default()
         },
     })
+}
+
+pub fn restore_recent_library(app: &AppHandle) -> Result<(), String> {
+    let app_data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| format!("Could not resolve Basis application data: {error}"))?;
+    let app_cache_dir = app
+        .path()
+        .app_cache_dir()
+        .map_err(|error| format!("Could not resolve Basis application cache: {error}"))?;
+    let state = app.state::<AppState>();
+    for root in recent_library_roots(&app_data_dir)? {
+        let Ok(active) = open_library(root, &app_data_dir, &app_cache_dir) else {
+            continue;
+        };
+        state.set_active_library(active)?;
+        let generation = state.begin_scan()?;
+        start_scan(app.clone(), state.inner().clone(), generation);
+        break;
+    }
+    Ok(())
 }
 
 pub fn root_instance_hash(root: &Path) -> Result<String, String> {

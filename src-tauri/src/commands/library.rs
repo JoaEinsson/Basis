@@ -1,5 +1,9 @@
-use std::{path::PathBuf, sync::mpsc};
+use std::{
+    path::PathBuf,
+    sync::{mpsc, Arc},
+};
 
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::{AppHandle, Manager, State};
@@ -10,6 +14,8 @@ use crate::{
     app_state::AppState,
     domain::track::{LibrarySummary, ScanProgress},
     library::{scanner::scan_library, service::open_library},
+    local_settings::remember_library_root,
+    player::service::PlayerService,
 };
 
 #[derive(Debug, Clone, Deserialize, Serialize, Type, Event)]
@@ -26,6 +32,7 @@ pub struct LibraryScanEvent {
 pub fn library_choose_root(
     app: AppHandle,
     state: State<'_, AppState>,
+    player: State<'_, Arc<PlayerService>>,
 ) -> Result<Option<LibrarySummary>, String> {
     let Some(root) = choose_folder(&app)? else {
         return Ok(None);
@@ -39,6 +46,12 @@ pub fn library_choose_root(
         .app_cache_dir()
         .map_err(|error| format!("Could not resolve Basis application cache: {error}"))?;
     let active = open_library(root, &app_data_dir, &app_cache_dir)?;
+    remember_library_root(&app_data_dir, &active.root)?;
+    player.attach_library(
+        active.root.clone(),
+        active.summary.library_id,
+        active.summary.root_instance_hash.clone(),
+    )?;
     state.set_active_library(active)?;
     let generation = state.begin_scan()?;
     let scanning_summary = state
@@ -54,6 +67,26 @@ pub fn library_choose_root(
 #[specta::specta]
 pub fn library_status(state: State<'_, AppState>) -> Result<Option<LibrarySummary>, String> {
     Ok(state.active_library()?.map(|library| library.summary))
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn artwork_thumbnail(
+    state: State<'_, AppState>,
+    artwork_key: String,
+    dimension: u32,
+) -> Result<Option<String>, String> {
+    let library = state
+        .active_library()?
+        .ok_or_else(|| "Choose a music folder before loading artwork".to_owned())?;
+    crate::library::artwork::read_cached_thumbnail(
+        &library.artwork_cache_dir,
+        &artwork_key,
+        dimension,
+    )
+    .map(|thumbnail| {
+        thumbnail.map(|bytes| format!("data:image/webp;base64,{}", STANDARD.encode(bytes)))
+    })
 }
 
 fn choose_folder(app: &AppHandle) -> Result<Option<PathBuf>, String> {
@@ -73,7 +106,7 @@ fn choose_folder(app: &AppHandle) -> Result<Option<PathBuf>, String> {
         .map_err(|error| format!("Basis could not access the selected folder: {error}"))
 }
 
-fn start_scan(app: AppHandle, state: AppState, generation: u64) {
+pub(crate) fn start_scan(app: AppHandle, state: AppState, generation: u64) {
     std::thread::spawn(move || {
         let active = match state.active_library() {
             Ok(Some(active)) => active,

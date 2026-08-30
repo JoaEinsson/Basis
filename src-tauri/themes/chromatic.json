@@ -1,0 +1,23 @@
+{
+  "$schema": "https://raw.githubusercontent.com/JoaEinsson/Basis/main/schemas/basis-theme.schema.v1.json",
+  "format": "basis-theme",
+  "schema_version": 1,
+  "id": "builtin:chromatic",
+  "name": "Chromatic",
+  "author": "Basis",
+  "based_on": "builtin:nocturne",
+  "appearance": "dark",
+  "min_app_version": "0.1.0",
+  "capabilities": ["artwork-accent"],
+  "tokens": {
+    "color.accent.primary": "#8b7cff",
+    "color.focus.ring": "#b9afff",
+    "effects.ambientGlowStrength": 0.45,
+    "motion.duration.normal": 200
+  },
+  "behavior": {
+    "accent_source": "artwork",
+    "contrast_policy": "correct-critical",
+    "ambient_glow": true
+  }
+}

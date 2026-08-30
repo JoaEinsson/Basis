@@ -1,78 +1,365 @@
 import {
-  LibraryBig,
-  ListMusic,
+  ArrowLeft,
+  ArrowRight,
+  Command,
+  MoreHorizontal,
   Search,
   Settings2,
-  Sparkles,
 } from "lucide-react";
-import { Outlet, useLocation } from "react-router-dom";
-
-const navigation = [
-  { label: "Home", icon: Sparkles },
-  { label: "Albums", icon: LibraryBig },
-  { label: "Tracks", icon: ListMusic },
-];
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  Link,
+  NavLink,
+  Outlet,
+  useLocation,
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
+import {
+  chooseLibraryRoot,
+  getLibraryStatus,
+  listViews,
+  onLibraryScanProgress,
+} from "../../lib/tauri";
+import type {
+  LibraryScanEvent,
+  LibrarySummary,
+  ViewDefinition,
+} from "../../lib/types";
+import { useNavigationStore } from "../../stores/navigation";
+import { ThemeProvider } from "../../theme/ThemeProvider";
+import { CommandPalette } from "../command-palette/CommandPalette";
+import { PlayerBar } from "../player/PlayerBar";
+import { PlayerProvider } from "../player/PlayerContext";
+import { QueuePane } from "../player/QueuePane";
+import { LibraryContext } from "./LibraryContext";
 
 export function AppShell() {
   const location = useLocation();
-  const isOnboarding = location.pathname === "/onboarding";
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [library, setLibrary] = useState<LibrarySummary | null>(null);
+  const [scan, setScan] = useState<LibraryScanEvent | null>(null);
+  const [libraryError, setLibraryError] = useState<string | null>(null);
+  const [views, setViews] = useState<ViewDefinition[]>([]);
+  const [choosingLibrary, setChoosingLibrary] = useState(false);
+  const canvasRef = useRef<HTMLElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const setPaletteOpen = useNavigationStore((state) => state.setPaletteOpen);
+  const visibleViewCount = useVisibleViewCount();
+  const searchActive = location.pathname === "/search";
+
+  const refreshViews = useCallback(async () => {
+    const next = await listViews();
+    setViews(Array.isArray(next) ? next : []);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void Promise.allSettled([getLibraryStatus(), listViews()]).then(
+      ([libraryResult, viewResult]) => {
+        if (!active) return;
+        if (libraryResult.status === "fulfilled") {
+          setLibrary(libraryResult.value);
+        }
+        if (
+          viewResult.status === "fulfilled" &&
+          Array.isArray(viewResult.value)
+        ) {
+          setViews(viewResult.value);
+        }
+      },
+    );
+    let unlisten: (() => void) | undefined;
+    void onLibraryScanProgress((event) => {
+      if (!active) return;
+      setScan(event);
+      setLibrary(event.summary);
+      setLibraryError(event.error);
+    }).then((stop) => {
+      if (active) unlisten = stop;
+      else stop();
+    });
+    return () => {
+      active = false;
+      unlisten?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    function handleShortcut(event: KeyboardEvent) {
+      const editable = isEditable(event.target);
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setPaletteOpen(true);
+        return;
+      }
+      if (
+        ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") ||
+        (event.key === "/" && !editable)
+      ) {
+        event.preventDefault();
+        if (!searchActive) navigate("/search");
+        requestAnimationFrame(() => searchInputRef.current?.focus());
+      }
+    }
+    window.addEventListener("keydown", handleShortcut);
+    return () => window.removeEventListener("keydown", handleShortcut);
+  }, [navigate, searchActive, setPaletteOpen]);
+
+  useCanvasRestoration(canvasRef, location.key);
+
+  const chooseLibrary = useCallback(async () => {
+    setChoosingLibrary(true);
+    setLibraryError(null);
+    try {
+      const selected = await chooseLibraryRoot();
+      if (selected === null) return;
+      setLibrary(selected);
+      setScan({
+        summary: selected,
+        progress: {
+          discovered: 0,
+          indexed: 0,
+          skippedUnchanged: 0,
+          failed: 0,
+          currentPath: null,
+          currentTitle: null,
+          complete: false,
+        },
+        error: null,
+      });
+      await refreshViews();
+      navigate("/views/builtin%3Aalbums");
+    } catch (error) {
+      setLibraryError(
+        error instanceof Error
+          ? error.message
+          : "Basis could not open the selected music folder.",
+      );
+    } finally {
+      setChoosingLibrary(false);
+    }
+  }, [navigate, refreshViews]);
+
+  const context = useMemo(
+    () => ({
+      library,
+      scan,
+      libraryError,
+      views,
+      choosingLibrary,
+      chooseLibrary,
+      refreshViews,
+      replaceViews: setViews,
+    }),
+    [
+      chooseLibrary,
+      choosingLibrary,
+      library,
+      libraryError,
+      refreshViews,
+      scan,
+      views,
+    ],
+  );
+  const pinnedViews = views.filter((view) => view.pin_to_sidebar);
+  const visibleViews = pinnedViews.slice(0, visibleViewCount);
+  const overflowViews = pinnedViews.slice(visibleViewCount);
 
   return (
-    <div className="app-shell">
-      <aside className="sidebar" aria-label="Library navigation">
-        <div className="brand-lockup">
-          <span className="brand-mark" aria-hidden="true">
-            B
-          </span>
-          <span>Basis</span>
-        </div>
+    <LibraryContext.Provider value={context}>
+      <ThemeProvider enabled={library !== null}>
+        <PlayerProvider>
+          <div className="app-shell">
+          <header className="app-toolbar">
+            <Link className="brand-lockup" to="/" aria-label="Basis library">
+              <span className="brand-mark" aria-hidden="true">
+                B
+              </span>
+              <span>Basis</span>
+            </Link>
+            <div className="history-controls" aria-label="Navigation history">
+              <button
+                type="button"
+                aria-label="Back"
+                onClick={() => navigate(-1)}
+              >
+                <ArrowLeft aria-hidden="true" size={18} />
+              </button>
+              <button
+                type="button"
+                aria-label="Forward"
+                onClick={() => navigate(1)}
+              >
+                <ArrowRight aria-hidden="true" size={18} />
+              </button>
+            </div>
+            <nav className="primary-navigation" aria-label="Library Views">
+              {visibleViews.map((view) => (
+                <NavLink
+                  key={view.id}
+                  to={`/views/${encodeURIComponent(view.id)}`}
+                >
+                  {view.name}
+                </NavLink>
+              ))}
+              {overflowViews.length > 0 && (
+                <details className="toolbar-menu">
+                  <summary aria-label="More library Views">
+                    <MoreHorizontal aria-hidden="true" size={19} />
+                  </summary>
+                  <div className="menu-popover" role="menu">
+                    {overflowViews.map((view) => (
+                      <NavLink
+                        role="menuitem"
+                        key={view.id}
+                        to={`/views/${encodeURIComponent(view.id)}`}
+                      >
+                        {view.name}
+                      </NavLink>
+                    ))}
+                  </div>
+                </details>
+              )}
+            </nav>
+            <div className="toolbar-actions">
+              {scan !== null &&
+                !scan.progress.complete &&
+                scan.error === null && (
+                  <span className="inline-scan-status" aria-live="polite">
+                    Indexing {scan.progress.indexed} of{" "}
+                    {scan.progress.discovered}
+                  </span>
+                )}
+              {searchActive ? (
+                <label className="toolbar-search">
+                  <Search aria-hidden="true" size={17} />
+                  <span className="sr-only">Search library</span>
+                  <input
+                    ref={searchInputRef}
+                    autoFocus
+                    value={searchParams.get("q") ?? ""}
+                    onChange={(event) => {
+                      const query = event.target.value;
+                      navigate(
+                        query
+                          ? `/search?q=${encodeURIComponent(query)}`
+                          : "/search",
+                        {
+                          replace: true,
+                        },
+                      );
+                    }}
+                    placeholder="Search library"
+                  />
+                  <kbd>Esc</kbd>
+                </label>
+              ) : (
+                <button
+                  className="toolbar-icon-label"
+                  type="button"
+                  onClick={() => navigate("/search")}
+                >
+                  <Search aria-hidden="true" size={18} />
+                  <span>Search</span>
+                </button>
+              )}
+              <details className="toolbar-menu application-menu">
+                <summary aria-label="Application menu">
+                  <MoreHorizontal aria-hidden="true" size={19} />
+                </summary>
+                <div className="menu-popover menu-popover-end" role="menu">
+                  <button
+                    role="menuitem"
+                    type="button"
+                    onClick={() => setPaletteOpen(true)}
+                  >
+                    <Command aria-hidden="true" size={16} /> Command palette
+                    <kbd>Ctrl K</kbd>
+                  </button>
+                  <Link role="menuitem" to="/settings">
+                    <Settings2 aria-hidden="true" size={16} /> Settings
+                  </Link>
+                </div>
+              </details>
+            </div>
+          </header>
 
-        <nav className="sidebar-nav">
-          {navigation.map(({ label, icon: Icon }) => (
-            <span className="nav-item" key={label} aria-disabled="true">
-              <Icon aria-hidden="true" size={17} strokeWidth={1.8} />
-              {label}
-            </span>
-          ))}
-        </nav>
-
-        <div className="sidebar-footer">
-          <span className="nav-item" aria-disabled="true">
-            <Settings2 aria-hidden="true" size={17} strokeWidth={1.8} />
-            Settings
-          </span>
-        </div>
-      </aside>
-
-      <main className="content-area">
-        <header className="topbar">
-          <div>
-            <p className="eyebrow">{isOnboarding ? "First run" : "Basis"}</p>
-            <p className="topbar-title">Local music, your rules.</p>
+            <div className="shell-workspace">
+              <main className="main-canvas" ref={canvasRef} tabIndex={-1}>
+                <Outlet />
+              </main>
+              <QueuePane />
+            </div>
+            <PlayerBar />
+            <CommandPalette />
           </div>
-          <div
-            className="search-placeholder"
-            aria-label="Search will be available after library setup"
-          >
-            <Search aria-hidden="true" size={16} />
-            <span>Search your library</span>
-            <kbd>Ctrl K</kbd>
-          </div>
-        </header>
+        </PlayerProvider>
+      </ThemeProvider>
+    </LibraryContext.Provider>
+  );
+}
 
-        <Outlet />
-      </main>
+function useVisibleViewCount() {
+  const [count, setCount] = useState(() =>
+    viewCountForWidth(window.innerWidth),
+  );
+  useEffect(() => {
+    const update = () => setCount(viewCountForWidth(window.innerWidth));
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+  return count;
+}
 
-      <footer className="player-bar" aria-label="Now playing">
-        <div className="player-artwork" aria-hidden="true" />
-        <div>
-          <p className="player-title">No track selected</p>
-          <p className="player-subtitle">Your queue will appear here.</p>
-        </div>
-        <div className="player-progress" aria-hidden="true">
-          <span />
-        </div>
-      </footer>
-    </div>
+function viewCountForWidth(width: number) {
+  if (width >= 1200) return 6;
+  if (width >= 800) return 3;
+  return 0;
+}
+
+function useCanvasRestoration(
+  canvasRef: React.RefObject<HTMLElement | null>,
+  historyKey: string,
+) {
+  const savedPosition = useNavigationStore(
+    (state) => state.scrollPositions[historyKey] ?? 0,
+  );
+  const saveScroll = useNavigationStore((state) => state.saveScroll);
+
+  useLayoutEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const restore = () => {
+      if (savedPosition > 0) canvas.scrollTop = savedPosition;
+    };
+    restore();
+    let observer: ResizeObserver | undefined;
+    if (typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver(restore);
+      observer.observe(canvas);
+    }
+    const stop = window.setTimeout(() => observer?.disconnect(), 2000);
+    return () => {
+      window.clearTimeout(stop);
+      observer?.disconnect();
+      saveScroll(historyKey, canvas.scrollTop);
+    };
+  }, [canvasRef, historyKey, saveScroll, savedPosition]);
+}
+
+function isEditable(target: EventTarget | null) {
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    (target instanceof HTMLElement && target.isContentEditable)
   );
 }

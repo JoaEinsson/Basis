@@ -1,6 +1,6 @@
 # Locked product and engineering decisions
 
-Status: **D01–D69 accepted by the product owner on August 29, 2026; D70–D80
+Status: **D01–D69 accepted by the product owner on August 29, 2026; D70–D81
 accepted on August 30, 2026**.
 
 These decisions remove implementation freedom where two reasonable choices
@@ -132,6 +132,7 @@ recorded here and in `PROGRESS.md`.
 | D78 | Empty states are quiet desktop-software states. Cards are reserved for naturally card-like entities. Hero sections, marketing copy, feature/explanation cards, readiness/success banners, permanent dashboard search fields, generic card containers, and decorative SaaS composition are forbidden in normal product flows. |
 | D79 | D04 remains unchanged: the MVP has one active library root. The Library empty-state action is singular (`Add folder`) and must not imply merged multi-root search or playback. |
 | D80 | Layout owns regions, navigation placement, content hierarchy, pane behavior, responsive recomposition, entity structure, and navigation state transitions. The Theme Engine exclusively owns colors, typography, radii, borders, elevation, shadows, blur/glow, bounded density, artwork treatment, state/selection/lyric/progress styling, and motion timing. Layout components consume semantic tokens and contain no Paper/Nocturne/Chromatic-specific values. Layout review forbids containers/elevation added solely to manufacture hierarchy; it does not prescribe flatness, radius size, shadow amount, glow amount, or another theme aesthetic. |
+| D81 | M2 is a headless data/contract milestone: AST, parameterized SQL, FTS, entity and relationship projections, built-in View definitions, and album/artist detail DTOs. It must not create a provisional shell or disposable presentation. M3a is the first complete interface milestone and owns the final top-toolbar shell, GenericView renderers, SearchView, album/artist pages, navigation restoration, responsive structure, and layout-token consumption. M3b owns Theme Engine values/editor/validation; M4 and M6 extend the same shell with transport/Now Playing and lyrics respectively. |
 
 ## Metadata normalization and optional online enrichment
 

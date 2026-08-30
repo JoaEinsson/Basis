@@ -94,8 +94,9 @@ Order:
 5. query track/album/artist/folder/genre entities and relationally expand
    search results under D75;
 6. express built-ins through the same engine;
-7. implement `GenericView` with grid/list/table and virtualization;
-8. add album/artist detail routes.
+7. expose paginated typed DTOs for GenericView consumers without building a
+   provisional shell;
+8. implement isolated album/artist detail queries and DTOs.
 
 Gate:
 
@@ -103,8 +104,9 @@ Gate:
 - Search results are grouped by entity and an exact artist result exposes its
   related albums/tracks even when their titles do not contain the query;
 - Albums derives grouping from metadata;
-- clicking an album navigates to a page containing only that album;
-- the track table virtualizes and paginates;
+- an album-detail query returns only that album's tracks in disc/track order;
+- result commands paginate deterministically and expose enough information for
+  M3a virtualization without sending the full library to React;
 - malicious values cannot alter SQL structure;
 - grammar, operators, public fields, page limits, FTS tokenizer, and grouping
   match D19–D24 exactly.
@@ -117,6 +119,8 @@ Deliverables:
 
 - compact top toolbar with ordered pinned Views, adaptive overflow, and no
   permanent left sidebar;
+- `GenericView` Grid/List/Table renderers with virtualization;
+- actual album and artist detail routes/pages using the M2 DTOs;
 - explicit main-canvas navigation states with Back/Forward restoration of View,
   search, detail, filters, representation, scroll, and selection state;
 - main-canvas SearchView with grouped entity representations and a toolbar
@@ -135,6 +139,8 @@ Deliverables:
 
 Gate:
 
+- Albums/Artists/Search render in the definitive shell without a temporary or
+  competing layout, and clicking an album shows only that album;
 - create a filtered/grouped view, pin it, restart, and recover it;
 - duplicating a built-in does not modify its original definition;
 - pinned navigation order/items survive through the schema v1

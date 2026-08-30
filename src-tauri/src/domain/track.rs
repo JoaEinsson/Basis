@@ -5,6 +5,7 @@ use uuid::Uuid;
 #[derive(Debug, Clone)]
 pub struct IndexedTrack {
     pub id: Uuid,
+    pub album_key: Uuid,
     pub rel_path: String,
     pub title: Option<String>,
     pub artist: Option<String>,
@@ -26,6 +27,7 @@ pub struct IndexedTrack {
     pub file_size: i64,
     pub mtime_ns: i64,
     pub artwork_key: Option<String>,
+    pub compilation: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Type)]

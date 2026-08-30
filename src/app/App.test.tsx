@@ -1,38 +1,39 @@
 import { render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-vi.mock("@tauri-apps/api/core", () => ({
-  invoke: vi.fn().mockImplementation((command: string) => {
-    if (command === "app_health") {
-      return Promise.resolve({
-        appName: "Basis",
-        version: "0.1.0",
-        status: "ready",
-      });
-    }
-    return Promise.resolve(null);
-  }),
-}));
-
-vi.mock("@tauri-apps/api/event", () => ({
-  listen: vi.fn().mockResolvedValue(vi.fn()),
-}));
-
+import { MemoryRouter } from "react-router-dom";
+import { describe, expect, it, vi } from "vitest";
+import { LibraryContext } from "../components/shell/LibraryContext";
 import { Onboarding } from "../pages/Onboarding";
 
-describe("Basis onboarding", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("renders the onboarding content and typed desktop health state", async () => {
-    render(<Onboarding />);
+describe("Basis library empty state", () => {
+  it("is a quiet product state without dashboard or bridge copy", () => {
+    render(
+      <MemoryRouter>
+        <LibraryContext.Provider
+          value={{
+            library: null,
+            scan: null,
+            libraryError: null,
+            views: [],
+            choosingLibrary: false,
+            chooseLibrary: vi.fn(),
+            refreshViews: vi.fn(),
+            replaceViews: vi.fn(),
+          }}
+        >
+          <Onboarding />
+        </LibraryContext.Provider>
+      </MemoryRouter>,
+    );
 
     expect(
-      screen.getByRole("heading", { name: "Your music folder stays yours." }),
+      screen.getByRole("heading", { name: "No music folder added." }),
     ).toBeInTheDocument();
     expect(
-      await screen.findByText("Basis desktop bridge ready"),
+      screen.getByRole("button", { name: "Add folder" }),
     ).toBeInTheDocument();
+    expect(screen.queryByText(/desktop bridge/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/your music folder stays yours/i),
+    ).not.toBeInTheDocument();
   });
 });
