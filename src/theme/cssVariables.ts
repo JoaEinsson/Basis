@@ -1,4 +1,10 @@
-import type { ThemeTokenValue } from "../lib/types";
+import type { ThemeTokenValue, ViewDensity } from "../lib/types";
+
+const TRACK_ROW_DENSITY_FACTORS: Record<ViewDensity, number> = {
+  compact: 0.78,
+  comfortable: 1,
+  spacious: 1.22,
+};
 
 const aliases: Record<string, string[]> = {
   "color.background.canvas": ["--mv-color-bg-canvas"],
@@ -80,11 +86,23 @@ export function resolveCssVariables(
     const space = /^space\.(\d+)$/.exec(id);
     if (space) result.set(`--mv-space-${space[1]}`, serialized);
   }
+  for (const density of ["compact", "comfortable", "spacious"] as const) {
+    result.set(
+      `--mv-track-row-${density}`,
+      `${resolvedTrackRowHeight(tokens, density)}px`,
+    );
+  }
+  return result;
+}
+
+export function resolvedTrackRowHeight(
+  tokens: Record<string, ThemeTokenValue>,
+  density: ViewDensity,
+): number {
+  const densityScale = numberValue(tokens["density.scale"], 1);
   const comfortable =
     numberValue(tokens["density.trackRowHeight"], 54) * densityScale;
-  result.set("--mv-track-row-comfortable", `${comfortable}px`);
-  result.set("--mv-track-row-compact", `${Math.max(28, comfortable * 0.78)}px`);
-  return result;
+  return Math.max(28, comfortable * TRACK_ROW_DENSITY_FACTORS[density]);
 }
 
 export function applyCssVariables(variables: Map<string, string>) {

@@ -2,17 +2,35 @@ import {
   Columns3,
   Grid2X2,
   List,
+  MoreHorizontal,
   Plus,
   Save,
   TableProperties,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type DragEvent,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
+import {
+  Link,
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import { ArtworkPlaceholder } from "../components/library/ArtworkPlaceholder";
-import { displayTrackTitle } from "../components/library/format";
+import {
+  displayTrackTitle,
+  formatDuration,
+} from "../components/library/format";
 import { AlbumGrid } from "../components/library/AlbumGrid";
 import { ArtistGrid } from "../components/library/ArtistGrid";
+import { TrackActionMenu } from "../components/library/TrackActionMenu";
 import { TrackList } from "../components/library/TrackList";
 import { PlaylistPicker } from "../components/playlists/PlaylistPicker";
 import {
@@ -24,7 +42,10 @@ import {
 } from "../lib/tauri";
 import type {
   AlbumDto,
+  ArtistDto,
   Expr,
+  FolderDto,
+  GenreDto,
   QueryField,
   QueryItems,
   QuerySort,
@@ -61,6 +82,8 @@ export function GenericView() {
   const { viewId = "" } = useParams();
   const decodedViewId = decodeURIComponent(viewId);
   const location = useLocation();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { library, views, refreshViews } = useLibraryContext();
   const view = views.find((candidate) => candidate.id === decodedViewId);
   const storedEntry = useNavigationStore(
@@ -83,6 +106,28 @@ export function GenericView() {
   const [projectionRevision, setProjectionRevision] = useState(0);
   const activeQuery = entry?.query;
   const activeSort = entry?.sort;
+  const facetSelection = useMemo(
+    () => facetSelectionFromSearch(view?.entity, searchParams),
+    [searchParams, view?.entity],
+  );
+  const executionQuery = useMemo(
+    () =>
+      activeQuery && facetSelection
+        ? combineExpressions(
+            activeQuery,
+            facetPredicate(facetSelection.kind, facetSelection.value),
+          )
+        : activeQuery,
+    [activeQuery, facetSelection],
+  );
+  const executionEntity = facetSelection ? "track" : view?.entity;
+  const executionSort = useMemo(
+    () =>
+      facetSelection
+        ? ([{ field: "path", direction: "asc" }] satisfies QuerySort[])
+        : activeSort,
+    [activeSort, facetSelection],
+  );
 
   useEffect(() => {
     if (view && !storedEntry) {
@@ -91,15 +136,23 @@ export function GenericView() {
   }, [location.key, setViewEntry, storedEntry, view]);
 
   useEffect(() => {
-    if (!view || !activeQuery || !activeSort || library === null) return;
+    if (
+      !view ||
+      !executionEntity ||
+      !executionQuery ||
+      !executionSort ||
+      library === null
+    )
+      return;
     let active = true;
     setLoading(true);
     setError(null);
     setPage(0);
+    setItems(null);
     void executeLibraryQuery({
-      entity: view.entity,
-      query: activeQuery,
-      sort: activeSort,
+      entity: executionEntity,
+      query: executionQuery,
+      sort: executionSort,
       page: 0,
       pageSize: 100,
     })
@@ -123,7 +176,14 @@ export function GenericView() {
     return () => {
       active = false;
     };
-  }, [activeQuery, activeSort, library, projectionRevision, view]);
+  }, [
+    executionEntity,
+    executionQuery,
+    executionSort,
+    library,
+    projectionRevision,
+    view,
+  ]);
 
   useEffect(() => {
     const refresh = () => setProjectionRevision((revision) => revision + 1);
@@ -152,14 +212,22 @@ export function GenericView() {
   }
 
   async function loadMore() {
-    if (!view || !entry || loading || !hasMore) return;
+    if (
+      !entry ||
+      !executionEntity ||
+      !executionQuery ||
+      !executionSort ||
+      loading ||
+      !hasMore
+    )
+      return;
     const nextPage = page + 1;
     setLoading(true);
     try {
       const result = await executeLibraryQuery({
-        entity: view.entity,
-        query: entry.query,
-        sort: entry.sort,
+        entity: executionEntity,
+        query: executionQuery,
+        sort: executionSort,
         page: nextPage,
         pageSize: 100,
       });
@@ -223,8 +291,81 @@ export function GenericView() {
     }
   }
 
+  function openFacet(kind: FacetKind, value: string) {
+    const next = new URLSearchParams();
+    next.set(kind, value);
+    navigate({ pathname: location.pathname, search: next.toString() });
+  }
+
+  if (facetSelection) {
+    const tracks = items?.kind === "tracks" ? items.items : [];
+    return (
+      <section
+        className="page library-view facet-detail"
+        aria-labelledby="facet-title"
+        onContextMenu={suppressNativeContextMenu}
+      >
+        <button
+          className="back-context"
+          type="button"
+          onClick={() => navigate(-1)}
+        >
+          Back to {facetSelection.kind === "folder" ? "Folders" : "Genres"}
+        </button>
+        <div className="page-heading">
+          <div>
+            <p className="page-kicker">{facetSelection.kind}</p>
+            <h1 id="facet-title">{facetSelection.value || "Library root"}</h1>
+            <p className="entity-subtitle">
+              {tracks.length}
+              {hasMore ? "+" : ""} tracks
+            </p>
+          </div>
+        </div>
+        {error && (
+          <p className="inline-error" role="alert">
+            {error}
+          </p>
+        )}
+        {loading && tracks.length === 0 ? (
+          <p className="loading-state">Loading tracks…</p>
+        ) : (
+          <PlayableTracks
+            tracks={tracks}
+            entry={{
+              ...entry,
+              layout: "table",
+              groupBy: [],
+            }}
+            onSelectionChange={(selectedIds) => updateEntry({ selectedIds })}
+          />
+        )}
+        {!loading && tracks.length === 0 && !error && (
+          <div className="quiet-state">
+            <h2>No tracks</h2>
+            <p>This {facetSelection.kind} has no indexed tracks.</p>
+          </div>
+        )}
+        {hasMore && (
+          <button
+            className="load-more"
+            type="button"
+            disabled={loading}
+            onClick={() => void loadMore()}
+          >
+            {loading ? "Loading…" : "Load more"}
+          </button>
+        )}
+      </section>
+    );
+  }
+
   return (
-    <section className="page library-view" aria-labelledby="view-title">
+    <section
+      className="page library-view"
+      aria-labelledby="view-title"
+      onContextMenu={suppressNativeContextMenu}
+    >
       <div className="page-heading">
         <div>
           <p className="page-kicker">View</p>
@@ -410,6 +551,7 @@ export function GenericView() {
           items={items}
           entry={entry}
           onSelectionChange={(selectedIds) => updateEntry({ selectedIds })}
+          onOpenFacet={openFacet}
         />
       )}
       {!loading && items && itemCount === 0 && (
@@ -473,10 +615,12 @@ function ViewItems({
   items,
   entry,
   onSelectionChange,
+  onOpenFacet,
 }: {
   items: QueryItems;
   entry: ViewEntryState;
   onSelectionChange: (ids: string[]) => void;
+  onOpenFacet: (kind: FacetKind, value: string) => void;
 }) {
   if (entry.groupBy.length > 0) {
     return (
@@ -485,6 +629,7 @@ function ViewItems({
         entry={entry}
         fields={entry.groupBy}
         onSelectionChange={onSelectionChange}
+        onOpenFacet={onOpenFacet}
       />
     );
   }
@@ -493,25 +638,38 @@ function ViewItems({
       items={items}
       entry={entry}
       onSelectionChange={onSelectionChange}
+      onOpenFacet={onOpenFacet}
     />
   );
 }
 
-function NaturalItems({
+export function NaturalItems({
   items,
   entry,
   onSelectionChange,
+  onOpenFacet,
 }: {
   items: QueryItems;
   entry: ViewEntryState;
   onSelectionChange: (ids: string[]) => void;
+  onOpenFacet: (kind: FacetKind, value: string) => void;
 }) {
   switch (items.kind) {
-    case "albums":
-      return entry.layout === "grid" ? (
-        <AlbumGrid albums={items.items} coverSize={entry.coverSize} />
-      ) : (
-        <div className="entity-list">
+    case "albums": {
+      if (entry.layout === "grid") {
+        return (
+          <AlbumGrid
+            albums={items.items}
+            coverSize={entry.coverSize}
+            density={entry.density}
+          />
+        );
+      }
+      if (entry.layout === "table") {
+        return <AlbumTable albums={items.items} density={entry.density} />;
+      }
+      return (
+        <div className="entity-list" data-density={entry.density}>
           {items.items.map((album) => (
             <Link
               className="list-entity"
@@ -529,11 +687,16 @@ function NaturalItems({
           ))}
         </div>
       );
-    case "artists":
-      return entry.layout === "grid" ? (
-        <ArtistGrid artists={items.items} />
-      ) : (
-        <div className="entity-list">
+    }
+    case "artists": {
+      if (entry.layout === "grid") {
+        return <ArtistGrid artists={items.items} density={entry.density} />;
+      }
+      if (entry.layout === "table") {
+        return <ArtistTable artists={items.items} density={entry.density} />;
+      }
+      return (
+        <div className="entity-list" data-density={entry.density}>
           {items.items.map((artist) => (
             <Link
               className="list-entity"
@@ -548,6 +711,7 @@ function NaturalItems({
           ))}
         </div>
       );
+    }
     case "tracks":
       return (
         <PlayableTracks
@@ -556,49 +720,249 @@ function NaturalItems({
           onSelectionChange={onSelectionChange}
         />
       );
-    case "folders":
+    case "folders": {
+      if (entry.layout === "table") {
+        return (
+          <FolderTable
+            folders={items.items}
+            density={entry.density}
+            onOpen={(path) => onOpenFacet("folder", path)}
+          />
+        );
+      }
       return entry.layout === "grid" ? (
-        <div className="facet-list">
+        <div className="facet-list" data-density={entry.density}>
           {items.items.map((folder) => (
-            <span className="facet-entity" key={folder.path}>
+            <button
+              type="button"
+              className="facet-entity"
+              key={folder.path}
+              onClick={() => onOpenFacet("folder", folder.path)}
+            >
               {folder.name}
               <small>{folder.trackCount} tracks</small>
-            </span>
+            </button>
           ))}
         </div>
       ) : (
-        <div className="entity-list">
+        <div className="entity-list" data-density={entry.density}>
           {items.items.map((folder) => (
-            <div className="list-entity" key={folder.path}>
+            <button
+              type="button"
+              className="list-entity"
+              key={folder.path}
+              onClick={() => onOpenFacet("folder", folder.path)}
+            >
               <span className="entity-title">{folder.name}</span>
               <span className="entity-subtitle">
                 {folder.path} · {folder.trackCount} tracks
               </span>
-            </div>
+            </button>
           ))}
         </div>
       );
-    case "genres":
+    }
+    case "genres": {
+      if (entry.layout === "table") {
+        return (
+          <GenreTable
+            genres={items.items}
+            density={entry.density}
+            onOpen={(name) => onOpenFacet("genre", name)}
+          />
+        );
+      }
       return entry.layout === "grid" ? (
-        <div className="facet-list">
+        <div className="facet-list" data-density={entry.density}>
           {items.items.map((genre) => (
-            <span className="facet-entity" key={genre.name}>
+            <button
+              type="button"
+              className="facet-entity"
+              key={genre.name}
+              onClick={() => onOpenFacet("genre", genre.name)}
+            >
               {genre.name}
               <small>{genre.trackCount} tracks</small>
-            </span>
+            </button>
           ))}
         </div>
       ) : (
-        <div className="entity-list">
+        <div className="entity-list" data-density={entry.density}>
           {items.items.map((genre) => (
-            <div className="list-entity" key={genre.name}>
+            <button
+              type="button"
+              className="list-entity"
+              key={genre.name}
+              onClick={() => onOpenFacet("genre", genre.name)}
+            >
               <span className="entity-title">{genre.name}</span>
               <span className="entity-subtitle">{genre.trackCount} tracks</span>
-            </div>
+            </button>
           ))}
         </div>
       );
+    }
   }
+}
+
+function AlbumTable({
+  albums,
+  density,
+}: {
+  albums: AlbumDto[];
+  density: ViewEntryState["density"];
+}) {
+  return (
+    <EntityTable
+      density={density}
+      label="Albums"
+      headings={["Album", "Artist", "Year", "Tracks", "Duration"]}
+    >
+      {albums.map((album) => (
+        <tr key={album.albumKey}>
+          <td>
+            <Link
+              className="table-entity-action"
+              to={`/albums/${album.albumKey}`}
+            >
+              {album.title}
+            </Link>
+          </td>
+          <td>{album.albumArtist}</td>
+          <td>{album.year ?? "—"}</td>
+          <td>{album.trackCount}</td>
+          <td>{formatDuration(album.durationMs)}</td>
+        </tr>
+      ))}
+    </EntityTable>
+  );
+}
+
+function ArtistTable({
+  artists,
+  density,
+}: {
+  artists: ArtistDto[];
+  density: ViewEntryState["density"];
+}) {
+  return (
+    <EntityTable
+      density={density}
+      label="Artists"
+      headings={["Artist", "Albums", "Tracks"]}
+    >
+      {artists.map((artist) => (
+        <tr key={artist.artistKey}>
+          <td>
+            <Link
+              className="table-entity-action"
+              to={`/artists/${artist.artistKey}`}
+            >
+              {artist.name}
+            </Link>
+          </td>
+          <td>{artist.albumCount}</td>
+          <td>{artist.trackCount}</td>
+        </tr>
+      ))}
+    </EntityTable>
+  );
+}
+
+function FolderTable({
+  folders,
+  density,
+  onOpen,
+}: {
+  folders: FolderDto[];
+  density: ViewEntryState["density"];
+  onOpen: (path: string) => void;
+}) {
+  return (
+    <EntityTable
+      density={density}
+      label="Folders"
+      headings={["Folder", "Path", "Tracks"]}
+    >
+      {folders.map((folder) => (
+        <tr key={folder.path}>
+          <td>
+            <button
+              className="table-entity-action"
+              type="button"
+              onClick={() => onOpen(folder.path)}
+            >
+              {folder.name}
+            </button>
+          </td>
+          <td>{folder.path}</td>
+          <td>{folder.trackCount}</td>
+        </tr>
+      ))}
+    </EntityTable>
+  );
+}
+
+function GenreTable({
+  genres,
+  density,
+  onOpen,
+}: {
+  genres: GenreDto[];
+  density: ViewEntryState["density"];
+  onOpen: (name: string) => void;
+}) {
+  return (
+    <EntityTable
+      density={density}
+      label="Genres"
+      headings={["Genre", "Tracks"]}
+    >
+      {genres.map((genre) => (
+        <tr key={genre.name}>
+          <td>
+            <button
+              className="table-entity-action"
+              type="button"
+              onClick={() => onOpen(genre.name)}
+            >
+              {genre.name}
+            </button>
+          </td>
+          <td>{genre.trackCount}</td>
+        </tr>
+      ))}
+    </EntityTable>
+  );
+}
+
+function EntityTable({
+  density,
+  label,
+  headings,
+  children,
+}: {
+  density: ViewEntryState["density"];
+  label: string;
+  headings: string[];
+  children: ReactNode;
+}) {
+  return (
+    <div className="entity-table-viewport">
+      <table className="entity-table" data-density={density} aria-label={label}>
+        <thead>
+          <tr>
+            {headings.map((heading) => (
+              <th key={heading} scope="col">
+                {heading}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>{children}</tbody>
+      </table>
+    </div>
+  );
 }
 
 function PlayableTracks({
@@ -613,6 +977,11 @@ function PlayableTracks({
   const navigate = useNavigate();
   const player = usePlayer();
   const [playlistTracks, setPlaylistTracks] = useState<TrackDto[] | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    trackId: string;
+    x: number;
+    y: number;
+  } | null>(null);
   const selectedTracks = tracks.filter((track) =>
     entry.selectedIds.includes(track.id),
   );
@@ -639,39 +1008,90 @@ function PlayableTracks({
             </button>
           </div>
         )}
-        <div className="track-grid">
+        <div className="track-grid" data-density={entry.density}>
           {tracks.map((track) => {
             const selected = entry.selectedIds.includes(track.id);
             return (
-              <button
+              <div
                 className="track-tile"
                 data-selected={selected || undefined}
                 key={track.id}
-                type="button"
-                onClick={() =>
-                  onSelectionChange(
-                    selected
-                      ? entry.selectedIds.filter((id) => id !== track.id)
-                      : [...entry.selectedIds, track.id],
-                  )
-                }
-                onDoubleClick={() => void playNow(track.id)}
+                role="option"
+                aria-selected={selected}
+                onContextMenu={(event) => {
+                  event.preventDefault();
+                  if (!selected) onSelectionChange([track.id]);
+                  setContextMenu({
+                    trackId: track.id,
+                    x: event.clientX,
+                    y: event.clientY,
+                  });
+                }}
               >
-                <ArtworkPlaceholder
-                  title={displayTrackTitle(track.title, track.relPath)}
-                  artworkKey={track.artworkKey}
-                  seed={track.relPath}
-                />
-                <span className="entity-title">
-                  {displayTrackTitle(track.title, track.relPath)}
-                </span>
-                <span className="entity-subtitle">
-                  {track.artist ?? "Unknown artist"}
-                </span>
-              </button>
+                <button
+                  className="track-tile-main"
+                  type="button"
+                  draggable
+                  onDragStart={(event) => setTrackDragData(event, track)}
+                  onClick={() =>
+                    onSelectionChange(
+                      selected
+                        ? entry.selectedIds.filter((id) => id !== track.id)
+                        : [...entry.selectedIds, track.id],
+                    )
+                  }
+                  onDoubleClick={() => void playNow(track.id)}
+                >
+                  <ArtworkPlaceholder
+                    title={displayTrackTitle(track.title, track.relPath)}
+                    artworkKey={track.artworkKey}
+                    seed={track.relPath}
+                  />
+                  <span className="entity-title">
+                    {displayTrackTitle(track.title, track.relPath)}
+                  </span>
+                  <span className="entity-subtitle">
+                    {track.artist ?? "Unknown artist"}
+                  </span>
+                </button>
+                <button
+                  className="track-tile-actions"
+                  type="button"
+                  aria-label={`Actions for ${displayTrackTitle(track.title, track.relPath)}`}
+                  onClick={(event) => {
+                    const bounds = event.currentTarget.getBoundingClientRect();
+                    setContextMenu({
+                      trackId: track.id,
+                      x: Math.max(bounds.left, bounds.right - 192),
+                      y: bounds.bottom,
+                    });
+                  }}
+                >
+                  <MoreHorizontal aria-hidden="true" size={17} />
+                </button>
+              </div>
             );
           })}
         </div>
+        {contextMenu &&
+          tracks.find((track) => track.id === contextMenu.trackId) && (
+            <TrackActionMenu
+              track={tracks.find((track) => track.id === contextMenu.trackId)!}
+              position={contextMenu}
+              onClose={() => setContextMenu(null)}
+              onPlayTrack={(track) => void playNow(track.id)}
+              onPlayNext={(track) =>
+                void player.playCollection([track.id], track.id, "next")
+              }
+              onAddToQueue={(track) =>
+                void player.playCollection([track.id], track.id, "append")
+              }
+              onAddToPlaylist={(track) => setPlaylistTracks([track])}
+              onFavorite={(track, value) => void setFavorite(track.id, value)}
+              onSelectOnly={(track) => onSelectionChange([track.id])}
+              onClearSelection={() => onSelectionChange([])}
+            />
+          )}
         {playlistTracks && (
           <PlaylistPicker
             tracks={playlistTracks}
@@ -697,8 +1117,15 @@ function PlayableTracks({
       )}
       <TrackList
         tracks={tracks}
-        compact={entry.density === "compact" || entry.layout === "list"}
-        visibleFields={entry.visibleFields}
+        density={entry.density}
+        layout={entry.layout}
+        visibleFields={
+          entry.layout === "list"
+            ? entry.visibleFields.filter((field) =>
+                ["title", "artist"].includes(field),
+              )
+            : entry.visibleFields
+        }
         selectedIds={entry.selectedIds}
         onSelectionChange={onSelectionChange}
         onPlayTrack={(track) => void playNow(track.id)}
@@ -726,11 +1153,13 @@ function GroupedItems({
   entry,
   fields,
   onSelectionChange,
+  onOpenFacet,
 }: {
   items: QueryItems;
   entry: ViewEntryState;
   fields: QueryField[];
   onSelectionChange: (ids: string[]) => void;
+  onOpenFacet: (kind: FacetKind, value: string) => void;
 }) {
   switch (items.kind) {
     case "albums":
@@ -744,6 +1173,7 @@ function GroupedItems({
               items={{ kind: "albums", items: albums }}
               entry={entry}
               onSelectionChange={onSelectionChange}
+              onOpenFacet={onOpenFacet}
             />
           )}
         />
@@ -763,6 +1193,7 @@ function GroupedItems({
               items={{ kind: "artists", items: artists }}
               entry={entry}
               onSelectionChange={onSelectionChange}
+              onOpenFacet={onOpenFacet}
             />
           )}
         />
@@ -778,6 +1209,7 @@ function GroupedItems({
               items={{ kind: "tracks", items: tracks }}
               entry={entry}
               onSelectionChange={onSelectionChange}
+              onOpenFacet={onOpenFacet}
             />
           )}
         />
@@ -795,6 +1227,7 @@ function GroupedItems({
               items={{ kind: "folders", items: folders }}
               entry={entry}
               onSelectionChange={onSelectionChange}
+              onOpenFacet={onOpenFacet}
             />
           )}
         />
@@ -814,6 +1247,7 @@ function GroupedItems({
               items={{ kind: "genres", items: genres }}
               entry={entry}
               onSelectionChange={onSelectionChange}
+              onOpenFacet={onOpenFacet}
             />
           )}
         />
@@ -1019,4 +1453,72 @@ function trackGroupKey(track: TrackDto, field: QueryField) {
     default:
       return "Other";
   }
+}
+
+type FacetKind = "folder" | "genre";
+
+type FacetSelection = {
+  kind: FacetKind;
+  value: string;
+};
+
+function facetSelectionFromSearch(
+  entity: ViewDefinition["entity"] | undefined,
+  searchParams: URLSearchParams,
+): FacetSelection | null {
+  if (entity === "folder" && searchParams.has("folder")) {
+    return { kind: "folder", value: searchParams.get("folder") ?? "" };
+  }
+  if (entity === "genre" && searchParams.has("genre")) {
+    return { kind: "genre", value: searchParams.get("genre") ?? "" };
+  }
+  return null;
+}
+
+export function facetPredicate(kind: FacetKind, value: string): Expr {
+  if (kind === "folder") {
+    return value
+      ? {
+          kind: "predicate",
+          field: "path",
+          op: "startsWith",
+          value: `${value}/`,
+        }
+      : {
+          kind: "not",
+          item: {
+            kind: "predicate",
+            field: "path",
+            op: "contains",
+            value: "/",
+          },
+        };
+  }
+  return {
+    kind: "predicate",
+    field: "genre",
+    op: "eq",
+    value,
+  };
+}
+
+function suppressNativeContextMenu(event: MouseEvent<HTMLElement>) {
+  const target = event.target;
+  if (
+    target instanceof HTMLElement &&
+    (target.matches("input, textarea, [contenteditable='true']") ||
+      target.closest("input, textarea, [contenteditable='true']"))
+  ) {
+    return;
+  }
+  event.preventDefault();
+}
+
+function setTrackDragData(event: DragEvent<HTMLElement>, track: TrackDto) {
+  event.dataTransfer.effectAllowed = "copy";
+  event.dataTransfer.setData(
+    "application/x-basis-track",
+    JSON.stringify(track),
+  );
+  event.dataTransfer.setData("text/plain", track.relPath);
 }

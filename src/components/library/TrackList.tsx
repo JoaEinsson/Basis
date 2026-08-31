@@ -1,14 +1,18 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useEffect, useRef, useState } from "react";
-import type { QueryField, TrackDto } from "../../lib/types";
+import { MoreHorizontal } from "lucide-react";
+import { useRef, useState } from "react";
+import type { QueryField, TrackDto, ViewDensity } from "../../lib/types";
 import { useTheme } from "../../theme/ThemeProvider";
+import { resolvedTrackRowHeight } from "../../theme/cssVariables";
 import { displayTrackTitle, formatDuration } from "./format";
+import { TrackActionMenu } from "./TrackActionMenu";
 
 type TrackListProps = {
   tracks: TrackDto[];
   selectedIds?: string[];
   onSelectionChange?: (ids: string[]) => void;
-  compact?: boolean;
+  density?: ViewDensity;
+  layout?: "list" | "table";
   visibleFields?: QueryField[];
   onPlayTrack?: (track: TrackDto) => void;
   onPlayNext?: (track: TrackDto) => void;
@@ -21,7 +25,8 @@ export function TrackList({
   tracks,
   selectedIds = [],
   onSelectionChange,
-  compact = false,
+  density = "comfortable",
+  layout = "table",
   visibleFields = ["title", "artist", "album", "duration"],
   onPlayTrack,
   onPlayNext,
@@ -36,12 +41,7 @@ export function TrackList({
     x: number;
     y: number;
   } | null>(null);
-  const comfortableHeight =
-    numberToken(tokens["density.trackRowHeight"], 54) *
-    numberToken(tokens["density.scale"], 1);
-  const rowHeight = compact
-    ? Math.max(28, comfortableHeight * 0.78)
-    : comfortableHeight;
+  const rowHeight = resolvedTrackRowHeight(tokens, density);
   const virtualizer = useVirtualizer({
     count: tracks.length,
     getScrollElement: () => scrollRef.current,
@@ -49,20 +49,6 @@ export function TrackList({
     overscan: 8,
   });
   const selected = new Set(selectedIds);
-
-  useEffect(() => {
-    if (contextMenu === null) return;
-    const close = () => setContextMenu(null);
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") close();
-    };
-    window.addEventListener("pointerdown", close);
-    window.addEventListener("keydown", closeOnEscape);
-    return () => {
-      window.removeEventListener("pointerdown", close);
-      window.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [contextMenu]);
 
   function toggleSelection(id: string, additive: boolean) {
     if (!onSelectionChange) {
@@ -97,22 +83,12 @@ export function TrackList({
           const track = tracks[virtualRow.index];
           const isSelected = selected.has(track.id);
           return (
-            <button
+            <div
               className="track-row"
               data-selected={isSelected || undefined}
               key={track.id}
               role="option"
               aria-selected={isSelected}
-              onClick={(event) => {
-                if (onSelectionChange) {
-                  toggleSelection(track.id, event.ctrlKey || event.metaKey);
-                } else {
-                  onPlayTrack?.(track);
-                }
-              }}
-              onDoubleClick={() => {
-                if (onSelectionChange) onPlayTrack?.(track);
-              }}
               onContextMenu={(event) => {
                 if (
                   !onSelectionChange &&
@@ -138,158 +114,141 @@ export function TrackList({
                 height: virtualRow.size,
                 transform: `translateY(${virtualRow.start}px)`,
               }}
-              type="button"
-              draggable={Boolean(onAddToPlaylist)}
-              onDragStart={(event) => {
-                if (!onAddToPlaylist) return;
-                event.dataTransfer.effectAllowed = "copy";
-                event.dataTransfer.setData(
-                  "application/x-basis-track",
-                  JSON.stringify(track),
-                );
-              }}
             >
-              <span className="track-index">{virtualRow.index + 1}</span>
-              <span className="track-primary">
-                <span className="entity-title">
-                  {displayTrackTitle(track.title, track.relPath)}
+              <button
+                className="track-row-main"
+                type="button"
+                data-layout={layout}
+                draggable={Boolean(onAddToPlaylist)}
+                onDragStart={(event) => {
+                  if (!onAddToPlaylist) return;
+                  event.dataTransfer.effectAllowed = "copy";
+                  event.dataTransfer.setData(
+                    "application/x-basis-track",
+                    JSON.stringify(track),
+                  );
+                  event.dataTransfer.setData("text/plain", track.relPath);
+                }}
+                onClick={(event) => {
+                  if (onSelectionChange) {
+                    toggleSelection(track.id, event.ctrlKey || event.metaKey);
+                  } else {
+                    onPlayTrack?.(track);
+                  }
+                }}
+                onDoubleClick={() => {
+                  if (onSelectionChange) onPlayTrack?.(track);
+                }}
+              >
+                <span className="track-index">{virtualRow.index + 1}</span>
+                <span className="track-primary">
+                  <span className="entity-title">
+                    {displayTrackTitle(track.title, track.relPath)}
+                  </span>
+                  {visibleFields.includes("artist") && (
+                    <span className="entity-subtitle">
+                      {track.artist ?? "Unknown artist"}
+                    </span>
+                  )}
                 </span>
-                {visibleFields.includes("artist") && (
-                  <span className="entity-subtitle">
-                    {track.artist ?? "Unknown artist"}
+                {visibleFields.includes("album") && (
+                  <span className="track-album">
+                    {track.album ?? "Unknown album"}
                   </span>
                 )}
-              </span>
-              {visibleFields.includes("album") && (
-                <span className="track-album">
-                  {track.album ?? "Unknown album"}
-                </span>
+                {visibleFields.includes("duration") && (
+                  <span className="track-duration">
+                    {formatDuration(track.durationMs)}
+                  </span>
+                )}
+              </button>
+              {(onPlayTrack ||
+                onPlayNext ||
+                onAddToQueue ||
+                onAddToPlaylist ||
+                onFavorite) && (
+                <button
+                  className="track-row-actions"
+                  type="button"
+                  aria-label={`Actions for ${displayTrackTitle(track.title, track.relPath)}`}
+                  onClick={(event) => {
+                    const bounds = event.currentTarget.getBoundingClientRect();
+                    setContextMenu({
+                      trackId: track.id,
+                      x: Math.max(bounds.left, bounds.right - 192),
+                      y: bounds.bottom,
+                    });
+                  }}
+                >
+                  <MoreHorizontal aria-hidden="true" size={17} />
+                </button>
               )}
-              {visibleFields.includes("duration") && (
-                <span className="track-duration">
-                  {formatDuration(track.durationMs)}
-                </span>
-              )}
-            </button>
+            </div>
           );
         })}
       </div>
       {contextMenu && (
-        <div
-          className="track-context-menu"
-          role="menu"
-          aria-label="Track selection actions"
-          style={{ left: contextMenu.x, top: contextMenu.y }}
-          onPointerDown={(event) => event.stopPropagation()}
-        >
-          {onPlayTrack && (
-            <button
-              role="menuitem"
-              type="button"
-              onClick={() => {
-                const track = tracks.find(
-                  (candidate) => candidate.id === contextMenu.trackId,
-                );
-                if (track) onPlayTrack(track);
-                setContextMenu(null);
-              }}
-            >
-              Play now
-            </button>
-          )}
-          {onPlayNext && (
-            <button
-              role="menuitem"
-              type="button"
-              onClick={() => {
-                const track = tracks.find(
-                  (candidate) => candidate.id === contextMenu.trackId,
-                );
-                if (track) onPlayNext(track);
-                setContextMenu(null);
-              }}
-            >
-              Play next
-            </button>
-          )}
-          {onAddToQueue && (
-            <button
-              role="menuitem"
-              type="button"
-              onClick={() => {
-                const track = tracks.find(
-                  (candidate) => candidate.id === contextMenu.trackId,
-                );
-                if (track) onAddToQueue(track);
-                setContextMenu(null);
-              }}
-            >
-              Add to queue
-            </button>
-          )}
-          {onAddToPlaylist && (
-            <button
-              role="menuitem"
-              type="button"
-              onClick={() => {
-                const track = tracks.find(
-                  (candidate) => candidate.id === contextMenu.trackId,
-                );
-                if (track) onAddToPlaylist(track);
-                setContextMenu(null);
-              }}
-            >
-              Add to playlist
-            </button>
-          )}
-          {onFavorite && (
-            <button
-              role="menuitem"
-              type="button"
-              onClick={() => {
-                const track = tracks.find(
-                  (candidate) => candidate.id === contextMenu.trackId,
-                );
-                if (track) onFavorite(track, !track.favorite);
-                setContextMenu(null);
-              }}
-            >
-              {tracks.find((candidate) => candidate.id === contextMenu.trackId)
-                ?.favorite
-                ? "Remove from Favorites"
-                : "Add to Favorites"}
-            </button>
-          )}
-          {onSelectionChange && (
-            <>
-              <button
-                role="menuitem"
-                type="button"
-                onClick={() => {
-                  onSelectionChange([contextMenu.trackId]);
-                  setContextMenu(null);
-                }}
-              >
-                Select only this track
-              </button>
-              <button
-                role="menuitem"
-                type="button"
-                onClick={() => {
-                  onSelectionChange([]);
-                  setContextMenu(null);
-                }}
-              >
-                Clear selection
-              </button>
-            </>
-          )}
-        </div>
+        <ResolvedTrackActionMenu
+          tracks={tracks}
+          contextMenu={contextMenu}
+          onClose={() => setContextMenu(null)}
+          onPlayTrack={onPlayTrack}
+          onPlayNext={onPlayNext}
+          onAddToQueue={onAddToQueue}
+          onAddToPlaylist={onAddToPlaylist}
+          onFavorite={onFavorite}
+          onSelectionChange={onSelectionChange}
+        />
       )}
     </div>
   );
 }
 
-function numberToken(value: unknown, fallback: number) {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+function ResolvedTrackActionMenu({
+  tracks,
+  contextMenu,
+  onClose,
+  onPlayTrack,
+  onPlayNext,
+  onAddToQueue,
+  onAddToPlaylist,
+  onFavorite,
+  onSelectionChange,
+}: Pick<
+  TrackListProps,
+  | "tracks"
+  | "onPlayTrack"
+  | "onPlayNext"
+  | "onAddToQueue"
+  | "onAddToPlaylist"
+  | "onFavorite"
+  | "onSelectionChange"
+> & {
+  contextMenu: { trackId: string; x: number; y: number };
+  onClose: () => void;
+}) {
+  const track = tracks.find(
+    (candidate) => candidate.id === contextMenu.trackId,
+  );
+  if (!track) return null;
+  return (
+    <TrackActionMenu
+      track={track}
+      position={contextMenu}
+      onClose={onClose}
+      onPlayTrack={onPlayTrack}
+      onPlayNext={onPlayNext}
+      onAddToQueue={onAddToQueue}
+      onAddToPlaylist={onAddToPlaylist}
+      onFavorite={onFavorite}
+      onSelectOnly={
+        onSelectionChange
+          ? (selectedTrack) => onSelectionChange([selectedTrack.id])
+          : undefined
+      }
+      onClearSelection={
+        onSelectionChange ? () => onSelectionChange([]) : undefined
+      }
+    />
+  );
 }

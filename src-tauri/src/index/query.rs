@@ -652,6 +652,11 @@ fn compile_scalar_predicate(
             parameters.push(Value::Text(value));
             Ok(format!("INSTR(COALESCE({column}, ''), ?) > 0"))
         }
+        (QueryOperator::StartsWith, QueryValue::Text(value)) => {
+            parameters.push(Value::Text(value.clone()));
+            parameters.push(Value::Text(value));
+            Ok(format!("SUBSTR(COALESCE({column}, ''), 1, LENGTH(?)) = ?"))
+        }
         (QueryOperator::Gt, value)
         | (QueryOperator::Gte, value)
         | (QueryOperator::Lt, value)
@@ -1377,6 +1382,35 @@ mod tests {
             .unwrap();
         assert_eq!(detail.albums.len(), 1);
         assert_eq!(detail.tracks.len(), 3);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn path_prefix_query_resolves_only_tracks_inside_the_selected_folder() {
+        let (root, database, library_id) = database_with_tracks();
+        let page = database
+            .execute_query(
+                library_id,
+                QueryRequest {
+                    entity: EntityKind::Track,
+                    query: Expr::Predicate {
+                        field: QueryField::Path,
+                        op: QueryOperator::StartsWith,
+                        value: QueryValue::Text("Sleep Token/Even in Arcadia/".to_owned()),
+                    },
+                    sort: Vec::new(),
+                    page: 0,
+                    page_size: 100,
+                },
+            )
+            .unwrap();
+        let QueryItems::Tracks(tracks) = page.items else {
+            panic!("expected tracks")
+        };
+        assert_eq!(tracks.len(), 3);
+        assert!(tracks
+            .iter()
+            .all(|track| track.rel_path.starts_with("Sleep Token/Even in Arcadia/")));
         fs::remove_dir_all(root).unwrap();
     }
 

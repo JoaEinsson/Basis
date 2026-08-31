@@ -2,7 +2,12 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { ArrowDown, ArrowUp, GripVertical, Plus, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { itemFromTrack } from "../components/playlists/PlaylistPicker";
+import { displayTrackTitle } from "../components/library/format";
+import { TrackList } from "../components/library/TrackList";
+import {
+  itemFromTrack,
+  PlaylistPicker,
+} from "../components/playlists/PlaylistPicker";
 import { usePlayer } from "../components/player/PlayerContext";
 import {
   createPlaylist,
@@ -10,6 +15,7 @@ import {
   parseLibraryQuery,
   removePlaylist,
   resolvePlaylist,
+  setFavorite,
   updatePlaylist,
 } from "../lib/tauri";
 import type {
@@ -431,7 +437,7 @@ function PlaylistDetail({ id }: { id: string }) {
   );
 }
 
-function StaticPlaylistEditor({
+export function StaticPlaylistEditor({
   resolved,
   saving,
   onSave,
@@ -443,7 +449,7 @@ function StaticPlaylistEditor({
   onPlay: (track: TrackDto) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const dragIndexRef = useRef<number | null>(null);
   const playlist = resolved.playlist;
   if (playlist.type !== "static") return null;
   const virtualizer = useVirtualizer({
@@ -481,7 +487,7 @@ function StaticPlaylistEditor({
   return (
     <>
       <p className="playlist-drop-hint">
-        Drag tracks here from a library list, or drag rows to reorder.
+        Use the drag handle to reorder. Add tracks from a track action menu.
       </p>
       <div
         className="playlist-track-viewport"
@@ -495,22 +501,27 @@ function StaticPlaylistEditor({
         >
           {virtualizer.getVirtualItems().map((row) => {
             const resolvedItem = resolved.items[row.index];
+            const presentation = staticPlaylistItemPresentation(resolvedItem);
             return (
               <div
                 className="playlist-track-row"
                 key={`${resolvedItem.item.path}:${row.index}`}
-                draggable
-                onDragStart={(event) => {
-                  setDragIndex(row.index);
-                  event.dataTransfer.effectAllowed = "move";
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect =
+                    readPlaylistDragIndex(event.dataTransfer) === null
+                      ? "copy"
+                      : "move";
                 }}
-                onDragEnd={() => setDragIndex(null)}
-                onDragOver={(event) => event.preventDefault()}
                 onDrop={(event) => {
                   event.preventDefault();
                   event.stopPropagation();
-                  if (dragIndex !== null) {
-                    reorder(dragIndex, row.index);
+                  const sourceIndex =
+                    readPlaylistDragIndex(event.dataTransfer) ??
+                    dragIndexRef.current;
+                  if (sourceIndex !== null) {
+                    reorder(sourceIndex, row.index);
+                    dragIndexRef.current = null;
                   } else {
                     addDroppedTrack(event);
                   }
@@ -520,7 +531,30 @@ function StaticPlaylistEditor({
                   transform: `translateY(${row.start}px)`,
                 }}
               >
-                <GripVertical aria-hidden="true" size={16} />
+                <button
+                  type="button"
+                  className="playlist-drag-handle"
+                  draggable={!saving}
+                  aria-label={`Drag ${presentation.title} to reorder`}
+                  disabled={saving}
+                  onDragStart={(event) => {
+                    dragIndexRef.current = row.index;
+                    event.dataTransfer.effectAllowed = "move";
+                    event.dataTransfer.setData(
+                      "application/x-basis-playlist-index",
+                      String(row.index),
+                    );
+                    event.dataTransfer.setData(
+                      "text/plain",
+                      presentation.title,
+                    );
+                  }}
+                  onDragEnd={() => {
+                    dragIndexRef.current = null;
+                  }}
+                >
+                  <GripVertical aria-hidden="true" size={16} />
+                </button>
                 <button
                   type="button"
                   className="playlist-track-main"
@@ -529,15 +563,9 @@ function StaticPlaylistEditor({
                     resolvedItem.track && onPlay(resolvedItem.track)
                   }
                 >
-                  <span className="entity-title">
-                    {resolvedItem.track?.title ??
-                      resolvedItem.item.hint.title ??
-                      "Missing track"}
-                  </span>
+                  <span className="entity-title">{presentation.title}</span>
                   <span className="entity-subtitle">
-                    {resolvedItem.track?.artist ??
-                      resolvedItem.item.hint.artist ??
-                      resolvedItem.item.path}
+                    {presentation.subtitle}
                   </span>
                 </button>
                 {!resolvedItem.track && resolvedItem.suggested_path && (
@@ -608,11 +636,39 @@ function StaticPlaylistEditor({
   );
 }
 
+export function staticPlaylistItemPresentation(
+  resolvedItem: ResolvedPlaylistItem,
+): { title: string; subtitle: string } {
+  if (resolvedItem.track) {
+    return {
+      title: displayTrackTitle(
+        resolvedItem.track.title,
+        resolvedItem.track.relPath,
+      ),
+      subtitle: resolvedItem.track.artist ?? "Unknown artist",
+    };
+  }
+
+  return {
+    title: resolvedItem.item.hint.title?.trim() || "Missing track",
+    subtitle: resolvedItem.item.hint.artist?.trim() || resolvedItem.item.path,
+  };
+}
+
 export function reorderPlaylistItems<T>(items: T[], from: number, to: number) {
   const reordered = [...items];
   const [moved] = reordered.splice(from, 1);
   reordered.splice(to, 0, moved);
   return reordered;
+}
+
+export function readPlaylistDragIndex(
+  dataTransfer: Pick<DataTransfer, "getData">,
+): number | null {
+  const source = dataTransfer.getData("application/x-basis-playlist-index");
+  if (!/^\d+$/.test(source)) return null;
+  const index = Number(source);
+  return Number.isSafeInteger(index) ? index : null;
 }
 
 function SmartPlaylistTracks({
@@ -622,6 +678,8 @@ function SmartPlaylistTracks({
   items: ResolvedPlaylistItem[];
   onPlay: (track: TrackDto) => void;
 }) {
+  const player = usePlayer();
+  const [playlistTracks, setPlaylistTracks] = useState<TrackDto[] | null>(null);
   const tracks = items.flatMap((item) => (item.track ? [item.track] : []));
   if (tracks.length === 0) {
     return (
@@ -632,15 +690,25 @@ function SmartPlaylistTracks({
     );
   }
   return (
-    <div className="smart-playlist-results">
-      {tracks.map((track) => (
-        <button type="button" key={track.id} onClick={() => onPlay(track)}>
-          <span className="entity-title">{track.title ?? track.relPath}</span>
-          <span className="entity-subtitle">
-            {track.artist ?? "Unknown artist"}
-          </span>
-        </button>
-      ))}
-    </div>
+    <>
+      <TrackList
+        tracks={tracks}
+        onPlayTrack={onPlay}
+        onPlayNext={(track) =>
+          void player.playCollection([track.id], track.id, "next")
+        }
+        onAddToQueue={(track) =>
+          void player.playCollection([track.id], track.id, "append")
+        }
+        onAddToPlaylist={(track) => setPlaylistTracks([track])}
+        onFavorite={(track, value) => void setFavorite(track.id, value)}
+      />
+      {playlistTracks && (
+        <PlaylistPicker
+          tracks={playlistTracks}
+          onClose={() => setPlaylistTracks(null)}
+        />
+      )}
+    </>
   );
 }

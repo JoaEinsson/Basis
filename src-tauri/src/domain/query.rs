@@ -131,6 +131,7 @@ pub enum QueryOperator {
     Eq,
     Neq,
     Contains,
+    StartsWith,
     Gt,
     Gte,
     Lt,
@@ -640,7 +641,11 @@ fn validate_predicate(
     let valid_operator = match field.value_kind() {
         QueryValueKind::Text => matches!(
             operator,
-            QueryOperator::Eq | QueryOperator::Neq | QueryOperator::Contains | QueryOperator::In
+            QueryOperator::Eq
+                | QueryOperator::Neq
+                | QueryOperator::Contains
+                | QueryOperator::StartsWith
+                | QueryOperator::In
         ),
         QueryValueKind::Number => matches!(
             operator,

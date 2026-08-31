@@ -249,7 +249,7 @@ export type QueryField = "title" | "artist" | "albumArtist" | "album" | "genre" 
 
 export type QueryItems = { kind: "tracks"; items: TrackDto[] } | { kind: "albums"; items: AlbumDto[] } | { kind: "artists"; items: ArtistDto[] } | { kind: "folders"; items: FolderDto[] } | { kind: "genres"; items: GenreDto[] };
 
-export type QueryOperator = "eq" | "neq" | "contains" | "gt" | "gte" | "lt" | "lte" | "in";
+export type QueryOperator = "eq" | "neq" | "contains" | "startsWith" | "gt" | "gte" | "lt" | "lte" | "in";
 
 export type QueryPage = {
 	entity: EntityKind,

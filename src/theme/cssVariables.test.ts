@@ -19,6 +19,8 @@ describe("resolved theme CSS boundary", () => {
     expect(variables.get("--mv-shape-radius-surface")).toBe("28px");
     expect(variables.get("--mv-control-height")).toBe("54px");
     expect(variables.get("--mv-track-row-comfortable")).toBe("81px");
+    expect(variables.get("--mv-track-row-compact")).toBe("63.18px");
+    expect(variables.get("--mv-track-row-spacious")).toBe("98.82px");
     expect(variables.get("--mv-font-size-md")).toBe("18px");
     expect(variables.get("--mv-space-4")).toBe("24px");
     expect(variables.get("--mv-elevation-surface")).toBe(

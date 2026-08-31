@@ -1,9 +1,15 @@
 import { Link } from "react-router-dom";
-import type { ArtistDto } from "../../lib/types";
+import type { ArtistDto, ViewDensity } from "../../lib/types";
 
-export function ArtistGrid({ artists }: { artists: ArtistDto[] }) {
+export function ArtistGrid({
+  artists,
+  density = "comfortable",
+}: {
+  artists: ArtistDto[];
+  density?: ViewDensity;
+}) {
   return (
-    <div className="artist-grid">
+    <div className="artist-grid" data-density={density}>
       {artists.map((artist) => (
         <Link
           className="artist-entity"

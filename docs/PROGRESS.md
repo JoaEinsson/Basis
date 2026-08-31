@@ -9,7 +9,7 @@ the resolution.
 - [x] M0 — bootstrap and command roundtrip
 - [x] M1 — library, metadata, artwork, and rebuildable index
 - [x] M2 — query/FTS/View Engine and album/artist detail
-- [x] M3a — UX, navigation, views, and command palette
+- [ ] M3a — UX, navigation, views, and command palette
 - [x] M3b — Theme Engine, built-ins, and portable editor
 - [x] M4 — playback and queue
 - [ ] M5 — playlists, events, and Home
@@ -19,12 +19,14 @@ the resolution.
 
 ## Current gate
 
-`M5 — implementation complete; manual gate pending`
+`M3a/M5 — stabilization fixes implemented; focused desktop retest pending`
 
-Next concrete action: run the M5 manual smoke described in the handoff: create
-and reorder static/smart playlists, favorite and play a track, restart, inspect
-portable files, then delete only the local SQLite index and confirm replay.
-Do not start M6 until this smoke is confirmed or a defect is fixed.
+Next concrete action: in the desktop app, compare Compact/Comfortable/Spacious,
+activate Albums Grid/List/Table, open one Folder and one Genre, right-click a
+track in Grid and Table, and drag a static-playlist row by its handle. The
+resolved untagged WAV label, Favorites, static-playlist ordering across restart,
+Home, smart-playlist restart, portable-file inspection, event replay, and device
+identity are already verified. Do not start M6 until this focused retest passes.
 
 ## Verification
 
@@ -188,12 +190,77 @@ open and after every scan. Its integration test appends through two device
 files, deletes the SQLite database, reindexes, and recovers play count,
 last-played, and favorite. Home composes Recently Added, Recently Played, and
 Favorites from the existing built-in View definitions; Search and the command
-palette expose playlists. `cargo test --all-features` passes 38 tests with only
+palette expose playlists. `cargo test --all-features` passes 39 tests with only
 the two explicit M4 hardware smokes ignored; rustfmt and strict Clippy pass.
-Thirteen frontend tests, ESLint, TypeScript, Prettier, and the production Vite
+Fourteen frontend tests, ESLint, TypeScript, Prettier, and the production Vite
 build pass. `pnpm tauri dev` regenerated bindings and reached `basis.exe`
 without startup/runtime output. The M5 checkbox remains open only for the
 requested hands-on desktop smoke.
+
+2026-08-31 02:00 BRT — M5 first manual smoke
+Result: FAIL
+Evidence: Home passed Recently Added, empty Recently Played/Favorites, and the
+no-sidebar invariant. Smart playlist creation, resolution, and restart also
+passed. Static-playlist/favorite testing stopped because some track
+presentations exposed the native WebView context menu instead of Basis actions.
+The original PowerShell handoff also incorrectly assumed variables survive a
+new terminal and combined `-LiteralPath` with wildcards.
+
+2026-08-31 02:15 BRT — M5 manual-smoke corrections
+Result: PASS
+Evidence: every `TrackList` row now suppresses the native context menu and
+provides the same actions through an explicit keyboard-accessible ellipsis
+button; smart-playlist results now use that shared component. A component test
+verifies both right-click suppression and the explicit action path. Portable
+inspection was performed directly against the reported temporary library: the
+smart playlist is a valid UUID-named schema-v1 query document, contains no
+absolute root, and seven bounded `played` events resolve portable paths. That
+inspection also exposed a stale-process race between an event filename and the
+settings device ID. `device.json` now claims the installation UUID atomically
+with no-clobber semantics and mirrors it to settings; an eight-worker test
+proves convergence, and a real desktop launch confirmed both local files equal
+`9aa51b60-46fd-4c9a-b2a9-5182f379a998`. Final automated evidence is 39 regular
+Rust tests plus two ignored M4 hardware tests, 14 frontend tests, strict Clippy,
+rustfmt, ESLint, TypeScript, Prettier, production build, and a clean desktop
+ startup. Only the user-visible static-playlist/favorite retest remains.
+
+2026-08-31 02:31 BRT — M5 static-playlist manual retest
+Result: FIXED; FINAL VISUAL RECHECK PENDING
+Evidence: the user confirmed static-playlist operation and order persistence
+after restart, and the Favorites view contains the tracks added through the
+repaired Basis action menu. One row displayed `Missing track` for
+`Café/four.wav`. Direct read-only inspection proved the playlist JSON, physical
+file, and indexed SQLite row all contain the same portable UTF-8 path, and the
+database resolves it exactly. The row was present; its WAV metadata simply has
+no title or artist tags. Static-playlist presentation now uses the shared
+filename title fallback and `Unknown artist` for resolved untagged tracks,
+reserving `Missing track` for a null resolution. Two regression cases cover
+both states. All 16 frontend tests, TypeScript, ESLint, Prettier, and the
+production Vite build pass. M5 remains open only until the corrected label is
+ observed once in the desktop app.
+
+2026-08-31 03:08 BRT — M3a/M5 stabilization after manual review
+Result: FIXED; FOCUSED DESKTOP RETEST PENDING
+Evidence: the final WAV presentation recheck passed, but screenshots exposed
+that most entity renderers stored density without consuming it, Albums List and
+Table shared one branch, Folder/Genre rows were inert, Grid tracks lacked the
+shared Basis action menu, and static-playlist drag relied on asynchronous React
+state. Density now changes theme-token-driven grid sizing/gaps, list padding,
+table padding, and all three virtualized track-row heights. Albums, Artists,
+Folders, and Genres have distinct semantic Table renderers. Folder/Genre
+activation pushes a history-restorable drill-down that materializes tracks
+through the shared Query Engine; a parameterized `startsWith` operator prevents
+similarly named folders elsewhere in a path from leaking into the result. Grid
+tracks now use the shared Basis context menu and an explicit ellipsis, while the
+Generic View canvas suppresses the browser menu outside editable fields.
+Static-playlist rows expose a dedicated drag handle whose source index travels
+in `DataTransfer`, retaining the existing keyboard Move controls. Regression
+tests cover density propagation, distinct Table structure, facet activation and
+predicates, Grid menus, and the real drag/drop event path. Evidence is 40
+regular Rust tests plus two ignored hardware tests, strict Clippy/rustfmt, 21
+frontend tests, ESLint, TypeScript, Prettier, production build, regenerated
+bindings, and a clean `basis.exe` startup. M3a is temporarily reopened and M5
+remains open only for the listed desktop observations.
 
 Format for new entries:
 
@@ -215,7 +282,7 @@ Evidence: <objective summary, relevant test/file/log>
 | 2026-08-30 | D81 assigns the definitive layout to M3a | Building GenericView/detail routes in M2 would create a provisional UI and avoidable rework | M2 remains headless data/contracts; M3a implements the final shell/search/detail/navigation structure; M3b supplies theme values |
 | 2026-08-30 | Manual Light/Dark appearance is device-local while both selected Theme IDs remain portable | D49 defines two portable slots plus system following but no portable active-manual slot; the active device appearance is rendering state, not library content | The editor persists Paper/dark selections and follow-system in `workspace.json`; when system following is off, the last manually activated appearance is retained only in the local webview profile |
 | 2026-08-30 | Voxio 0.2.3 retained behind `AudioEngine` | It compiled inside the D45 timebox and real Windows default-device tests passed all target codecs, controls, and gapless handoff | No Rodio fallback was activated; normal/future adapter-only events are filtered until assigned explicit domain semantics |
-| 2026-08-30 | The installation UUID lives in local `basis/settings.json`; portable history replay runs after open/scan and event append | D32–D37 require one stable local writer identity and a disposable SQLite projection | Each installation appends only its named JSONL file; deleting the local index cannot remove favorites or play history |
+| 2026-08-30 | The installation UUID is claimed atomically in local `basis/device.json` and mirrored in `basis/settings.json`; portable history replay runs after open/scan and event append | D32–D37 require one stable local writer identity and a disposable SQLite projection; the first manual smoke exposed concurrent development startups choosing different IDs without a no-clobber claim | Concurrent startups converge on one writer identity; each installation appends only its named JSONL file, and deleting the local index cannot remove favorites or play history |
 
 ## External blockers
 
