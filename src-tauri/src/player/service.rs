@@ -16,13 +16,20 @@ use uuid::Uuid;
 
 use crate::{
     domain::{
+        history::HistoryEvent,
         player::{
             PlaybackStatus, PlayerErrorEvent, PlayerQueueChangedEvent, PlayerQueueItem,
             PlayerSnapshot, PlayerStateEvent, PlayerTrackChangedEvent, QueueInsertMode, RepeatMode,
         },
         query::TrackDto,
     },
-    portable::{paths::resolve_inside_root, workspace::write_atomic_json},
+    index::db::IndexDatabase,
+    local_settings::device_id,
+    portable::{
+        events::{append_event, rebuild_projection},
+        paths::resolve_inside_root,
+        workspace::write_atomic_json,
+    },
 };
 
 use super::audio_engine::{
@@ -40,6 +47,8 @@ pub struct PlayerService {
     engine: Mutex<Option<Arc<dyn AudioEngine>>>,
     engine_generation: AtomicU64,
     library_root: Mutex<Option<PathBuf>>,
+    library_database: Mutex<Option<IndexDatabase>>,
+    device_id: Uuid,
     sessions_dir: PathBuf,
 }
 
@@ -60,6 +69,8 @@ struct PlayerCore {
     primed_queue_id: Option<Uuid>,
     error: Option<String>,
     output_device: Option<String>,
+    listened_ms: f64,
+    history_closed: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -75,17 +86,23 @@ struct PersistedPlayerSession {
     shuffle: bool,
     repeat: RepeatMode,
     shuffle_seed: Uuid,
+    #[serde(default)]
+    listened_ms: f64,
+    #[serde(default)]
+    history_closed: bool,
 }
 
 impl PlayerService {
-    pub fn load(app_data_dir: &Path) -> Arc<Self> {
-        Arc::new(Self {
+    pub fn load(app_data_dir: &Path) -> Result<Arc<Self>, String> {
+        Ok(Arc::new(Self {
             core: Mutex::new(PlayerCore::default()),
             engine: Mutex::new(None),
             engine_generation: AtomicU64::new(0),
             library_root: Mutex::new(None),
+            library_database: Mutex::new(None),
+            device_id: device_id(app_data_dir)?,
             sessions_dir: app_data_dir.join("basis").join("sessions"),
-        })
+        }))
     }
 
     pub fn attach_library(
@@ -93,6 +110,7 @@ impl PlayerService {
         root: PathBuf,
         library_id: Uuid,
         root_instance_hash: String,
+        database: Option<IndexDatabase>,
     ) -> Result<(), String> {
         let engine_active = self
             .engine()?
@@ -112,6 +130,7 @@ impl PlayerService {
             }
         }
         *self.root()? = Some(root);
+        *self.database()? = database;
         let mut core = self.core()?;
         if !same_library {
             let path = self.session_path(library_id, &root_instance_hash);
@@ -161,6 +180,9 @@ impl PlayerService {
             return Err("The requested queue exceeds the safety limit".to_owned());
         }
         let should_start = mode == QueueInsertMode::Replace;
+        if should_start {
+            self.record_skipped(app);
+        }
         {
             let mut core = self.core()?;
             core.insert_tracks(tracks, start_track_id, mode)?;
@@ -173,7 +195,7 @@ impl PlayerService {
         self.persist()?;
         self.emit_queue(app);
         if should_start {
-            self.start_current(app, 0.0)?;
+            self.start_current(app, 0.0, false)?;
         }
         self.emit_state(app);
         self.snapshot()
@@ -202,7 +224,7 @@ impl PlayerService {
             engine.play()?;
         } else {
             let position = self.core()?.position_ms;
-            self.start_current(app, position)?;
+            self.start_current(app, position, true)?;
         }
         self.emit_state(app);
         self.snapshot()
@@ -229,9 +251,10 @@ impl PlayerService {
     }
 
     pub fn next(self: &Arc<Self>, app: &AppHandle) -> Result<PlayerSnapshot, String> {
+        self.record_skipped(app);
         let moved = self.core()?.move_next(false);
         if moved {
-            self.start_current(app, 0.0)?;
+            self.start_current(app, 0.0, false)?;
             self.emit_track_changed(app);
         } else {
             self.stop_at_queue_end(app)?;
@@ -244,11 +267,14 @@ impl PlayerService {
     pub fn previous(self: &Arc<Self>, app: &AppHandle) -> Result<PlayerSnapshot, String> {
         let position = self.snapshot()?.position_ms;
         if position > 5_000.0 {
+            self.record_skipped(app);
+            self.core()?.reset_listening();
             return self.seek(app, 0.0);
         }
+        self.record_skipped(app);
         let moved = self.core()?.move_previous();
         if moved {
-            self.start_current(app, 0.0)?;
+            self.start_current(app, 0.0, false)?;
             self.emit_track_changed(app);
             self.persist()?;
         } else {
@@ -258,9 +284,10 @@ impl PlayerService {
                 .and_then(|engine| engine.state().ok())
                 .is_some_and(|state| state.active);
             if engine_active {
+                self.core()?.reset_listening();
                 self.seek(app, 0.0)?;
             } else {
-                self.start_current(app, 0.0)?;
+                self.start_current(app, 0.0, false)?;
                 self.persist()?;
             }
         }
@@ -303,7 +330,12 @@ impl PlayerService {
         self.snapshot()
     }
 
-    fn start_current(self: &Arc<Self>, app: &AppHandle, position_ms: f64) -> Result<(), String> {
+    fn start_current(
+        self: &Arc<Self>,
+        app: &AppHandle,
+        position_ms: f64,
+        preserve_listening: bool,
+    ) -> Result<(), String> {
         let engine = self.ensure_engine(app)?;
         let (path, volume) = {
             let core = self.core()?;
@@ -322,6 +354,9 @@ impl PlayerService {
         }
         {
             let mut core = self.core()?;
+            if !preserve_listening {
+                core.reset_listening();
+            }
             core.status = PlaybackStatus::Playing;
             core.position_ms = position_ms;
             core.error = None;
@@ -405,7 +440,9 @@ impl PlayerService {
             } => {
                 let changed = if let Ok(mut core) = self.core() {
                     let changed = if reason == EngineStartReason::Gapless {
-                        core.accept_primed()
+                        let changed = core.accept_primed();
+                        core.reset_listening();
+                        changed
                     } else {
                         true
                     };
@@ -425,6 +462,7 @@ impl PlayerService {
             }
             AudioEngineEvent::TrackEnded { reason } => match reason {
                 EngineEndReason::EndOfStream => {
+                    self.record_played(app, true);
                     if self
                         .core()
                         .map(|core| core.primed_queue_id.is_none())
@@ -440,7 +478,7 @@ impl PlayerService {
                         .map(|mut core| core.move_next(false))
                         .unwrap_or(false);
                     if moved {
-                        let _ = self.start_current(app, 0.0);
+                        let _ = self.start_current(app, 0.0, false);
                     } else {
                         let _ = self.stop_at_queue_end(app);
                     }
@@ -500,6 +538,58 @@ impl PlayerService {
         if let (Some(state), Ok(mut core)) = (state, self.core()) {
             core.apply_engine_state(state);
         }
+    }
+
+    fn account_listened(&self, app: &AppHandle, elapsed: Duration) {
+        let event = self.core().ok().and_then(|mut core| {
+            if core.status != PlaybackStatus::Playing || core.history_closed {
+                return None;
+            }
+            let elapsed_ms = elapsed.as_secs_f64().mul_add(1_000.0, 0.0).min(1_000.0);
+            core.listened_ms += elapsed_ms;
+            core.take_played_event(false)
+        });
+        if let Some((track, seconds)) = event {
+            if let Err(error) = self.write_history(HistoryEvent::played(&track, seconds)) {
+                self.fail(app, error, true);
+            }
+        }
+    }
+
+    fn record_played(&self, app: &AppHandle, natural_completion: bool) {
+        let event = self
+            .core()
+            .ok()
+            .and_then(|mut core| core.take_played_event(natural_completion));
+        if let Some((track, seconds)) = event {
+            if let Err(error) = self.write_history(HistoryEvent::played(&track, seconds)) {
+                self.fail(app, error, true);
+            }
+        }
+    }
+
+    fn record_skipped(&self, app: &AppHandle) {
+        let event = self
+            .core()
+            .ok()
+            .and_then(|mut core| core.take_skipped_event());
+        if let Some((track, seconds)) = event {
+            if let Err(error) = self.write_history(HistoryEvent::skipped(&track, seconds)) {
+                self.fail(app, error, true);
+            }
+        }
+    }
+
+    fn write_history(&self, event: Result<HistoryEvent, String>) -> Result<(), String> {
+        let root = self
+            .root()?
+            .clone()
+            .ok_or_else(|| "No library is attached to the player".to_owned())?;
+        append_event(&root, self.device_id, event?)?;
+        if let Some(database) = self.database()?.as_ref() {
+            rebuild_projection(&root, database)?;
+        }
+        Ok(())
     }
 
     fn fail(&self, app: &AppHandle, message: String, recoverable: bool) {
@@ -596,9 +686,48 @@ impl PlayerService {
             .lock()
             .map_err(|_| "Player library state is unavailable after an internal failure".to_owned())
     }
+
+    fn database(&self) -> Result<std::sync::MutexGuard<'_, Option<IndexDatabase>>, String> {
+        self.library_database
+            .lock()
+            .map_err(|_| "Player library index is unavailable after an internal failure".to_owned())
+    }
 }
 
 impl PlayerCore {
+    fn reset_listening(&mut self) {
+        self.listened_ms = 0.0;
+        self.history_closed = false;
+    }
+
+    fn take_played_event(&mut self, natural_completion: bool) -> Option<(TrackDto, f64)> {
+        if self.history_closed {
+            return None;
+        }
+        let track = self.current_item()?.track.clone();
+        let duration_ms = if self.duration_ms > 0.0 {
+            self.duration_ms
+        } else {
+            track.duration_ms.unwrap_or(0.0)
+        };
+        let reached_threshold =
+            duration_ms >= 30_000.0 && self.listened_ms >= (duration_ms * 0.5).min(240_000.0);
+        if !natural_completion && !reached_threshold {
+            return None;
+        }
+        self.history_closed = true;
+        Some((track, self.listened_ms / 1_000.0))
+    }
+
+    fn take_skipped_event(&mut self) -> Option<(TrackDto, f64)> {
+        if self.history_closed {
+            return None;
+        }
+        let track = self.current_item()?.track.clone();
+        self.history_closed = true;
+        Some((track, self.listened_ms / 1_000.0))
+    }
+
     fn insert_tracks(
         &mut self,
         tracks: Vec<TrackDto>,
@@ -828,6 +957,8 @@ impl PlayerCore {
             shuffle: self.shuffle,
             repeat: self.repeat,
             shuffle_seed: self.shuffle_seed,
+            listened_ms: finite_nonnegative(self.listened_ms),
+            history_closed: self.history_closed,
         }
     }
 }
@@ -850,6 +981,8 @@ impl Default for PlayerCore {
             primed_queue_id: None,
             error: None,
             output_device: None,
+            listened_ms: 0.0,
+            history_closed: false,
         }
     }
 }
@@ -863,6 +996,8 @@ impl TryFrom<PersistedPlayerSession> for PlayerCore {
             || session.volume > 100
             || !session.position_ms.is_finite()
             || session.position_ms < 0.0
+            || !session.listened_ms.is_finite()
+            || session.listened_ms < 0.0
         {
             return Err("Player session is invalid or unsupported".to_owned());
         }
@@ -903,6 +1038,8 @@ impl TryFrom<PersistedPlayerSession> for PlayerCore {
             primed_queue_id: None,
             error: None,
             output_device: None,
+            listened_ms: session.listened_ms,
+            history_closed: session.history_closed,
         })
     }
 }
@@ -931,6 +1068,7 @@ fn spawn_engine_events(
 ) {
     std::thread::spawn(move || {
         let mut last_write = Instant::now();
+        let mut last_account = Instant::now();
         loop {
             let Some(service) = service.upgrade() else {
                 break;
@@ -939,9 +1077,12 @@ fn spawn_engine_events(
                 break;
             }
             let event = engine.receive_event(PROGRESS_EVENT_INTERVAL);
+            let elapsed = last_account.elapsed();
+            last_account = Instant::now();
             if service.engine_generation.load(Ordering::SeqCst) != generation {
                 break;
             }
+            service.account_listened(&app, elapsed);
             if let Some(event) = event {
                 service.handle_engine_event(&app, event);
             } else {
@@ -1046,6 +1187,28 @@ mod tests {
     }
 
     #[test]
+    fn listened_threshold_short_tracks_and_seeks_follow_history_rules() {
+        let source = track(1);
+        let mut core = PlayerCore::default();
+        core.insert_tracks(vec![source.clone()], source.id, QueueInsertMode::Replace)
+            .unwrap();
+        core.duration_ms = 180_000.0;
+        core.position_ms = 179_000.0;
+        assert!(core.take_played_event(false).is_none());
+        core.listened_ms = 89_999.0;
+        assert!(core.take_played_event(false).is_none());
+        core.listened_ms = 90_000.0;
+        assert_eq!(core.take_played_event(false).unwrap().1, 90.0);
+        assert!(core.take_skipped_event().is_none());
+
+        core.reset_listening();
+        core.duration_ms = 20_000.0;
+        core.listened_ms = 20_000.0;
+        assert!(core.take_played_event(false).is_none());
+        assert_eq!(core.take_played_event(true).unwrap().1, 20.0);
+    }
+
+    #[test]
     fn copied_library_roots_restore_distinct_paused_sessions() {
         let app_data = tempfile::tempdir().unwrap();
         let library_id = Uuid::new_v4();
@@ -1053,10 +1216,15 @@ mod tests {
         let second_hash = "b".repeat(64);
         let first_track = track(1);
         let second_track = track(2);
-        let service = PlayerService::load(app_data.path());
+        let service = PlayerService::load(app_data.path()).unwrap();
 
         service
-            .attach_library(PathBuf::from("first-root"), library_id, first_hash.clone())
+            .attach_library(
+                PathBuf::from("first-root"),
+                library_id,
+                first_hash.clone(),
+                None,
+            )
             .unwrap();
         service
             .core()
@@ -1075,6 +1243,7 @@ mod tests {
                 PathBuf::from("second-root"),
                 library_id,
                 second_hash.clone(),
+                None,
             )
             .unwrap();
         assert!(service.core().unwrap().queue.is_empty());
@@ -1089,9 +1258,9 @@ mod tests {
             .unwrap();
         service.persist().unwrap();
 
-        let restored = PlayerService::load(app_data.path());
+        let restored = PlayerService::load(app_data.path()).unwrap();
         restored
-            .attach_library(PathBuf::from("first-root"), library_id, first_hash)
+            .attach_library(PathBuf::from("first-root"), library_id, first_hash, None)
             .unwrap();
         let snapshot = restored.snapshot().unwrap();
         assert_eq!(snapshot.status, PlaybackStatus::Paused);

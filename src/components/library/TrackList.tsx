@@ -13,6 +13,8 @@ type TrackListProps = {
   onPlayTrack?: (track: TrackDto) => void;
   onPlayNext?: (track: TrackDto) => void;
   onAddToQueue?: (track: TrackDto) => void;
+  onAddToPlaylist?: (track: TrackDto) => void;
+  onFavorite?: (track: TrackDto, value: boolean) => void;
 };
 
 export function TrackList({
@@ -24,6 +26,8 @@ export function TrackList({
   onPlayTrack,
   onPlayNext,
   onAddToQueue,
+  onAddToPlaylist,
+  onFavorite,
 }: TrackListProps) {
   const { tokens } = useTheme();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -114,7 +118,9 @@ export function TrackList({
                   !onSelectionChange &&
                   !onPlayTrack &&
                   !onPlayNext &&
-                  !onAddToQueue
+                  !onAddToQueue &&
+                  !onAddToPlaylist &&
+                  !onFavorite
                 ) {
                   return;
                 }
@@ -133,6 +139,15 @@ export function TrackList({
                 transform: `translateY(${virtualRow.start}px)`,
               }}
               type="button"
+              draggable={Boolean(onAddToPlaylist)}
+              onDragStart={(event) => {
+                if (!onAddToPlaylist) return;
+                event.dataTransfer.effectAllowed = "copy";
+                event.dataTransfer.setData(
+                  "application/x-basis-track",
+                  JSON.stringify(track),
+                );
+              }}
             >
               <span className="track-index">{virtualRow.index + 1}</span>
               <span className="track-primary">
@@ -210,6 +225,39 @@ export function TrackList({
               }}
             >
               Add to queue
+            </button>
+          )}
+          {onAddToPlaylist && (
+            <button
+              role="menuitem"
+              type="button"
+              onClick={() => {
+                const track = tracks.find(
+                  (candidate) => candidate.id === contextMenu.trackId,
+                );
+                if (track) onAddToPlaylist(track);
+                setContextMenu(null);
+              }}
+            >
+              Add to playlist
+            </button>
+          )}
+          {onFavorite && (
+            <button
+              role="menuitem"
+              type="button"
+              onClick={() => {
+                const track = tracks.find(
+                  (candidate) => candidate.id === contextMenu.trackId,
+                );
+                if (track) onFavorite(track, !track.favorite);
+                setContextMenu(null);
+              }}
+            >
+              {tracks.find((candidate) => candidate.id === contextMenu.trackId)
+                ?.favorite
+                ? "Remove from Favorites"
+                : "Add to Favorites"}
             </button>
           )}
           {onSelectionChange && (

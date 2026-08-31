@@ -3,9 +3,10 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AlbumGrid } from "../components/library/AlbumGrid";
 import { TrackList } from "../components/library/TrackList";
+import { PlaylistPicker } from "../components/playlists/PlaylistPicker";
 import { usePlayer } from "../components/player/PlayerContext";
-import { getArtistDetail } from "../lib/tauri";
-import type { ArtistDetailDto } from "../lib/types";
+import { getArtistDetail, setFavorite } from "../lib/tauri";
+import type { ArtistDetailDto, TrackDto } from "../lib/types";
 
 export function ArtistDetail() {
   const { artistKey = "" } = useParams();
@@ -14,6 +15,7 @@ export function ArtistDetail() {
   const [detail, setDetail] = useState<ArtistDetailDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [playlistTracks, setPlaylistTracks] = useState<TrackDto[] | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -108,8 +110,16 @@ export function ArtistDetail() {
             onAddToQueue={(track) =>
               void player.playCollection([track.id], track.id, "append")
             }
+            onAddToPlaylist={(track) => setPlaylistTracks([track])}
+            onFavorite={(track, value) => void setFavorite(track.id, value)}
           />
         </section>
+      )}
+      {playlistTracks && (
+        <PlaylistPicker
+          tracks={playlistTracks}
+          onClose={() => setPlaylistTracks(null)}
+        />
       )}
     </article>
   );

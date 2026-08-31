@@ -3,8 +3,10 @@ import { AppShell } from "../components/shell/AppShell";
 import { AlbumDetail } from "../pages/AlbumDetail";
 import { ArtistDetail } from "../pages/ArtistDetail";
 import { GenericView } from "../pages/GenericView";
+import { Home } from "../pages/Home";
 import { Onboarding } from "../pages/Onboarding";
 import { NowPlaying } from "../pages/NowPlaying";
+import { Playlists } from "../pages/Playlists";
 import { SearchView } from "../pages/SearchView";
 import { Settings } from "../pages/Settings";
 
@@ -37,6 +39,10 @@ export const router = createHashRouter([
         element: <Onboarding />,
       },
       {
+        path: "home",
+        element: <Home />,
+      },
+      {
         path: "views/:viewId",
         element: <GenericView />,
       },
@@ -51,6 +57,14 @@ export const router = createHashRouter([
       {
         path: "artists/:artistKey",
         element: <ArtistDetail />,
+      },
+      {
+        path: "playlists",
+        element: <Playlists />,
+      },
+      {
+        path: "playlists/:playlistId",
+        element: <Playlists />,
       },
       {
         path: "now-playing",

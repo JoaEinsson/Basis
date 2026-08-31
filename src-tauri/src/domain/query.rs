@@ -373,6 +373,17 @@ pub struct GlobalSearchResults {
 pub fn built_in_views() -> Vec<ViewDefinition> {
     vec![
         built_in_view(
+            "builtin:home",
+            "Home",
+            EntityKind::Track,
+            LayoutKind::List,
+            vec![QuerySort {
+                field: QueryField::AddedAt,
+                direction: SortDirection::Desc,
+            }],
+            true,
+        ),
+        built_in_view(
             "builtin:albums",
             "Albums",
             EntityKind::Album,

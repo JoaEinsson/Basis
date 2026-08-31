@@ -48,6 +48,12 @@ export const commands = {
 	playerSetVolume: (volume: number) => typedError<PlayerSnapshot, string>(__TAURI_INVOKE("player_set_volume", { volume })),
 	playerSetShuffle: (enabled: boolean) => typedError<PlayerSnapshot, string>(__TAURI_INVOKE("player_set_shuffle", { enabled })),
 	playerSetRepeat: (repeat: RepeatMode) => typedError<PlayerSnapshot, string>(__TAURI_INVOKE("player_set_repeat", { repeat })),
+	playlistsList: () => typedError<PlaylistCatalog, string>(__TAURI_INVOKE("playlists_list")),
+	playlistsCreate: (draft: PlaylistDraft) => typedError<Playlist, string>(__TAURI_INVOKE("playlists_create", { draft })),
+	playlistsUpdate: (playlist: Playlist) => typedError<Playlist, string>(__TAURI_INVOKE("playlists_update", { playlist })),
+	playlistsDelete: (id: string) => typedError<null, string>(__TAURI_INVOKE("playlists_delete", { id })),
+	playlistsResolve: (id: string) => typedError<ResolvedPlaylist, string>(__TAURI_INVOKE("playlists_resolve", { id })),
+	favoriteSet: (trackId: string, value: boolean) => typedError<HistoryEvent, string>(__TAURI_INVOKE("favorite_set", { trackId, value })),
 	themesList: () => typedError<ThemeCatalog, string>(__TAURI_INVOKE("themes_list")),
 	themeGetEditable: (id: string) => typedError<EditableTheme, string>(__TAURI_INVOKE("theme_get_editable", { id })),
 	themeResolve: (id: string, artworkKey: string | null) => typedError<ResolvedTheme, string>(__TAURI_INVOKE("theme_resolve", { id, artworkKey })),
@@ -117,6 +123,11 @@ export type EditableTheme = {
 
 export type EntityKind = "track" | "album" | "artist" | "folder" | "genre";
 
+export type EventTrack = {
+	path: string,
+	hint: TrackHint,
+};
+
 export type Expr = { kind: "and"; items: Expr[] } | { kind: "or"; items: Expr[] } | { kind: "not"; item: Expr } | { kind: "text"; value: string } | { kind: "predicate"; field: QueryField; op: QueryOperator; value: QueryValue };
 
 export type FolderDto = {
@@ -140,6 +151,18 @@ export type GlobalSearchResults = {
 	playlists: NamedSearchResult[],
 	views: NamedSearchResult[],
 };
+
+export type HistoryEvent = {
+	id: string,
+	ts: string,
+	type: HistoryEventType,
+	track: EventTrack,
+	payload: HistoryPayload,
+};
+
+export type HistoryEventType = "played" | "skipped" | "favorite_set";
+
+export type HistoryPayload = ({ seconds: number | null }) & { value?: never } | ({ value: boolean }) & { seconds?: never };
 
 export type LayoutKind = "grid" | "list" | "table";
 
@@ -213,6 +236,15 @@ export type PlayerTrackChangedEvent = {
 	currentTrack: PlayerQueueItem | null,
 };
 
+export type Playlist = { type: "static"; schema_version: number; id: string; name: string; items: StaticPlaylistItem[] } | { type: "smart"; schema_version: number; id: string; name: string; query: Expr; sort: QuerySort[] };
+
+export type PlaylistCatalog = {
+	playlists: Playlist[],
+	warnings: string[],
+};
+
+export type PlaylistDraft = { type: "static"; name: string; items: StaticPlaylistItem[] } | { type: "smart"; name: string; query: Expr; sort: QuerySort[] };
+
 export type QueryField = "title" | "artist" | "albumArtist" | "album" | "genre" | "composer" | "year" | "track" | "disc" | "duration" | "codec" | "sampleRate" | "bitDepth" | "channels" | "bitrate" | "path" | "addedAt" | "lastPlayed" | "playCount" | "favorite";
 
 export type QueryItems = { kind: "tracks"; items: TrackDto[] } | { kind: "albums"; items: AlbumDto[] } | { kind: "artists"; items: ArtistDto[] } | { kind: "folders"; items: FolderDto[] } | { kind: "genres"; items: GenreDto[] };
@@ -246,6 +278,17 @@ export type QueueInsertMode = "replace" | "next" | "append";
 
 export type RepeatMode = "off" | "track" | "queue";
 
+export type ResolvedPlaylist = {
+	playlist: Playlist,
+	items: ResolvedPlaylistItem[],
+};
+
+export type ResolvedPlaylistItem = {
+	item: StaticPlaylistItem,
+	track: TrackDto | null,
+	suggested_path: string | null,
+};
+
 export type ResolvedTheme = {
 	id: string,
 	name: string,
@@ -270,6 +313,11 @@ export type SearchRequest = {
 };
 
 export type SortDirection = "asc" | "desc";
+
+export type StaticPlaylistItem = {
+	path: string,
+	hint: TrackHint,
+};
 
 export type ThemeAppearance = "light" | "dark";
 
@@ -331,6 +379,15 @@ export type TrackDto = {
 	lastPlayed: number | null,
 	playCount: number,
 	favorite: boolean,
+};
+
+export type TrackHint = {
+	title: string | null,
+	artist: string | null,
+	album: string | null,
+	duration_ms: number | null,
+	disc_no: number | null,
+	track_no: number | null,
 };
 
 export type ViewDefinition = {

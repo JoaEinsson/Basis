@@ -29,7 +29,7 @@ tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 tauri-plugin-single-instance = "2"
 tauri-specta = { version = "2.0.0-rc.25", features = ["derive", "typescript"] }
-time = { version = "0.3", features = ["formatting"] }
+time = { version = "0.3", features = ["formatting", "parsing"] }
 tempfile = "3.27"
 unicode-normalization = "0.1"
 uuid = { version = "1", features = ["v4", "v5", "serde"] }

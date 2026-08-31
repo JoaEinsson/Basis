@@ -16,6 +16,7 @@ use crate::{
     library::{scanner::scan_library, service::open_library},
     local_settings::remember_library_root,
     player::service::PlayerService,
+    portable::events::rebuild_projection,
 };
 
 #[derive(Debug, Clone, Deserialize, Serialize, Type, Event)]
@@ -51,6 +52,7 @@ pub fn library_choose_root(
         active.root.clone(),
         active.summary.library_id,
         active.summary.root_instance_hash.clone(),
+        Some(active.database.clone()),
     )?;
     state.set_active_library(active)?;
     let generation = state.begin_scan()?;
@@ -127,7 +129,8 @@ pub(crate) fn start_scan(app: AppHandle, state: AppState, generation: u64) {
                     .emit(&app);
                 }
             },
-        );
+        )
+        .and_then(|_| rebuild_projection(&active.root, &active.database).map(|_| ()));
         if let Err(error) = scan_result {
             if let Ok(Some(summary)) = state.mark_failed(generation) {
                 let progress = state

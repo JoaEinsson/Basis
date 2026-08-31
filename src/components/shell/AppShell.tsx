@@ -140,7 +140,7 @@ export function AppShell() {
         error: null,
       });
       await refreshViews();
-      navigate("/views/builtin%3Aalbums");
+      navigate("/home");
     } catch (error) {
       setLibraryError(
         error instanceof Error
@@ -183,7 +183,11 @@ export function AppShell() {
         <PlayerProvider>
           <div className="app-shell">
             <header className="app-toolbar">
-              <Link className="brand-lockup" to="/" aria-label="Basis library">
+              <Link
+                className="brand-lockup"
+                to="/home"
+                aria-label="Basis library"
+              >
                 <span className="brand-mark" aria-hidden="true">
                   B
                 </span>
@@ -207,10 +211,7 @@ export function AppShell() {
               </div>
               <nav className="primary-navigation" aria-label="Library Views">
                 {visibleViews.map((view) => (
-                  <NavLink
-                    key={view.id}
-                    to={`/views/${encodeURIComponent(view.id)}`}
-                  >
+                  <NavLink key={view.id} to={viewPath(view.id)}>
                     {view.name}
                   </NavLink>
                 ))}
@@ -224,7 +225,7 @@ export function AppShell() {
                         <NavLink
                           role="menuitem"
                           key={view.id}
-                          to={`/views/${encodeURIComponent(view.id)}`}
+                          to={viewPath(view.id)}
                         >
                           {view.name}
                         </NavLink>
@@ -291,6 +292,9 @@ export function AppShell() {
                     <Link role="menuitem" to="/settings">
                       <Settings2 aria-hidden="true" size={16} /> Settings
                     </Link>
+                    <Link role="menuitem" to="/playlists">
+                      Playlists
+                    </Link>
                   </div>
                 </details>
               </div>
@@ -328,6 +332,10 @@ function viewCountForWidth(width: number) {
   if (width >= 1200) return 6;
   if (width >= 800) return 3;
   return 0;
+}
+
+function viewPath(id: string) {
+  return id === "builtin:home" ? "/home" : `/views/${encodeURIComponent(id)}`;
 }
 
 function useCanvasRestoration(

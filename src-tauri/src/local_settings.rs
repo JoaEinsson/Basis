@@ -4,6 +4,7 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::portable::workspace::write_atomic_json;
 
@@ -15,6 +16,19 @@ const MAX_RECENT_ROOTS: usize = 10;
 struct LocalSettings {
     schema_version: u32,
     recent_roots: Vec<String>,
+    #[serde(default)]
+    device_id: Option<Uuid>,
+}
+
+pub fn device_id(app_data_dir: &Path) -> Result<Uuid, String> {
+    let mut settings = read_settings(app_data_dir)?;
+    if let Some(device_id) = settings.device_id {
+        return Ok(device_id);
+    }
+    let device_id = Uuid::new_v4();
+    settings.device_id = Some(device_id);
+    write_atomic_json(&settings_path(app_data_dir), &settings)?;
+    Ok(device_id)
 }
 
 pub fn remember_library_root(app_data_dir: &Path, root: &Path) -> Result<(), String> {
@@ -43,6 +57,7 @@ fn read_settings(app_data_dir: &Path) -> Result<LocalSettings, String> {
         return Ok(LocalSettings {
             schema_version: SETTINGS_SCHEMA_VERSION,
             recent_roots: Vec::new(),
+            device_id: None,
         });
     }
     let metadata = fs::metadata(&path)
@@ -74,7 +89,7 @@ fn settings_path(app_data_dir: &Path) -> PathBuf {
 mod tests {
     use std::fs;
 
-    use super::{recent_library_roots, remember_library_root, MAX_RECENT_ROOTS};
+    use super::{device_id, recent_library_roots, remember_library_root, MAX_RECENT_ROOTS};
 
     #[test]
     fn recent_roots_are_local_ordered_bounded_and_atomic() {
@@ -88,6 +103,8 @@ mod tests {
         assert!(roots[0].ends_with("library-11"));
         remember_library_root(&app_data, &app_data.join("library-5")).unwrap();
         assert!(recent_library_roots(&app_data).unwrap()[0].ends_with("library-5"));
+        let first_device = device_id(&app_data).unwrap();
+        assert_eq!(device_id(&app_data).unwrap(), first_device);
         fs::remove_dir_all(app_data).unwrap();
     }
 }

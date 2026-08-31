@@ -12,6 +12,25 @@ pub struct IndexDatabase {
     path: PathBuf,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HistoryProjection {
+    pub rel_path: String,
+    pub last_played: Option<i64>,
+    pub play_count: u32,
+    pub favorite: bool,
+}
+
+impl HistoryProjection {
+    pub fn new(rel_path: String) -> Self {
+        Self {
+            rel_path,
+            last_played: None,
+            play_count: 0,
+            favorite: false,
+        }
+    }
+}
+
 impl IndexDatabase {
     pub fn open(path: PathBuf) -> Result<Self, String> {
         let parent = path
@@ -72,6 +91,61 @@ impl IndexDatabase {
             .query_row("SELECT COUNT(*) FROM tracks", [], |row| row.get(0))
             .map_err(sql_error)?;
         u64::try_from(count).map_err(|_| "Local index returned an invalid track count".to_owned())
+    }
+
+    pub fn track_exists(&self, rel_path: &str) -> Result<bool, String> {
+        let connection = self.connect()?;
+        connection
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM tracks WHERE rel_path = ?1)",
+                [rel_path],
+                |row| row.get::<_, bool>(0),
+            )
+            .map_err(sql_error)
+    }
+
+    pub fn replace_history_projections(
+        &self,
+        projections: Vec<HistoryProjection>,
+    ) -> Result<(), String> {
+        let mut connection = self.connect()?;
+        let transaction = connection.transaction().map_err(sql_error)?;
+        transaction
+            .execute(
+                "UPDATE tracks SET last_played = NULL, play_count = 0, favorite = 0",
+                [],
+            )
+            .map_err(sql_error)?;
+        {
+            let mut statement = transaction
+                .prepare(
+                    "UPDATE tracks SET last_played = ?1, play_count = ?2, favorite = ?3 WHERE rel_path = ?4",
+                )
+                .map_err(sql_error)?;
+            for projection in projections {
+                statement
+                    .execute(params![
+                        projection.last_played,
+                        projection.play_count,
+                        projection.favorite,
+                        projection.rel_path,
+                    ])
+                    .map_err(sql_error)?;
+            }
+        }
+        transaction.commit().map_err(sql_error)
+    }
+
+    #[cfg(test)]
+    pub fn history_for_track(&self, rel_path: &str) -> Result<(u32, bool, Option<i64>), String> {
+        let connection = self.connect()?;
+        connection
+            .query_row(
+                "SELECT play_count, favorite, last_played FROM tracks WHERE rel_path = ?1",
+                [rel_path],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .map_err(sql_error)
     }
 
     pub fn scan_session(&self, marker: i64) -> Result<IndexScanSession, String> {

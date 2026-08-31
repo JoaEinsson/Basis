@@ -19,11 +19,12 @@ the resolution.
 
 ## Current gate
 
-`M5 — playlists, events, and Home`
+`M5 — implementation complete; manual gate pending`
 
-Next concrete action: implement portable static/smart playlist documents and
-per-device append-only history events, derive local projections, and expose
-Home/Favorites/Recently Played through the existing Query/View Engine.
+Next concrete action: run the M5 manual smoke described in the handoff: create
+and reorder static/smart playlists, favorite and play a track, restart, inspect
+portable files, then delete only the local SQLite index and confirm replay.
+Do not start M6 until this smoke is confirmed or a defect is fixed.
 
 ## Verification
 
@@ -172,6 +173,28 @@ hardware smokes separately passing; strict Clippy/rustfmt, 10 frontend tests,
 Prettier, ESLint, TypeScript, production Vite build, generated bindings, and
 `git diff --check` pass.
 
+2026-08-30 22:35 BRT — M5 automated implementation gate
+Result: PASS
+Evidence: static and smart playlists use versioned `<uuid>.json` documents,
+atomic writes, portable paths/hints, unavailable-file warnings, bounded
+materialization, D30 single-candidate relink suggestions with explicit user
+confirmation, virtualized drag/reorder, and library context actions. A stable
+local `device_id` writes only `.musiclib/events/<device_id>.jsonl`; played,
+skipped, and favorite_set validate bounded RFC 3339 UTC events. Player history
+counts wall-clock listened time rather than seek position, applies D32/D33, and
+persists in-progress accounting locally. SQLite projection replay deduplicates
+played event UUIDs, resolves favorite LWW by timestamp/event UUID, and runs on
+open and after every scan. Its integration test appends through two device
+files, deletes the SQLite database, reindexes, and recovers play count,
+last-played, and favorite. Home composes Recently Added, Recently Played, and
+Favorites from the existing built-in View definitions; Search and the command
+palette expose playlists. `cargo test --all-features` passes 38 tests with only
+the two explicit M4 hardware smokes ignored; rustfmt and strict Clippy pass.
+Thirteen frontend tests, ESLint, TypeScript, Prettier, and the production Vite
+build pass. `pnpm tauri dev` regenerated bindings and reached `basis.exe`
+without startup/runtime output. The M5 checkbox remains open only for the
+requested hands-on desktop smoke.
+
 Format for new entries:
 
 ```text
@@ -192,6 +215,7 @@ Evidence: <objective summary, relevant test/file/log>
 | 2026-08-30 | D81 assigns the definitive layout to M3a | Building GenericView/detail routes in M2 would create a provisional UI and avoidable rework | M2 remains headless data/contracts; M3a implements the final shell/search/detail/navigation structure; M3b supplies theme values |
 | 2026-08-30 | Manual Light/Dark appearance is device-local while both selected Theme IDs remain portable | D49 defines two portable slots plus system following but no portable active-manual slot; the active device appearance is rendering state, not library content | The editor persists Paper/dark selections and follow-system in `workspace.json`; when system following is off, the last manually activated appearance is retained only in the local webview profile |
 | 2026-08-30 | Voxio 0.2.3 retained behind `AudioEngine` | It compiled inside the D45 timebox and real Windows default-device tests passed all target codecs, controls, and gapless handoff | No Rodio fallback was activated; normal/future adapter-only events are filtered until assigned explicit domain semantics |
+| 2026-08-30 | The installation UUID lives in local `basis/settings.json`; portable history replay runs after open/scan and event append | D32–D37 require one stable local writer identity and a disposable SQLite projection | Each installation appends only its named JSONL file; deleting the local index cannot remove favorites or play history |
 
 ## External blockers
 

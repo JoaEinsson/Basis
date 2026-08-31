@@ -9,6 +9,7 @@ use crate::{
         built_in_views, parse_query, AlbumDetailDto, ArtistDetailDto, Expr, GlobalSearchResults,
         NamedSearchResult, QueryPage, QueryRequest, SearchRequest, ViewDefinition,
     },
+    portable::playlists::load_playlists,
     portable::views::{delete_view, duplicate_view, load_views, save_view, set_pinned_views},
 };
 
@@ -57,6 +58,17 @@ pub async fn search_global(
                     id: view.id,
                     name: view.name,
                     kind: "view".to_owned(),
+                })
+                .collect();
+            results.playlists = load_playlists(&library.root)?
+                .playlists
+                .into_iter()
+                .filter(|playlist| comparison_key(playlist.name()).contains(&normalized_input))
+                .take(limit)
+                .map(|playlist| NamedSearchResult {
+                    id: playlist.id().to_string(),
+                    name: playlist.name().to_owned(),
+                    kind: "playlist".to_owned(),
                 })
                 .collect();
         }

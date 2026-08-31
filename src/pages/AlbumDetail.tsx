@@ -4,9 +4,10 @@ import { useNavigate, useParams } from "react-router-dom";
 import { ArtworkPlaceholder } from "../components/library/ArtworkPlaceholder";
 import { formatDuration } from "../components/library/format";
 import { TrackList } from "../components/library/TrackList";
+import { PlaylistPicker } from "../components/playlists/PlaylistPicker";
 import { usePlayer } from "../components/player/PlayerContext";
-import { getAlbumDetail } from "../lib/tauri";
-import type { AlbumDetailDto } from "../lib/types";
+import { getAlbumDetail, setFavorite } from "../lib/tauri";
+import type { AlbumDetailDto, TrackDto } from "../lib/types";
 
 export function AlbumDetail() {
   const { albumKey = "" } = useParams();
@@ -15,6 +16,7 @@ export function AlbumDetail() {
   const [detail, setDetail] = useState<AlbumDetailDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [playlistTracks, setPlaylistTracks] = useState<TrackDto[] | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -122,8 +124,16 @@ export function AlbumDetail() {
           onAddToQueue={(track) =>
             void player.playCollection([track.id], track.id, "append")
           }
+          onAddToPlaylist={(track) => setPlaylistTracks([track])}
+          onFavorite={(track, value) => void setFavorite(track.id, value)}
         />
       </section>
+      {playlistTracks && (
+        <PlaylistPicker
+          tracks={playlistTracks}
+          onClose={() => setPlaylistTracks(null)}
+        />
+      )}
     </article>
   );
 

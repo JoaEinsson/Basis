@@ -5,6 +5,7 @@ use uuid::Uuid;
 
 use crate::domain::{
     metadata::{artist_key, comparison_key},
+    playlist::TrackHint,
     query::{
         built_in_views, parse_query, validate_expr, AlbumDetailDto, AlbumDto, ArtistDetailDto,
         ArtistDto, EntityKind, Expr, FolderDto, GenreDto, GlobalSearchResults, NamedSearchResult,
@@ -35,6 +36,57 @@ impl IndexDatabase {
             tracks.push(track);
         }
         Ok(tracks)
+    }
+
+    pub fn tracks_by_paths(&self, paths: &[String]) -> Result<Vec<Option<TrackDto>>, String> {
+        let connection = self.connect()?;
+        let mut statement = connection
+            .prepare(&format!("{} WHERE t.rel_path = ?1", track_select()))
+            .map_err(sql_error)?;
+        paths
+            .iter()
+            .map(|path| {
+                statement
+                    .query_row([path], map_track)
+                    .optional()
+                    .map_err(sql_error)
+            })
+            .collect()
+    }
+
+    pub fn find_relink_candidates(&self, hint: &TrackHint) -> Result<Vec<TrackDto>, String> {
+        hint.validate()?;
+        let (Some(title), Some(artist), Some(album), Some(duration_ms)) = (
+            hint.title.as_deref(),
+            hint.artist.as_deref(),
+            hint.album.as_deref(),
+            hint.duration_ms,
+        ) else {
+            return Ok(Vec::new());
+        };
+        let connection = self.connect()?;
+        let sql = format!(
+            "{} WHERE t.title_search = ?1 AND t.album_search = ?2 AND EXISTS (SELECT 1 FROM track_artists ta WHERE ta.track_id = t.id AND ta.position = 0 AND ta.normalized_artist = ?3) AND t.duration_ms BETWEEN ?4 AND ?5 AND (?6 IS NULL OR t.disc_no = ?6) AND (?7 IS NULL OR t.track_no = ?7) ORDER BY t.rel_path LIMIT 2",
+            track_select()
+        );
+        let mut statement = connection.prepare(&sql).map_err(sql_error)?;
+        let candidates = statement
+            .query_map(
+                rusqlite::params![
+                    comparison_key(title),
+                    comparison_key(album),
+                    comparison_key(artist),
+                    duration_ms - 2_000.0,
+                    duration_ms + 2_000.0,
+                    hint.disc_no,
+                    hint.track_no,
+                ],
+                map_track,
+            )
+            .map_err(sql_error)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(sql_error)?;
+        Ok(candidates)
     }
 
     pub fn execute_query(

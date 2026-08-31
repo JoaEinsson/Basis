@@ -74,12 +74,26 @@ export function CommandPalette() {
         ),
       });
     }
+    if (matches("Playlists")) {
+      result.push({
+        id: "action:playlists",
+        label: "Playlists",
+        detail: "Action",
+        run: closeAnd(() => navigate("/playlists")),
+      });
+    }
     for (const view of views.filter((view) => matches(view.name))) {
       result.push({
         id: view.id,
         label: view.name,
         detail: "View",
-        run: closeAnd(() => navigate(`/views/${encodeURIComponent(view.id)}`)),
+        run: closeAnd(() =>
+          navigate(
+            view.id === "builtin:home"
+              ? "/home"
+              : `/views/${encodeURIComponent(view.id)}`,
+          ),
+        ),
       });
     }
     for (const artist of searchResults?.artists ?? []) {
@@ -108,6 +122,14 @@ export function CommandPalette() {
             `/search?q=${encodeURIComponent(track.title ?? track.relPath)}`,
           ),
         ),
+      });
+    }
+    for (const playlist of searchResults?.playlists ?? []) {
+      result.push({
+        id: `playlist:${playlist.id}`,
+        label: playlist.name,
+        detail: "Playlist",
+        run: closeAnd(() => navigate(`/playlists/${playlist.id}`)),
       });
     }
     return result.slice(0, 16);

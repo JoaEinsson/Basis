@@ -45,6 +45,12 @@ pub fn run() {
             commands::player::player_set_volume,
             commands::player::player_set_shuffle,
             commands::player::player_set_repeat,
+            commands::playlists::playlists_list,
+            commands::playlists::playlists_create,
+            commands::playlists::playlists_update,
+            commands::playlists::playlists_delete,
+            commands::playlists::playlists_resolve,
+            commands::playlists::favorite_set,
             commands::theme::themes_list,
             commands::theme::theme_get_editable,
             commands::theme::theme_resolve,
@@ -86,7 +92,7 @@ pub fn run() {
                 .path()
                 .app_data_dir()
                 .map_err(|error| format!("Could not resolve Basis application data: {error}"))?;
-            let player = player::service::PlayerService::load(&app_data_dir);
+            let player = player::service::PlayerService::load(&app_data_dir)?;
             app.manage(Arc::clone(&player));
             if let Err(error) = library::service::restore_recent_library(app.handle()) {
                 eprintln!("Basis could not restore the recent library: {error}");
@@ -96,6 +102,7 @@ pub fn run() {
                     active.root,
                     active.summary.library_id,
                     active.summary.root_instance_hash,
+                    Some(active.database),
                 )?;
             }
             Ok(())

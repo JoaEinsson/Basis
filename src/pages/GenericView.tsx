@@ -14,11 +14,13 @@ import { displayTrackTitle } from "../components/library/format";
 import { AlbumGrid } from "../components/library/AlbumGrid";
 import { ArtistGrid } from "../components/library/ArtistGrid";
 import { TrackList } from "../components/library/TrackList";
+import { PlaylistPicker } from "../components/playlists/PlaylistPicker";
 import {
   duplicateView,
   executeLibraryQuery,
   parseLibraryQuery,
   saveView,
+  setFavorite,
 } from "../lib/tauri";
 import type {
   AlbumDto,
@@ -78,6 +80,7 @@ export function GenericView() {
   const [filterValue, setFilterValue] = useState("");
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [saveName, setSaveName] = useState<string | null>(null);
+  const [projectionRevision, setProjectionRevision] = useState(0);
   const activeQuery = entry?.query;
   const activeSort = entry?.sort;
 
@@ -120,7 +123,14 @@ export function GenericView() {
     return () => {
       active = false;
     };
-  }, [activeQuery, activeSort, library, view]);
+  }, [activeQuery, activeSort, library, projectionRevision, view]);
+
+  useEffect(() => {
+    const refresh = () => setProjectionRevision((revision) => revision + 1);
+    window.addEventListener("basis:library-projection-changed", refresh);
+    return () =>
+      window.removeEventListener("basis:library-projection-changed", refresh);
+  }, []);
 
   if (library === null) {
     return <LibraryRequired />;
@@ -602,6 +612,10 @@ function PlayableTracks({
 }) {
   const navigate = useNavigate();
   const player = usePlayer();
+  const [playlistTracks, setPlaylistTracks] = useState<TrackDto[] | null>(null);
+  const selectedTracks = tracks.filter((track) =>
+    entry.selectedIds.includes(track.id),
+  );
 
   async function playNow(startTrackId: string) {
     const started = await player.playCollection(
@@ -613,57 +627,97 @@ function PlayableTracks({
 
   if (entry.layout === "grid") {
     return (
-      <div className="track-grid">
-        {tracks.map((track) => {
-          const selected = entry.selectedIds.includes(track.id);
-          return (
+      <>
+        {selectedTracks.length > 0 && (
+          <div className="selection-actions" aria-label="Selection actions">
+            <span>{selectedTracks.length} selected</span>
             <button
-              className="track-tile"
-              data-selected={selected || undefined}
-              key={track.id}
               type="button"
-              onClick={() =>
-                onSelectionChange(
-                  selected
-                    ? entry.selectedIds.filter((id) => id !== track.id)
-                    : [...entry.selectedIds, track.id],
-                )
-              }
-              onDoubleClick={() => void playNow(track.id)}
+              onClick={() => setPlaylistTracks(selectedTracks)}
             >
-              <ArtworkPlaceholder
-                title={displayTrackTitle(track.title, track.relPath)}
-                artworkKey={track.artworkKey}
-                seed={track.relPath}
-              />
-              <span className="entity-title">
-                {displayTrackTitle(track.title, track.relPath)}
-              </span>
-              <span className="entity-subtitle">
-                {track.artist ?? "Unknown artist"}
-              </span>
+              Add to playlist
             </button>
-          );
-        })}
-      </div>
+          </div>
+        )}
+        <div className="track-grid">
+          {tracks.map((track) => {
+            const selected = entry.selectedIds.includes(track.id);
+            return (
+              <button
+                className="track-tile"
+                data-selected={selected || undefined}
+                key={track.id}
+                type="button"
+                onClick={() =>
+                  onSelectionChange(
+                    selected
+                      ? entry.selectedIds.filter((id) => id !== track.id)
+                      : [...entry.selectedIds, track.id],
+                  )
+                }
+                onDoubleClick={() => void playNow(track.id)}
+              >
+                <ArtworkPlaceholder
+                  title={displayTrackTitle(track.title, track.relPath)}
+                  artworkKey={track.artworkKey}
+                  seed={track.relPath}
+                />
+                <span className="entity-title">
+                  {displayTrackTitle(track.title, track.relPath)}
+                </span>
+                <span className="entity-subtitle">
+                  {track.artist ?? "Unknown artist"}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        {playlistTracks && (
+          <PlaylistPicker
+            tracks={playlistTracks}
+            onClose={() => setPlaylistTracks(null)}
+          />
+        )}
+      </>
     );
   }
 
   return (
-    <TrackList
-      tracks={tracks}
-      compact={entry.density === "compact" || entry.layout === "list"}
-      visibleFields={entry.visibleFields}
-      selectedIds={entry.selectedIds}
-      onSelectionChange={onSelectionChange}
-      onPlayTrack={(track) => void playNow(track.id)}
-      onPlayNext={(track) =>
-        void player.playCollection([track.id], track.id, "next")
-      }
-      onAddToQueue={(track) =>
-        void player.playCollection([track.id], track.id, "append")
-      }
-    />
+    <>
+      {selectedTracks.length > 0 && (
+        <div className="selection-actions" aria-label="Selection actions">
+          <span>{selectedTracks.length} selected</span>
+          <button
+            type="button"
+            onClick={() => setPlaylistTracks(selectedTracks)}
+          >
+            Add to playlist
+          </button>
+        </div>
+      )}
+      <TrackList
+        tracks={tracks}
+        compact={entry.density === "compact" || entry.layout === "list"}
+        visibleFields={entry.visibleFields}
+        selectedIds={entry.selectedIds}
+        onSelectionChange={onSelectionChange}
+        onPlayTrack={(track) => void playNow(track.id)}
+        onPlayNext={(track) =>
+          void player.playCollection([track.id], track.id, "next")
+        }
+        onAddToQueue={(track) =>
+          void player.playCollection([track.id], track.id, "append")
+        }
+        onAddToPlaylist={(track) => setPlaylistTracks([track])}
+        onFavorite={(track, value) => void setFavorite(track.id, value)}
+      />
+      {playlistTracks && (
+        <PlaylistPicker
+          tracks={playlistTracks}
+          onClose={() => setPlaylistTracks(null)}
+        />
+      )}
+    </>
   );
 }
 

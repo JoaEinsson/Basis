@@ -13,10 +13,14 @@ import type {
   PlayerSnapshot,
   PlayerStateEvent,
   PlayerTrackChangedEvent,
+  Playlist,
+  PlaylistCatalog,
+  PlaylistDraft,
   QueryPage,
   QueryRequest,
   QueueInsertMode,
   RepeatMode,
+  ResolvedPlaylist,
   SearchRequest,
   ThemeAppearance,
   ThemeCatalog,
@@ -27,6 +31,7 @@ import type {
   EditableTheme,
   ResolvedTheme,
   ViewDefinition,
+  HistoryEvent,
 } from "./types";
 
 export function getAppHealth(): Promise<AppHealth> {
@@ -222,6 +227,35 @@ export async function setPlaybackRepeat(
   repeat: RepeatMode,
 ): Promise<PlayerSnapshot> {
   return unwrapResult(await commands.playerSetRepeat(repeat));
+}
+
+export async function listPlaylists(): Promise<PlaylistCatalog> {
+  return unwrapResult(await commands.playlistsList());
+}
+
+export async function createPlaylist(draft: PlaylistDraft): Promise<Playlist> {
+  return unwrapResult(await commands.playlistsCreate(draft));
+}
+
+export async function updatePlaylist(playlist: Playlist): Promise<Playlist> {
+  return unwrapResult(await commands.playlistsUpdate(playlist));
+}
+
+export async function removePlaylist(id: string): Promise<void> {
+  unwrapResult(await commands.playlistsDelete(id));
+}
+
+export async function resolvePlaylist(id: string): Promise<ResolvedPlaylist> {
+  return unwrapResult(await commands.playlistsResolve(id));
+}
+
+export async function setFavorite(
+  trackId: string,
+  value: boolean,
+): Promise<HistoryEvent> {
+  const event = unwrapResult(await commands.favoriteSet(trackId, value));
+  window.dispatchEvent(new CustomEvent("basis:library-projection-changed"));
+  return event;
 }
 
 export function onPlayerState(

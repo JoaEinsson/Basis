@@ -4,10 +4,11 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AlbumGrid } from "../components/library/AlbumGrid";
 import { ArtistGrid } from "../components/library/ArtistGrid";
 import { TrackList } from "../components/library/TrackList";
+import { PlaylistPicker } from "../components/playlists/PlaylistPicker";
 import { usePlayer } from "../components/player/PlayerContext";
 import { useLibraryContext } from "../components/shell/LibraryContext";
-import { searchLibrary } from "../lib/tauri";
-import type { GlobalSearchResults } from "../lib/types";
+import { searchLibrary, setFavorite } from "../lib/tauri";
+import type { GlobalSearchResults, TrackDto } from "../lib/types";
 
 export function SearchView() {
   const navigate = useNavigate();
@@ -18,6 +19,7 @@ export function SearchView() {
   const [results, setResults] = useState<GlobalSearchResults | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [playlistTracks, setPlaylistTracks] = useState<TrackDto[] | null>(null);
 
   useEffect(() => {
     if (!query.trim() || library === null) {
@@ -125,6 +127,8 @@ export function SearchView() {
                 onAddToQueue={(track) =>
                   void player.playCollection([track.id], track.id, "append")
                 }
+                onAddToPlaylist={(track) => setPlaylistTracks([track])}
+                onFavorite={(track, value) => void setFavorite(track.id, value)}
               />
             </ResultSection>
           )}
@@ -164,7 +168,11 @@ export function SearchView() {
                   <Link
                     className="list-entity"
                     key={view.id}
-                    to={`/views/${encodeURIComponent(view.id)}`}
+                    to={
+                      view.id === "builtin:home"
+                        ? "/home"
+                        : `/views/${encodeURIComponent(view.id)}`
+                    }
                   >
                     <span className="entity-title">{view.name}</span>
                     <span className="entity-subtitle">View</span>
@@ -173,7 +181,29 @@ export function SearchView() {
               </div>
             </ResultSection>
           )}
+          {results.playlists.length > 0 && (
+            <ResultSection title="Playlists">
+              <div className="entity-list">
+                {results.playlists.map((playlist) => (
+                  <Link
+                    className="list-entity"
+                    key={playlist.id}
+                    to={`/playlists/${playlist.id}`}
+                  >
+                    <span className="entity-title">{playlist.name}</span>
+                    <span className="entity-subtitle">Playlist</span>
+                  </Link>
+                ))}
+              </div>
+            </ResultSection>
+          )}
         </div>
+      )}
+      {playlistTracks && (
+        <PlaylistPicker
+          tracks={playlistTracks}
+          onClose={() => setPlaylistTracks(null)}
+        />
       )}
     </section>
   );

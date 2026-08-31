@@ -12,7 +12,10 @@ use crate::{
     domain::track::{LibraryStatus, LibrarySummary, ScanProgress},
     index::db::IndexDatabase,
     local_settings::recent_library_roots,
-    portable::{manifest::ensure_layout, paths::resolve_inside_root, workspace::ensure_workspace},
+    portable::{
+        events::rebuild_projection, manifest::ensure_layout, paths::resolve_inside_root,
+        workspace::ensure_workspace,
+    },
 };
 use tauri::{AppHandle, Manager};
 
@@ -44,6 +47,7 @@ pub fn open_library(
         .join(&root_instance_hash)
         .join("index.sqlite3");
     let database = IndexDatabase::open_for_library(database_path, manifest.library_id)?;
+    rebuild_projection(&canonical_root, &database)?;
     let artwork_cache_dir = app_cache_dir.join("basis").join("artwork");
     let track_count = u32::try_from(database.track_count()?).unwrap_or(u32::MAX);
     let root_path = canonical_root
