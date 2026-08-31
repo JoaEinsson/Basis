@@ -1,4 +1,5 @@
 pub mod history;
+pub mod lyrics;
 pub mod metadata;
 pub mod player;
 pub mod playlist;

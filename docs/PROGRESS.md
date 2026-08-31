@@ -9,25 +9,22 @@ the resolution.
 - [x] M0 — bootstrap and command roundtrip
 - [x] M1 — library, metadata, artwork, and rebuildable index
 - [x] M2 — query/FTS/View Engine and album/artist detail
-- [ ] M3a — UX, navigation, views, and command palette
+- [x] M3a — UX, navigation, views, and command palette
 - [x] M3b — Theme Engine, built-ins, and portable editor
 - [x] M4 — playback and queue
-- [ ] M5 — playlists, events, and Home
+- [x] M5 — playlists, events, and Home
 - [ ] M6 — LRC/LRCLIB and offline reuse
 - [ ] M7 — signed updater and release path
 - [ ] M8 — watcher, security, integration, and final build
 
 ## Current gate
 
-`M3a/M5 — HTML5 drag/drop configuration fixed; final desktop gesture retest pending`
+`M6 — automated gate green; desktop LRCLIB/offline-reuse smoke pending`
 
-Next concrete action: fully restart the desktop app so Tauri recreates the
-WebView2 window, then drag a static-playlist row by its handle and verify that
-the reordered position persists. Density, distinct representations,
-Folder/Genre drill-down, track context actions, the resolved untagged WAV label,
-Favorites, static-playlist ordering across restart, Home, smart-playlist
-restart, portable-file inspection, event replay, and device identity are already
-verified. Do not start M6 until this final gesture retest passes.
+Next concrete action: manually play a metadata-rich track with no local lyric,
+open Now Playing, verify LRCLIB line synchronization and seeking, then restart
+without network access and confirm that the persisted `.lrc` is reused. Keep M6
+open until that desktop observation passes.
 
 ## Verification
 
@@ -288,6 +285,29 @@ move effect from the source index retained at `dragstart` and still reads the
 portable payload on `drop`. The focused regression test hides dragover data,
 asserts the move effect, and verifies the persisted reorder call. All five
 playlist tests, TypeScript, ESLint, Prettier, and the production build pass.
+
+2026-08-31 15:35 BRT — M3a/M5 final desktop gesture retest
+Result: PASS
+Evidence: after a full WebView2 restart, the user confirmed that dragging a
+static-playlist row by its handle reorders successfully. Together with the
+previous focused manual observations, this closes the reopened M3a gate and the
+M5 playlist/events/Home gate. Development resumes at M6.
+
+2026-08-31 16:08 BRT — M6 lyrics automated gate and desktop startup
+Result: PASS (manual LRCLIB/offline-reuse smoke still pending)
+Evidence: the Rust lyrics service resolves sidecar, conveniently embedded, and
+portable-mirror lyrics before making an explicit Now Playing LRCLIB request;
+matching normalizes title/artist, bounds duration to +/-3 seconds, uses album as
+a tie-breaker, serializes provider traffic, enforces 5/15-second timeouts and a
+1 MiB response cap, and atomically persists synchronized lyrics beside the
+track or under `.musiclib/lyrics`. Now Playing renders untrusted text, synced
+line emphasis, smooth follow with manual suspension/resume, timestamp seeking,
+plain/instrumental/missing/error states, and ambiguous-result selection through
+semantic theme tokens. `cargo test` passes 45 tests with 2 hardware tests
+ignored; strict Clippy and rustfmt pass. `pnpm test` passes 23 tests; ESLint,
+TypeScript, Prettier, and the production build pass. Two brief `pnpm run tauri
+dev` starts regenerated Specta bindings and reached `target\\debug\\basis.exe`
+without a startup panic.
 
 Format for new entries:
 

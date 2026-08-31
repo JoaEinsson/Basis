@@ -21,6 +21,8 @@ export const commands = {
 	status: LibraryStatus,
 } | null, string>(__TAURI_INVOKE("library_status")),
 	artworkThumbnail: (artworkKey: string, dimension: number) => typedError<string | null, string>(__TAURI_INVOKE("artwork_thumbnail", { artworkKey, dimension })),
+	lyricsResolve: (trackId: string, allowNetwork: boolean) => typedError<LyricsResolution, string>(__TAURI_INVOKE("lyrics_resolve", { trackId, allowNetwork })),
+	lyricsChooseCandidate: (trackId: string, candidateId: number) => typedError<LyricsResolution, string>(__TAURI_INVOKE("lyrics_choose_candidate", { trackId, candidateId })),
 	queryParse: (input: string) => typedError<Expr, string>(__TAURI_INVOKE("query_parse", { input })),
 	queryExecute: (request: QueryRequest) => typedError<QueryPage, string>(__TAURI_INVOKE("query_execute", { request })),
 	searchGlobal: (request: SearchRequest) => typedError<GlobalSearchResults, string>(__TAURI_INVOKE("search_global", { request })),
@@ -181,6 +183,36 @@ export type LibrarySummary = {
 	trackCount: number,
 	status: LibraryStatus,
 };
+
+export type LyricsCandidate = {
+	id: number,
+	trackName: string,
+	artistName: string,
+	albumName: string,
+	durationSeconds: number | null,
+	hasSyncedLyrics: boolean,
+};
+
+export type LyricsDocument = {
+	source: LyricsSource,
+	synced: boolean,
+	instrumental: boolean,
+	lines: LyricsLine[],
+	plainText: string | null,
+};
+
+export type LyricsLine = {
+	timestampMs: number,
+	text: string,
+};
+
+export type LyricsResolution = {
+	document: LyricsDocument | null,
+	candidates: LyricsCandidate[],
+	message: string | null,
+};
+
+export type LyricsSource = "sidecar" | "embedded" | "portable" | "lrclib";
 
 export type NamedSearchResult = {
 	id: string,

@@ -82,10 +82,15 @@ pub fn ensure_workspace(root: &Path) -> Result<Workspace, String> {
 }
 
 pub fn write_atomic_json<T: Serialize>(path: &Path, value: &T) -> Result<(), String> {
-    let serialized = serde_json::to_vec_pretty(value)
+    let mut serialized = serde_json::to_vec_pretty(value)
         .map_err(|error| format!("Could not serialize portable data: {error}"))?;
     let _: serde_json::Value = serde_json::from_slice(&serialized)
         .map_err(|error| format!("Portable data failed validation: {error}"))?;
+    serialized.push(b'\n');
+    write_atomic_bytes(path, &serialized)
+}
+
+pub fn write_atomic_bytes(path: &Path, contents: &[u8]) -> Result<(), String> {
     let parent = path
         .parent()
         .ok_or_else(|| format!("Portable path has no parent: {}", path.display()))?;
@@ -99,11 +104,8 @@ pub fn write_atomic_json<T: Serialize>(path: &Path, value: &T) -> Result<(), Str
         .map_err(|error| format!("Could not create temporary portable file: {error}"))?;
     let write_result = (|| -> Result<(), String> {
         temporary
-            .write_all(&serialized)
+            .write_all(contents)
             .map_err(|error| format!("Could not write temporary portable file: {error}"))?;
-        temporary
-            .write_all(b"\n")
-            .map_err(|error| format!("Could not finalize temporary portable file: {error}"))?;
         temporary
             .as_file()
             .sync_all()

@@ -32,6 +32,7 @@ import type {
   ResolvedTheme,
   ViewDefinition,
   HistoryEvent,
+  LyricsResolution,
 } from "./types";
 
 export function getAppHealth(): Promise<AppHealth> {
@@ -51,6 +52,22 @@ export async function getArtworkThumbnail(
   dimension: 64 | 128 | 256 | 512,
 ): Promise<string | null> {
   return unwrapResult(await commands.artworkThumbnail(artworkKey, dimension));
+}
+
+export async function resolveLyrics(
+  trackId: string,
+  allowNetwork = true,
+): Promise<LyricsResolution> {
+  return unwrapResult(await commands.lyricsResolve(trackId, allowNetwork));
+}
+
+export async function chooseLyricsCandidate(
+  trackId: string,
+  candidateId: number,
+): Promise<LyricsResolution> {
+  return unwrapResult(
+    await commands.lyricsChooseCandidate(trackId, candidateId),
+  );
 }
 
 export async function parseLibraryQuery(input: string): Promise<Expr> {

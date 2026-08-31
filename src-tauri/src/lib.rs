@@ -9,6 +9,7 @@ mod domain;
 mod index;
 mod library;
 mod local_settings;
+mod lyrics;
 mod player;
 mod portable;
 mod theme_engine;
@@ -25,6 +26,8 @@ pub fn run() {
             commands::library::library_choose_root,
             commands::library::library_status,
             commands::library::artwork_thumbnail,
+            commands::lyrics::lyrics_resolve,
+            commands::lyrics::lyrics_choose_candidate,
             commands::query::query_parse,
             commands::query::query_execute,
             commands::query::search_global,
@@ -94,6 +97,7 @@ pub fn run() {
                 .map_err(|error| format!("Could not resolve Basis application data: {error}"))?;
             let player = player::service::PlayerService::load(&app_data_dir)?;
             app.manage(Arc::clone(&player));
+            app.manage(Arc::new(lyrics::LyricsService::new()?));
             if let Err(error) = library::service::restore_recent_library(app.handle()) {
                 eprintln!("Basis could not restore the recent library: {error}");
             }
