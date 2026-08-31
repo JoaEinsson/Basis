@@ -14,6 +14,7 @@ export type {
   LyricsCandidate,
   LyricsDocument,
   LyricsLine,
+  LyricsMatchConfidence,
   LyricsResolution,
   LyricsSource,
   LayoutKind,

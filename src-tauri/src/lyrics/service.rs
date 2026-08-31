@@ -10,18 +10,22 @@ use std::{
 use lofty::{file::TaggedFileExt, tag::ItemKey};
 use reqwest::{blocking::Client, StatusCode};
 use serde::de::DeserializeOwned;
-use serde::Deserialize;
 
 use crate::{
     domain::{
         lyrics::{LyricsCandidate, LyricsDocument, LyricsResolution, LyricsSource},
-        metadata::comparison_key,
         query::TrackDto,
     },
     portable::{paths::resolve_inside_root, workspace::write_atomic_bytes},
 };
 
-use super::lrc::parse_lrc;
+use super::{
+    lrc::parse_lrc,
+    matcher::{
+        evaluate_candidate, has_plain_lyrics, has_synced_lyrics, select_remote_match,
+        EvaluatedCandidate, LrclibTrack, RemoteMatch,
+    },
+};
 
 const LRCLIB_BASE_URL: &str = "https://lrclib.net";
 const MAX_LYRICS_BYTES: usize = 1024 * 1024;
@@ -89,7 +93,7 @@ impl LyricsService {
                 "That LRCLIB result is no longer available.",
             ));
         };
-        if !matches_track(track, &result) {
+        if evaluate_candidate(track, result.clone()).is_none() {
             return Err("The selected lyric no longer matches this track".to_owned());
         }
         self.finish_remote(root, &audio_path, track, result)
@@ -133,39 +137,58 @@ impl LyricsService {
         }
 
         let get_endpoint = format!("{}/api/get", self.base_url);
-        if let Some(result) = self.request_json::<LrclibTrack>(&get_endpoint, &query)? {
-            if matches_track(track, &result) {
-                return self.finish_remote(root, audio_path, track, result);
-            }
-        }
+        let primary = self.request_json::<LrclibTrack>(&get_endpoint, &query)?;
 
         let search_endpoint = format!("{}/api/search", self.base_url);
         let search_query = vec![
             ("track_name", title.to_owned()),
             ("artist_name", artist.to_owned()),
         ];
-        let results = self
-            .request_json::<Vec<LrclibTrack>>(&search_endpoint, &search_query)?
-            .unwrap_or_default();
-        let mut matching = results
-            .into_iter()
-            .filter(|candidate| matches_track(track, candidate))
-            .collect::<Vec<_>>();
-        prefer_album_match(track, &mut matching);
-        if matching.len() == 1 {
-            return self.finish_remote(root, audio_path, track, matching.remove(0));
-        }
-        if matching.is_empty() {
-            return Ok(LyricsResolution::unavailable(
+        let results = match self.request_json::<Vec<LrclibTrack>>(&search_endpoint, &search_query) {
+            Ok(results) => results.unwrap_or_default(),
+            Err(error) => {
+                if let Some(fallback) = primary.as_ref().filter(|item| {
+                    (has_plain_lyrics(item) || item.instrumental)
+                        && evaluate_candidate(track, (*item).clone()).is_some()
+                }) {
+                    let mut resolution =
+                        self.finish_remote(root, audio_path, track, fallback.clone())?;
+                    resolution.message = Some(format!(
+                        "The broader LRCLIB search failed, so the exact provider fallback is shown: {error}"
+                    ));
+                    return Ok(resolution);
+                }
+                return Err(error);
+            }
+        };
+        match select_remote_match(track, primary, results) {
+            RemoteMatch::Selected(candidate) => {
+                self.finish_remote(root, audio_path, track, candidate.record)
+            }
+            RemoteMatch::Candidates(matching) => Ok(LyricsResolution {
+                document: None,
+                candidates: matching.into_iter().map(candidate_from).collect(),
+                message: Some(
+                    "More than one LRCLIB result is plausible. Review the match evidence."
+                        .to_owned(),
+                ),
+            }),
+            RemoteMatch::Fallback {
+                fallback,
+                alternatives,
+            } => {
+                let mut resolution = self.finish_remote(root, audio_path, track, fallback)?;
+                resolution.candidates = alternatives.into_iter().map(candidate_from).collect();
+                resolution.message = Some(
+                    "Plain lyrics are shown. Synchronized alternatives need confirmation."
+                        .to_owned(),
+                );
+                Ok(resolution)
+            }
+            RemoteMatch::Unavailable => Ok(LyricsResolution::unavailable(
                 "No matching lyrics were found on LRCLIB.",
-            ));
+            )),
         }
-        matching.sort_by_key(|candidate| candidate.synced_lyrics.is_none());
-        Ok(LyricsResolution {
-            document: None,
-            candidates: matching.into_iter().map(candidate_from).collect(),
-            message: Some("Choose the matching LRCLIB result.".to_owned()),
-        })
     }
 
     fn finish_remote(
@@ -326,9 +349,10 @@ fn document_from_result(result: &LrclibTrack) -> Result<Option<LyricsDocument>, 
         .as_deref()
         .filter(|value| !value.trim().is_empty())
     {
-        let document = document_from_text(LyricsSource::Lrclib, synced, false)?;
-        if document.synced {
-            return Ok(Some(document));
+        if let Ok(document) = document_from_text(LyricsSource::Lrclib, synced, false) {
+            if document.synced {
+                return Ok(Some(document));
+            }
         }
     }
     Ok(result
@@ -398,78 +422,26 @@ fn portable_lyrics_path(root: &Path, rel_path: &str) -> Result<PathBuf, String> 
     Ok(path)
 }
 
-fn matches_track(track: &TrackDto, candidate: &LrclibTrack) -> bool {
-    let title_matches = track
-        .title
-        .as_deref()
-        .is_some_and(|title| comparison_key(title) == comparison_key(&candidate.track_name));
-    let artist_matches = track
-        .artist
-        .as_deref()
-        .is_some_and(|artist| comparison_key(artist) == comparison_key(&candidate.artist_name));
-    let duration_matches = match (track.duration_ms, candidate.duration) {
-        (Some(local), remote) if local.is_finite() && remote.is_finite() => {
-            (local - remote * 1000.0).abs() <= 3_000.0
-        }
-        _ => true,
-    };
-    title_matches && artist_matches && duration_matches
-}
-
-fn prefer_album_match(track: &TrackDto, candidates: &mut Vec<LrclibTrack>) {
-    let Some(album) = track
-        .album
-        .as_deref()
-        .filter(|value| !value.trim().is_empty())
-    else {
-        return;
-    };
-    let album_key = comparison_key(album);
-    let matching = candidates
-        .iter()
-        .filter(|candidate| comparison_key(&candidate.album_name) == album_key)
-        .cloned()
-        .collect::<Vec<_>>();
-    if !matching.is_empty() {
-        *candidates = matching;
-    }
-}
-
-fn candidate_from(candidate: LrclibTrack) -> LyricsCandidate {
+fn candidate_from(candidate: EvaluatedCandidate) -> LyricsCandidate {
+    let has_synced_lyrics = has_synced_lyrics(&candidate.record);
     LyricsCandidate {
-        id: candidate.id,
-        track_name: candidate.track_name,
-        artist_name: candidate.artist_name,
-        album_name: candidate.album_name,
-        duration_seconds: candidate.duration,
-        has_synced_lyrics: candidate
-            .synced_lyrics
-            .as_deref()
-            .is_some_and(|value| !value.trim().is_empty()),
+        id: candidate.record.id,
+        track_name: candidate.record.track_name,
+        artist_name: candidate.record.artist_name,
+        album_name: candidate.record.album_name,
+        duration_seconds: candidate.record.duration,
+        has_synced_lyrics,
+        confidence: candidate.confidence,
+        duration_delta_ms: candidate.duration_delta_ms,
+        reasons: candidate.reasons,
     }
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct LrclibTrack {
-    id: u32,
-    track_name: String,
-    artist_name: String,
-    album_name: String,
-    duration: f64,
-    #[serde(default)]
-    instrumental: bool,
-    plain_lyrics: Option<String>,
-    synced_lyrics: Option<String>,
 }
 
 #[cfg(test)]
 mod tests {
     use std::fs;
 
-    use super::{
-        document_from_result, matches_track, portable_lyrics_path, LrclibTrack, LyricsService,
-    };
+    use super::{document_from_result, portable_lyrics_path, LrclibTrack, LyricsService};
     use crate::domain::{lyrics::LyricsSource, query::TrackDto};
     use uuid::Uuid;
 
@@ -513,14 +485,6 @@ mod tests {
             plain_lyrics: Some("Plain".to_owned()),
             synced_lyrics: Some("[00:01.00]Synced".to_owned()),
         }
-    }
-
-    #[test]
-    fn matching_normalizes_metadata_and_enforces_three_second_duration() {
-        assert!(matches_track(&track(), &result()));
-        let mut far = result();
-        far.duration = 123.1;
-        assert!(!matches_track(&track(), &far));
     }
 
     #[test]

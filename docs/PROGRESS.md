@@ -19,12 +19,14 @@ the resolution.
 
 ## Current gate
 
-`M6 — automated gate green; desktop LRCLIB/offline-reuse smoke pending`
+`M6 — robust LRCLIB resolver green; focused desktop retest pending`
 
-Next concrete action: manually play a metadata-rich track with no local lyric,
-open Now Playing, verify LRCLIB line synchronization and seeking, then restart
-without network access and confirm that the persisted `.lrc` is reused. Keep M6
-open until that desktop observation passes.
+Next concrete action: retest a track for which `/api/get` previously selected
+plain lyrics despite a safe synced search result. Confirm that the synchronized
+recording is selected when identity is unambiguous, that uncertain alternatives
+are explained without hiding the plain fallback, and that wide-layout
+auto-follow scrolls only the lyrics column. Keep M6 open until those focused
+desktop observations pass.
 
 ## Verification
 
@@ -309,6 +311,38 @@ TypeScript, Prettier, and the production build pass. Two brief `pnpm run tauri
 dev` starts regenerated Specta bindings and reached `target\\debug\\basis.exe`
 without a startup panic.
 
+2026-08-31 16:35 BRT — M6 safe synced promotion and independent lyric scroll
+Result: PASS (focused desktop retest pending)
+Evidence: a valid plain `/api/get` result is now retained as a fallback while
+Basis performs `/api/search` for a safe synchronized alternative. Exact
+normalized title/artist and the locked +/-3-second duration remain hard gates;
+album remains the tie-breaker, incompatible acoustic/remix titles are rejected,
+and equally safe synced results require user selection with the plain fallback
+still offered. On wide layouts, Now Playing has a definite canvas height and
+programmatic follow scrolls only the lyrics element instead of every scrollable
+ancestor; the responsive stacked layout retains page scrolling. Three new Rust
+regressions cover synced promotion, incompatible-version fallback, and
+ambiguous selection. `cargo test` passes 48 tests with 2 hardware tests ignored;
+strict Clippy/rustfmt, all 23 frontend tests, ESLint, TypeScript, Prettier, and
+the production build pass.
+
+2026-08-31 17:48 BRT — M6 explainable LRCLIB matching hardening
+Result: PASS (focused desktop retest pending)
+Evidence: LRCLIB retrieval, candidate evaluation, and the final selection
+decision are now separate. Production matching uses generic semantic
+normalization for Unicode, punctuation, `and`/`&`, leading track numbers, and
+release qualifiers; distinguishes recording variants such as live, acoustic,
+remix, demo, redux, and bare from release editions; preserves D56's +/-3-second
+limit for automatic selection while exposing bounded review-only alternatives;
+and validates synchronized LRC structure and timing coverage before automatic
+use. Plain lyrics remain visible when a synchronized alternative needs user
+confirmation, and the picker explains confidence, album identity, duration,
+and timing evidence. No track, artist, album, or provider ID is special-cased in
+production; one real failure shape is retained only as a regression fixture.
+`cargo test --lib` passes 50 tests with 2 hardware tests ignored, including six
+matcher regressions; strict Clippy and rustfmt pass. All 24 frontend tests,
+ESLint, TypeScript, Prettier, and the production build pass.
+
 Format for new entries:
 
 ```text
@@ -330,6 +364,7 @@ Evidence: <objective summary, relevant test/file/log>
 | 2026-08-30 | Manual Light/Dark appearance is device-local while both selected Theme IDs remain portable | D49 defines two portable slots plus system following but no portable active-manual slot; the active device appearance is rendering state, not library content | The editor persists Paper/dark selections and follow-system in `workspace.json`; when system following is off, the last manually activated appearance is retained only in the local webview profile |
 | 2026-08-30 | Voxio 0.2.3 retained behind `AudioEngine` | It compiled inside the D45 timebox and real Windows default-device tests passed all target codecs, controls, and gapless handoff | No Rodio fallback was activated; normal/future adapter-only events are filtered until assigned explicit domain semantics |
 | 2026-08-30 | The installation UUID is claimed atomically in local `basis/device.json` and mirrored in `basis/settings.json`; portable history replay runs after open/scan and event append | D32–D37 require one stable local writer identity and a disposable SQLite projection; the first manual smoke exposed concurrent development startups choosing different IDs without a no-clobber claim | Concurrent startups converge on one writer identity; each installation appends only its named JSONL file, and deleting the local index cannot remove favorites or play history |
+| 2026-08-31 | LRCLIB matching separates retrieval, semantic evaluation, and selection, with `high` and `review` outcomes | Literal album equality discarded synchronized results for semantically equivalent metadata, while blindly relaxing matching could select a remix/live/acoustic recording | D56 remains the automatic boundary; recording variants are rejected, release variants are ranked, uncertain synchronized results require confirmation, and plain lyrics remain the safe fallback |
 
 ## External blockers
 

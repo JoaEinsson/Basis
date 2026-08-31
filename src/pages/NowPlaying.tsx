@@ -5,7 +5,7 @@ import { ArtworkPlaceholder } from "../components/library/ArtworkPlaceholder";
 import { displayTrackTitle } from "../components/library/format";
 import { usePlayer } from "../components/player/PlayerContext";
 import { chooseLyricsCandidate, resolveLyrics } from "../lib/tauri";
-import type { LyricsResolution } from "../lib/types";
+import type { LyricsCandidate, LyricsResolution } from "../lib/types";
 
 export function NowPlaying() {
   const navigate = useNavigate();
@@ -18,6 +18,7 @@ export function NowPlaying() {
   const [requestVersion, setRequestVersion] = useState(0);
   const [following, setFollowing] = useState(true);
   const lineRefs = useRef(new Map<number, HTMLButtonElement>());
+  const lyricsScrollRef = useRef<HTMLDivElement>(null);
   const programmaticScroll = useRef(false);
   const scrollTimer = useRef<number | null>(null);
 
@@ -62,16 +63,29 @@ export function NowPlaying() {
   useEffect(() => {
     if (!following || activeLine < 0) return;
     const line = lineRefs.current.get(activeLine);
-    if (!line || typeof line.scrollIntoView !== "function") return;
+    if (!line) return;
     programmaticScroll.current = true;
-    line.scrollIntoView({
-      block: "center",
-      behavior:
-        typeof window.matchMedia === "function" &&
-        window.matchMedia("(prefers-reduced-motion: reduce)").matches
-          ? "auto"
-          : "smooth",
-    });
+    const behavior =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth";
+    const narrow =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(max-width: 1199px)").matches;
+    if (narrow && typeof line.scrollIntoView === "function") {
+      line.scrollIntoView({ block: "center", behavior });
+    } else {
+      const scroller = lyricsScrollRef.current;
+      if (scroller && typeof scroller.scrollTo === "function") {
+        scroller.scrollTo({
+          top:
+            line.offsetTop -
+            Math.max(0, (scroller.clientHeight - line.offsetHeight) / 2),
+          behavior,
+        });
+      }
+    }
     if (scrollTimer.current !== null) window.clearTimeout(scrollTimer.current);
     scrollTimer.current = window.setTimeout(() => {
       programmaticScroll.current = false;
@@ -133,6 +147,7 @@ export function NowPlaying() {
           </div>
           <div
             className="lyrics-scroll"
+            ref={lyricsScrollRef}
             onScroll={() => {
               if (!programmaticScroll.current) setFollowing(false);
             }}
@@ -172,36 +187,42 @@ export function NowPlaying() {
                 ))}
               </div>
             ) : resolution?.document?.plainText ? (
-              <pre className="plain-lyrics">
-                {resolution.document.plainText}
-              </pre>
-            ) : resolution?.candidates.length ? (
-              <div className="lyrics-candidates">
-                <p>{resolution.message}</p>
-                {resolution.candidates.map((candidate) => (
-                  <button
-                    type="button"
-                    key={candidate.id}
-                    onClick={() => {
-                      if (!track) return;
+              <div className="plain-lyrics-stack">
+                <pre className="plain-lyrics">
+                  {resolution.document.plainText}
+                </pre>
+                {!!resolution.candidates.length && (
+                  <LyricsCandidates
+                    candidates={resolution.candidates}
+                    message={resolution.message}
+                    onChoose={(candidateId) => {
                       setLoadingLyrics(true);
                       setLyricsError(null);
-                      void chooseLyricsCandidate(track.id, candidate.id)
+                      void chooseLyricsCandidate(track.id, candidateId)
                         .then(setResolution)
                         .catch((cause: unknown) =>
                           setLyricsError(messageFrom(cause)),
                         )
                         .finally(() => setLoadingLyrics(false));
                     }}
-                  >
-                    <strong>{candidate.trackName}</strong>
-                    <span>
-                      {candidate.artistName} · {candidate.albumName}
-                      {candidate.hasSyncedLyrics ? " · Synced" : ""}
-                    </span>
-                  </button>
-                ))}
+                  />
+                )}
               </div>
+            ) : resolution?.candidates.length ? (
+              <LyricsCandidates
+                candidates={resolution.candidates}
+                message={resolution.message}
+                onChoose={(candidateId) => {
+                  setLoadingLyrics(true);
+                  setLyricsError(null);
+                  void chooseLyricsCandidate(track.id, candidateId)
+                    .then(setResolution)
+                    .catch((cause: unknown) =>
+                      setLyricsError(messageFrom(cause)),
+                    )
+                    .finally(() => setLoadingLyrics(false));
+                }}
+              />
             ) : (
               <LyricsQuietState
                 message={resolution?.message ?? "Lyrics unavailable"}
@@ -209,14 +230,55 @@ export function NowPlaying() {
               />
             )}
           </div>
-          {resolution?.document && resolution.message && (
-            <p className="lyrics-notice" role="status">
-              {resolution.message}
-            </p>
-          )}
+          {resolution?.document &&
+            resolution.message &&
+            !resolution.candidates.length && (
+              <p className="lyrics-notice" role="status">
+                {resolution.message}
+              </p>
+            )}
         </section>
       </div>
     </article>
+  );
+}
+
+function LyricsCandidates({
+  candidates,
+  message,
+  onChoose,
+}: {
+  candidates: LyricsCandidate[];
+  message: string | null;
+  onChoose: (candidateId: number) => void;
+}) {
+  return (
+    <div className="lyrics-candidates">
+      {message && <p>{message}</p>}
+      {candidates.map((candidate) => (
+        <button
+          type="button"
+          key={candidate.id}
+          onClick={() => onChoose(candidate.id)}
+        >
+          <span className="lyrics-candidate-heading">
+            <strong>{candidate.trackName}</strong>
+            <span data-confidence={candidate.confidence}>
+              {candidate.confidence === "high"
+                ? "High confidence"
+                : "Review match"}
+            </span>
+          </span>
+          <span>
+            {candidate.artistName} · {candidate.albumName}
+            {candidate.hasSyncedLyrics ? " · Synced" : " · Plain"}
+          </span>
+          <span className="lyrics-candidate-reasons">
+            {candidate.reasons.join(" · ")}
+          </span>
+        </button>
+      ))}
+    </div>
   );
 }
 

@@ -191,6 +191,9 @@ export type LyricsCandidate = {
 	albumName: string,
 	durationSeconds: number | null,
 	hasSyncedLyrics: boolean,
+	confidence: LyricsMatchConfidence,
+	durationDeltaMs: number | null,
+	reasons: string[],
 };
 
 export type LyricsDocument = {
@@ -205,6 +208,8 @@ export type LyricsLine = {
 	timestampMs: number,
 	text: string,
 };
+
+export type LyricsMatchConfidence = "high" | "review";
 
 export type LyricsResolution = {
 	document: LyricsDocument | null,

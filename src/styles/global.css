@@ -1351,7 +1351,10 @@ button.list-entity {
 
 .now-playing-view {
   display: grid;
+  height: 100%;
+  min-height: 0;
   grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
 }
 
 .now-playing-layout {
@@ -1471,6 +1474,11 @@ button.list-entity {
   white-space: pre-wrap;
 }
 
+.plain-lyrics-stack {
+  display: grid;
+  gap: var(--mv-space-6);
+}
+
 .lyrics-candidates {
   display: grid;
   gap: var(--mv-space-3);
@@ -1494,6 +1502,27 @@ button.list-entity {
 .lyrics-candidates span {
   color: var(--mv-color-text-secondary);
   font-size: var(--mv-font-size-sm);
+}
+
+.lyrics-candidate-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--mv-space-2);
+}
+
+.lyrics-candidate-heading > span {
+  padding: var(--mv-space-1) var(--mv-space-2);
+  border: var(--mv-border-width) solid var(--mv-color-border);
+  border-radius: var(--mv-shape-radius-control);
+}
+
+.lyrics-candidate-heading > span[data-confidence="high"] {
+  color: var(--mv-color-accent);
+  border-color: var(--mv-color-accent);
+}
+
+.lyrics-candidates .lyrics-candidate-reasons {
+  color: var(--mv-color-text-muted);
 }
 
 .lyrics-notice {
@@ -2030,6 +2059,17 @@ button.list-entity {
 
   .now-playing-layout {
     grid-template-columns: 1fr;
+  }
+
+  .now-playing-view {
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+  }
+
+  .lyrics-pane,
+  .lyrics-scroll {
+    overflow: visible;
   }
 
   .now-playing-track {

@@ -36,6 +36,16 @@ pub struct LyricsCandidate {
     pub album_name: String,
     pub duration_seconds: f64,
     pub has_synced_lyrics: bool,
+    pub confidence: LyricsMatchConfidence,
+    pub duration_delta_ms: Option<u32>,
+    pub reasons: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, Type, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(rename_all = "camelCase")]
+pub enum LyricsMatchConfidence {
+    High,
+    Review,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Type, PartialEq)]

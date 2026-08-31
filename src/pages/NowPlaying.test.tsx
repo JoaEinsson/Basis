@@ -69,6 +69,65 @@ describe("Now Playing lyrics", () => {
     expect(await screen.findByText("First line")).toBeInTheDocument();
     expect(mocks.resolveLyrics).toHaveBeenCalledTimes(2);
   });
+
+  it("keeps plain lyrics visible while explaining review-only synchronized matches", async () => {
+    mocks.resolveLyrics.mockResolvedValueOnce({
+      document: {
+        source: "lrclib",
+        synced: false,
+        instrumental: false,
+        lines: [],
+        plainText: "Plain fallback",
+      },
+      candidates: [
+        {
+          id: 42,
+          trackName: "Track",
+          artistName: "Artist",
+          albumName: "Album (Deluxe Edition)",
+          durationSeconds: 126,
+          hasSyncedLyrics: true,
+          confidence: "review",
+          durationDeltaMs: 6_000,
+          reasons: [
+            "Album base matches; release edition differs",
+            "Automatic duration tolerance was exceeded",
+          ],
+        },
+      ],
+      message:
+        "Plain lyrics are shown. Synchronized alternatives need confirmation.",
+    });
+    mocks.chooseLyricsCandidate.mockResolvedValueOnce({
+      document: {
+        source: "lrclib",
+        synced: true,
+        instrumental: false,
+        lines: [{ timestampMs: 1_000, text: "Chosen line" }],
+        plainText: null,
+      },
+      candidates: [],
+      message: null,
+    });
+    renderNowPlaying();
+
+    expect(await screen.findByText("Plain fallback")).toBeInTheDocument();
+    expect(screen.getByText("Review match")).toBeInTheDocument();
+    expect(
+      screen.getByText(/automatic duration tolerance was exceeded/i),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: /track.*review match/i }),
+    );
+
+    await waitFor(() =>
+      expect(mocks.chooseLyricsCandidate).toHaveBeenCalledWith(
+        "00000000-0000-0000-0000-000000000001",
+        42,
+      ),
+    );
+    expect(await screen.findByText("Chosen line")).toBeInTheDocument();
+  });
 });
 
 function renderNowPlaying() {
