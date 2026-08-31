@@ -19,14 +19,15 @@ the resolution.
 
 ## Current gate
 
-`M3a/M5 — stabilization fixes implemented; focused desktop retest pending`
+`M3a/M5 — HTML5 drag/drop configuration fixed; final desktop gesture retest pending`
 
-Next concrete action: in the desktop app, compare Compact/Comfortable/Spacious,
-activate Albums Grid/List/Table, open one Folder and one Genre, right-click a
-track in Grid and Table, and drag a static-playlist row by its handle. The
-resolved untagged WAV label, Favorites, static-playlist ordering across restart,
-Home, smart-playlist restart, portable-file inspection, event replay, and device
-identity are already verified. Do not start M6 until this focused retest passes.
+Next concrete action: fully restart the desktop app so Tauri recreates the
+WebView2 window, then drag a static-playlist row by its handle and verify that
+the reordered position persists. Density, distinct representations,
+Folder/Genre drill-down, track context actions, the resolved untagged WAV label,
+Favorites, static-playlist ordering across restart, Home, smart-playlist
+restart, portable-file inspection, event replay, and device identity are already
+verified. Do not start M6 until this final gesture retest passes.
 
 ## Verification
 
@@ -261,6 +262,32 @@ regular Rust tests plus two ignored hardware tests, strict Clippy/rustfmt, 21
 frontend tests, ESLint, TypeScript, Prettier, production build, regenerated
 bindings, and a clean `basis.exe` startup. M3a is temporarily reopened and M5
 remains open only for the listed desktop observations.
+
+2026-08-31 15:15 BRT — M3a/M5 native Windows drag/drop diagnosis
+Result: FIXED; FINAL DESKTOP GESTURE RECHECK PENDING
+Evidence: the user confirmed the remaining density, representation,
+Folder/Genre, and track-action behavior. Album and Artist entities do not expose
+an entity context menu; track rows inside their details use the verified shared
+track menu. The remaining drag failure was outside React: Tauri's default
+WebView2 drag/drop handler replaces frontend HTML5 drag/drop on Windows. The
+main window now sets `dragDropEnabled: false`, preserving the playlist's
+existing HTML5 `DataTransfer` path and keyboard Move controls. JSON parsing
+confirms the resolved setting is false, `cargo check --all-features` passes, the
+five focused playlist tests pass, and `git diff --check` reports no errors. A
+full desktop restart and one real handle gesture remain required because jsdom
+cannot exercise WebView2 drag initiation.
+
+2026-08-31 15:29 BRT — M5 protected DataTransfer drop correction
+Result: FIXED; FINAL DESKTOP GESTURE RECHECK PENDING
+Evidence: after `dragDropEnabled: false` restored native drag initiation, the
+user observed the drag image but no reorder. During `dragover`, Chromium keeps
+the `DataTransfer` payload in protected mode, so `getData` returned empty; the
+target incorrectly selected `dropEffect = copy` while the source allowed only
+`move`, causing WebView2 to reject the drop. Internal reorder now selects the
+move effect from the source index retained at `dragstart` and still reads the
+portable payload on `drop`. The focused regression test hides dragover data,
+asserts the move effect, and verifies the persisted reorder call. All five
+playlist tests, TypeScript, ESLint, Prettier, and the production build pass.
 
 Format for new entries:
 

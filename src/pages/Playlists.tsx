@@ -508,10 +508,11 @@ export function StaticPlaylistEditor({
                 key={`${resolvedItem.item.path}:${row.index}`}
                 onDragOver={(event) => {
                   event.preventDefault();
+                  const sourceIndex =
+                    dragIndexRef.current ??
+                    readPlaylistDragIndex(event.dataTransfer);
                   event.dataTransfer.dropEffect =
-                    readPlaylistDragIndex(event.dataTransfer) === null
-                      ? "copy"
-                      : "move";
+                    sourceIndex === null ? "copy" : "move";
                 }}
                 onDrop={(event) => {
                   event.preventDefault();

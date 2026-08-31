@@ -127,7 +127,7 @@ describe("Playlists", () => {
     });
   });
 
-  it("reorders from the drag payload emitted by the explicit handle", () => {
+  it("accepts a protected dragover payload and reorders on drop", () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     const resolved = staticPlaylist([
       track("First/one.flac"),
@@ -146,7 +146,12 @@ describe("Playlists", () => {
     fireEvent.dragStart(handles[0], { dataTransfer: transfer });
     const targetRow = handles[1].closest(".playlist-track-row");
     expect(targetRow).not.toBeNull();
-    fireEvent.dragOver(targetRow!, { dataTransfer: transfer });
+    const protectedTransfer = {
+      ...transfer,
+      getData: () => "",
+    } as DataTransfer;
+    fireEvent.dragOver(targetRow!, { dataTransfer: protectedTransfer });
+    expect(protectedTransfer.dropEffect).toBe("move");
     fireEvent.drop(targetRow!, { dataTransfer: transfer });
 
     expect(onSave).toHaveBeenCalledWith(
