@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
@@ -50,12 +51,23 @@ type PlayerContextValue = {
 
 const PlayerContext = createContext<PlayerContextValue | null>(null);
 
-export function PlayerProvider({ children }: { children: React.ReactNode }) {
-  const [snapshot, setSnapshot] = useState<PlayerSnapshot | null>(null);
+export function PlayerProvider({
+  children,
+  connect = true,
+  initialSnapshot = null,
+}: {
+  children: React.ReactNode;
+  connect?: boolean;
+  initialSnapshot?: PlayerSnapshot | null;
+}) {
+  const [snapshot, setSnapshot] = useState<PlayerSnapshot | null>(
+    initialSnapshot,
+  );
   const [error, setError] = useState<string | null>(null);
   const [queueOpen, setQueueOpen] = useState(false);
 
   useEffect(() => {
+    if (!connect) return;
     let active = true;
     const unlisteners: Array<() => void> = [];
 
@@ -70,10 +82,24 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     subscribe(
       onPlayerState((event) => {
         if (!active) return;
-        setSnapshot(event.snapshot);
-        setError(event.snapshot.error);
+        setSnapshot((current) =>
+          current
+            ? {
+                ...current,
+                status: event.status,
+                positionMs: event.positionMs,
+                durationMs: event.durationMs,
+                volume: event.volume,
+                shuffle: event.shuffle,
+                repeat: event.repeat,
+                error: event.error,
+                outputDevice: event.outputDevice,
+              }
+            : current,
+        );
+        setError(event.error);
       }),
-      active,
+      () => active,
       unlisteners,
     );
     subscribe(
@@ -83,7 +109,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
           current ? { ...current, currentTrack: event.currentTrack } : current,
         );
       }),
-      active,
+      () => active,
       unlisteners,
     );
     subscribe(
@@ -100,14 +126,14 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
             : current,
         );
       }),
-      active,
+      () => active,
       unlisteners,
     );
     subscribe(
       onPlayerError((event) => {
         if (active) setError(event.message);
       }),
-      active,
+      () => active,
       unlisteners,
     );
 
@@ -115,19 +141,22 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       active = false;
       for (const unlisten of unlisteners) unlisten();
     };
-  }, []);
+  }, [connect]);
 
-  const perform = useCallback(async (request: () => Promise<PlayerSnapshot>) => {
-    try {
-      const next = await request();
-      setSnapshot(next);
-      setError(next.error);
-      return true;
-    } catch (cause) {
-      setError(messageFrom(cause));
-      return false;
-    }
-  }, []);
+  const perform = useCallback(
+    async (request: () => Promise<PlayerSnapshot>) => {
+      try {
+        const next = await request();
+        setSnapshot(next);
+        setError(next.error);
+        return true;
+      } catch (cause) {
+        setError(messageFrom(cause));
+        return false;
+      }
+    },
+    [],
+  );
 
   const value = useMemo<PlayerContextValue>(
     () => ({
@@ -178,14 +207,48 @@ export function usePlayer() {
   return context;
 }
 
+export function PlayerKeyboardShortcuts() {
+  const player = usePlayer();
+  const playerRef = useRef(player);
+  playerRef.current = player;
+
+  useEffect(() => {
+    function handleKey(event: KeyboardEvent) {
+      const current = playerRef.current;
+      if (
+        !current.snapshot?.currentTrack ||
+        preservesPlaybackKey(event.target)
+      ) {
+        return;
+      }
+      if (event.code === "Space" || event.key === "MediaPlayPause") {
+        event.preventDefault();
+        void (current.snapshot.status === "playing"
+          ? current.pause()
+          : current.resume());
+      } else if (event.key === "MediaTrackNext") {
+        event.preventDefault();
+        void current.next();
+      } else if (event.key === "MediaTrackPrevious") {
+        event.preventDefault();
+        void current.previous();
+      }
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
+
+  return null;
+}
+
 function subscribe(
   pending: Promise<() => void>,
-  active: boolean,
+  isActive: () => boolean,
   unlisteners: Array<() => void>,
 ) {
   void pending
     .then((unlisten) => {
-      if (active) unlisteners.push(unlisten);
+      if (isActive()) unlisteners.push(unlisten);
       else unlisten();
     })
     .catch(() => undefined);
@@ -193,4 +256,15 @@ function subscribe(
 
 function messageFrom(cause: unknown) {
   return cause instanceof Error ? cause.message : "Playback is unavailable.";
+}
+
+function preservesPlaybackKey(target: EventTarget | null) {
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    (target instanceof HTMLElement &&
+      (target.isContentEditable ||
+        Boolean(target.closest("button, a, summary, [role='menuitem']"))))
+  );
 }

@@ -59,7 +59,14 @@ pub struct PlayerSnapshot {
 #[serde(rename_all = "camelCase")]
 #[tauri_specta(event_name = "player://state")]
 pub struct PlayerStateEvent {
-    pub snapshot: PlayerSnapshot,
+    pub status: PlaybackStatus,
+    pub position_ms: f64,
+    pub duration_ms: f64,
+    pub volume: u8,
+    pub shuffle: bool,
+    pub repeat: RepeatMode,
+    pub error: Option<String>,
+    pub output_device: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Type, Event)]

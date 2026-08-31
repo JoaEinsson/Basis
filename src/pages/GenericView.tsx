@@ -8,7 +8,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { ArtworkPlaceholder } from "../components/library/ArtworkPlaceholder";
 import { displayTrackTitle } from "../components/library/format";
 import { AlbumGrid } from "../components/library/AlbumGrid";
@@ -31,6 +31,7 @@ import type {
 } from "../lib/types";
 import { useNavigationStore, type ViewEntryState } from "../stores/navigation";
 import { useLibraryContext } from "../components/shell/LibraryContext";
+import { usePlayer } from "../components/player/PlayerContext";
 
 const FILTER_FIELDS: QueryField[] = [
   "title",
@@ -538,45 +539,10 @@ function NaturalItems({
         </div>
       );
     case "tracks":
-      return entry.layout === "grid" ? (
-        <div className="track-grid">
-          {items.items.map((track) => {
-            const selected = entry.selectedIds.includes(track.id);
-            return (
-              <button
-                className="track-tile"
-                data-selected={selected || undefined}
-                key={track.id}
-                type="button"
-                onClick={() =>
-                  onSelectionChange(
-                    selected
-                      ? entry.selectedIds.filter((id) => id !== track.id)
-                      : [...entry.selectedIds, track.id],
-                  )
-                }
-              >
-                <ArtworkPlaceholder
-                  title={displayTrackTitle(track.title, track.relPath)}
-                  artworkKey={track.artworkKey}
-                  seed={track.relPath}
-                />
-                <span className="entity-title">
-                  {displayTrackTitle(track.title, track.relPath)}
-                </span>
-                <span className="entity-subtitle">
-                  {track.artist ?? "Unknown artist"}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      ) : (
-        <TrackList
+      return (
+        <PlayableTracks
           tracks={items.items}
-          compact={entry.density === "compact" || entry.layout === "list"}
-          visibleFields={entry.visibleFields}
-          selectedIds={entry.selectedIds}
+          entry={entry}
           onSelectionChange={onSelectionChange}
         />
       );
@@ -623,6 +589,82 @@ function NaturalItems({
         </div>
       );
   }
+}
+
+function PlayableTracks({
+  tracks,
+  entry,
+  onSelectionChange,
+}: {
+  tracks: TrackDto[];
+  entry: ViewEntryState;
+  onSelectionChange: (ids: string[]) => void;
+}) {
+  const navigate = useNavigate();
+  const player = usePlayer();
+
+  async function playNow(startTrackId: string) {
+    const started = await player.playCollection(
+      tracks.map((track) => track.id),
+      startTrackId,
+    );
+    if (started) navigate("/now-playing");
+  }
+
+  if (entry.layout === "grid") {
+    return (
+      <div className="track-grid">
+        {tracks.map((track) => {
+          const selected = entry.selectedIds.includes(track.id);
+          return (
+            <button
+              className="track-tile"
+              data-selected={selected || undefined}
+              key={track.id}
+              type="button"
+              onClick={() =>
+                onSelectionChange(
+                  selected
+                    ? entry.selectedIds.filter((id) => id !== track.id)
+                    : [...entry.selectedIds, track.id],
+                )
+              }
+              onDoubleClick={() => void playNow(track.id)}
+            >
+              <ArtworkPlaceholder
+                title={displayTrackTitle(track.title, track.relPath)}
+                artworkKey={track.artworkKey}
+                seed={track.relPath}
+              />
+              <span className="entity-title">
+                {displayTrackTitle(track.title, track.relPath)}
+              </span>
+              <span className="entity-subtitle">
+                {track.artist ?? "Unknown artist"}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
+  return (
+    <TrackList
+      tracks={tracks}
+      compact={entry.density === "compact" || entry.layout === "list"}
+      visibleFields={entry.visibleFields}
+      selectedIds={entry.selectedIds}
+      onSelectionChange={onSelectionChange}
+      onPlayTrack={(track) => void playNow(track.id)}
+      onPlayNext={(track) =>
+        void player.playCollection([track.id], track.id, "next")
+      }
+      onAddToQueue={(track) =>
+        void player.playCollection([track.id], track.id, "append")
+      }
+    />
+  );
 }
 
 function GroupedItems({

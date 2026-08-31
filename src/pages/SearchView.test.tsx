@@ -2,9 +2,13 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { LibraryContext } from "../components/shell/LibraryContext";
+import { PlayerProvider } from "../components/player/PlayerContext";
 
 const searchLibrary = vi.hoisted(() => vi.fn());
-vi.mock("../lib/tauri", () => ({ searchLibrary }));
+vi.mock("../lib/tauri", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../lib/tauri")>()),
+  searchLibrary,
+}));
 
 import { SearchView } from "./SearchView";
 
@@ -41,28 +45,30 @@ describe("SearchView", () => {
 
     render(
       <MemoryRouter initialEntries={["/search?q=Sleep%20Token"]}>
-        <LibraryContext.Provider
-          value={{
-            library: {
-              libraryId: "library-id",
-              rootInstanceHash: "root-hash",
-              rootPath: "C:/Music",
-              trackCount: 1,
-              status: "ready",
-            },
-            scan: null,
-            libraryError: null,
-            views: [],
-            choosingLibrary: false,
-            chooseLibrary: vi.fn(),
-            refreshViews: vi.fn(),
-            replaceViews: vi.fn(),
-          }}
-        >
-          <Routes>
-            <Route path="search" element={<SearchView />} />
-          </Routes>
-        </LibraryContext.Provider>
+        <PlayerProvider connect={false}>
+          <LibraryContext.Provider
+            value={{
+              library: {
+                libraryId: "library-id",
+                rootInstanceHash: "root-hash",
+                rootPath: "C:/Music",
+                trackCount: 1,
+                status: "ready",
+              },
+              scan: null,
+              libraryError: null,
+              views: [],
+              choosingLibrary: false,
+              chooseLibrary: vi.fn(),
+              refreshViews: vi.fn(),
+              replaceViews: vi.fn(),
+            }}
+          >
+            <Routes>
+              <Route path="search" element={<SearchView />} />
+            </Routes>
+          </LibraryContext.Provider>
+        </PlayerProvider>
       </MemoryRouter>,
     );
 

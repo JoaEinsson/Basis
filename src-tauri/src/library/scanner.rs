@@ -385,7 +385,7 @@ mod tests {
     }
 
     #[test]
-    fn generated_mp3_flac_m4a_and_wav_fixture_indexes_without_network() {
+    fn generated_target_codec_fixtures_index_without_network() {
         let root = temporary_root("fixture-library");
         copy_directory(
             &Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -404,8 +404,8 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(progress.discovered, 5);
-        assert_eq!(progress.indexed, 4, "{progress:?}");
+        assert_eq!(progress.discovered, 8);
+        assert_eq!(progress.indexed, 7, "{progress:?}");
         assert_eq!(progress.failed, 1, "{progress:?}");
         assert_eq!(
             database.track_title("Loose/one.mp3").unwrap(),
@@ -415,6 +415,18 @@ mod tests {
             database.track_title("Compilation/three.m4a").unwrap(),
             Some("Three".to_owned())
         );
+        assert_eq!(
+            database.track_title("Codecs/five-alac.m4a").unwrap(),
+            Some("Synthetic ALAC".to_owned())
+        );
+        assert_eq!(
+            database.track_title("Codecs/six-vorbis.ogg").unwrap(),
+            Some("Synthetic Vorbis".to_owned())
+        );
+        assert_eq!(
+            database.track_title("Codecs/seven-opus.opus").unwrap(),
+            Some("Synthetic Opus".to_owned())
+        );
         let rescan = scan_library(
             &root,
             Uuid::new_v4(),
@@ -423,7 +435,7 @@ mod tests {
             |_| {},
         )
         .unwrap();
-        assert_eq!(rescan.skipped_unchanged, 5, "{rescan:?}");
+        assert_eq!(rescan.skipped_unchanged, 8, "{rescan:?}");
         assert_eq!(rescan.indexed, 0, "{rescan:?}");
         assert_eq!(rescan.failed, 0, "{rescan:?}");
         fs::remove_dir_all(root).unwrap();

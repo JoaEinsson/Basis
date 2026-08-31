@@ -2,7 +2,10 @@ use std::{
     collections::HashSet,
     fs,
     path::{Path, PathBuf},
-    sync::{Arc, Mutex, Weak},
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc, Mutex, Weak,
+    },
     time::{Duration, Instant},
 };
 
@@ -35,8 +38,9 @@ const SESSION_WRITE_INTERVAL: Duration = Duration::from_secs(5);
 pub struct PlayerService {
     core: Mutex<PlayerCore>,
     engine: Mutex<Option<Arc<dyn AudioEngine>>>,
+    engine_generation: AtomicU64,
     library_root: Mutex<Option<PathBuf>>,
-    session_path: PathBuf,
+    sessions_dir: PathBuf,
 }
 
 #[derive(Debug)]
@@ -75,13 +79,12 @@ struct PersistedPlayerSession {
 
 impl PlayerService {
     pub fn load(app_data_dir: &Path) -> Arc<Self> {
-        let session_path = app_data_dir.join("basis").join("player-session.json");
-        let core = load_session(&session_path).unwrap_or_default();
         Arc::new(Self {
-            core: Mutex::new(core),
+            core: Mutex::new(PlayerCore::default()),
             engine: Mutex::new(None),
+            engine_generation: AtomicU64::new(0),
             library_root: Mutex::new(None),
-            session_path,
+            sessions_dir: app_data_dir.join("basis").join("sessions"),
         })
     }
 
@@ -99,18 +102,32 @@ impl PlayerService {
         let core = self.core()?;
         let same_library = core.library_id == Some(library_id)
             && core.root_instance_hash.as_deref() == Some(&root_instance_hash);
+        let fallback_volume = core.volume;
         drop(core);
         if !same_library {
-            if let Some(engine) = self.engine()?.as_ref() {
+            self.persist()?;
+            self.engine_generation.fetch_add(1, Ordering::SeqCst);
+            if let Some(engine) = self.engine()?.take() {
                 engine.stop()?;
             }
         }
         *self.root()? = Some(root);
         let mut core = self.core()?;
         if !same_library {
-            core.clear_queue();
-            core.library_id = Some(library_id);
-            core.root_instance_hash = Some(root_instance_hash);
+            let path = self.session_path(library_id, &root_instance_hash);
+            let mut restored = load_session(&path).unwrap_or_default();
+            let belongs_to_library = restored.library_id == Some(library_id)
+                && restored.root_instance_hash.as_deref() == Some(&root_instance_hash);
+            if !belongs_to_library {
+                restored = PlayerCore::default();
+                restored.volume = fallback_volume;
+            }
+            restored.library_id = Some(library_id);
+            restored.root_instance_hash = Some(root_instance_hash);
+            if restored.current_item().is_some() {
+                restored.status = PlaybackStatus::Paused;
+            }
+            *core = restored;
         } else if core.current_item().is_some() && !engine_active {
             core.status = PlaybackStatus::Paused;
         }
@@ -370,7 +387,13 @@ impl PlayerService {
         engine.set_volume(volume_to_linear(volume))?;
         *engine_slot = Some(Arc::clone(&engine));
         drop(engine_slot);
-        spawn_engine_events(Arc::downgrade(self), Arc::clone(&engine), app.clone());
+        let generation = self.engine_generation.fetch_add(1, Ordering::SeqCst) + 1;
+        spawn_engine_events(
+            Arc::downgrade(self),
+            Arc::clone(&engine),
+            app.clone(),
+            generation,
+        );
         Ok(engine)
     }
 
@@ -496,7 +519,17 @@ impl PlayerService {
 
     fn emit_state(&self, app: &AppHandle) {
         if let Ok(snapshot) = self.snapshot() {
-            let _ = PlayerStateEvent { snapshot }.emit(app);
+            let _ = PlayerStateEvent {
+                status: snapshot.status,
+                position_ms: snapshot.position_ms,
+                duration_ms: snapshot.duration_ms,
+                volume: snapshot.volume,
+                shuffle: snapshot.shuffle,
+                repeat: snapshot.repeat,
+                error: snapshot.error,
+                output_device: snapshot.output_device,
+            }
+            .emit(app);
         }
     }
 
@@ -529,9 +562,21 @@ impl PlayerService {
 
     fn persist(&self) -> Result<(), String> {
         let core = self.core()?;
+        let (Some(library_id), Some(root_instance_hash)) =
+            (core.library_id, core.root_instance_hash.as_deref())
+        else {
+            return Ok(());
+        };
+        let path = self.session_path(library_id, root_instance_hash);
         let session = core.persisted();
         drop(core);
-        write_atomic_json(&self.session_path, &session)
+        write_atomic_json(&path, &session)
+    }
+
+    fn session_path(&self, library_id: Uuid, root_instance_hash: &str) -> PathBuf {
+        self.sessions_dir
+            .join(library_id.to_string())
+            .join(format!("{root_instance_hash}.json"))
     }
 
     fn core(&self) -> Result<std::sync::MutexGuard<'_, PlayerCore>, String> {
@@ -554,17 +599,6 @@ impl PlayerService {
 }
 
 impl PlayerCore {
-    fn clear_queue(&mut self) {
-        self.queue.clear();
-        self.play_order.clear();
-        self.cursor = None;
-        self.status = PlaybackStatus::Idle;
-        self.position_ms = 0.0;
-        self.duration_ms = 0.0;
-        self.primed_queue_id = None;
-        self.error = None;
-    }
-
     fn insert_tracks(
         &mut self,
         tracks: Vec<TrackDto>,
@@ -889,14 +923,26 @@ fn load_session(path: &Path) -> Result<PlayerCore, String> {
     session.try_into()
 }
 
-fn spawn_engine_events(service: Weak<PlayerService>, engine: Arc<dyn AudioEngine>, app: AppHandle) {
+fn spawn_engine_events(
+    service: Weak<PlayerService>,
+    engine: Arc<dyn AudioEngine>,
+    app: AppHandle,
+    generation: u64,
+) {
     std::thread::spawn(move || {
         let mut last_write = Instant::now();
         loop {
             let Some(service) = service.upgrade() else {
                 break;
             };
-            if let Some(event) = engine.receive_event(PROGRESS_EVENT_INTERVAL) {
+            if service.engine_generation.load(Ordering::SeqCst) != generation {
+                break;
+            }
+            let event = engine.receive_event(PROGRESS_EVENT_INTERVAL);
+            if service.engine_generation.load(Ordering::SeqCst) != generation {
+                break;
+            }
+            if let Some(event) = event {
                 service.handle_engine_event(&app, event);
             } else {
                 service.update_progress();
@@ -932,6 +978,8 @@ fn finite_nonnegative(value: f64) -> f64 {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use uuid::Uuid;
 
     use crate::domain::{
@@ -939,7 +987,7 @@ mod tests {
         query::TrackDto,
     };
 
-    use super::{volume_to_linear, PersistedPlayerSession, PlayerCore};
+    use super::{volume_to_linear, PersistedPlayerSession, PlayerCore, PlayerService};
 
     #[test]
     fn queue_replace_next_append_shuffle_and_repeat_are_deterministic() {
@@ -995,6 +1043,66 @@ mod tests {
         let mut session: PersistedPlayerSession = core.persisted();
         session.play_order.push(Uuid::new_v4());
         assert!(PlayerCore::try_from(session).is_err());
+    }
+
+    #[test]
+    fn copied_library_roots_restore_distinct_paused_sessions() {
+        let app_data = tempfile::tempdir().unwrap();
+        let library_id = Uuid::new_v4();
+        let first_hash = "a".repeat(64);
+        let second_hash = "b".repeat(64);
+        let first_track = track(1);
+        let second_track = track(2);
+        let service = PlayerService::load(app_data.path());
+
+        service
+            .attach_library(PathBuf::from("first-root"), library_id, first_hash.clone())
+            .unwrap();
+        service
+            .core()
+            .unwrap()
+            .insert_tracks(
+                vec![first_track.clone()],
+                first_track.id,
+                QueueInsertMode::Replace,
+            )
+            .unwrap();
+        service.core().unwrap().position_ms = 3_250.0;
+        service.persist().unwrap();
+
+        service
+            .attach_library(
+                PathBuf::from("second-root"),
+                library_id,
+                second_hash.clone(),
+            )
+            .unwrap();
+        assert!(service.core().unwrap().queue.is_empty());
+        service
+            .core()
+            .unwrap()
+            .insert_tracks(
+                vec![second_track.clone()],
+                second_track.id,
+                QueueInsertMode::Replace,
+            )
+            .unwrap();
+        service.persist().unwrap();
+
+        let restored = PlayerService::load(app_data.path());
+        restored
+            .attach_library(PathBuf::from("first-root"), library_id, first_hash)
+            .unwrap();
+        let snapshot = restored.snapshot().unwrap();
+        assert_eq!(snapshot.status, PlaybackStatus::Paused);
+        assert_eq!(snapshot.current_track.unwrap().track.id, first_track.id);
+        assert_eq!(snapshot.position_ms, 3_250.0);
+        assert!(app_data
+            .path()
+            .join("basis/sessions")
+            .join(library_id.to_string())
+            .join(format!("{second_hash}.json"))
+            .is_file());
     }
 
     fn track(index: usize) -> TrackDto {

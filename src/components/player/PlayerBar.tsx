@@ -9,7 +9,7 @@ import {
   SkipForward,
   Volume2,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { displayTrackTitle, formatDuration } from "../library/format";
 import { ArtworkPlaceholder } from "../library/ArtworkPlaceholder";
@@ -21,11 +21,18 @@ export function PlayerBar() {
   const [scrubbing, setScrubbing] = useState<number | null>(null);
   const snapshot = player.snapshot;
   const current = snapshot?.currentTrack?.track;
+  const currentQueueId = snapshot?.currentTrack?.queueId;
+
+  useEffect(() => setScrubbing(null), [currentQueueId]);
+
   if (!snapshot || !current) return null;
 
   const title = displayTrackTitle(current.title, current.relPath);
   const duration = Math.max(snapshot.durationMs ?? current.durationMs ?? 0, 0);
-  const position = Math.min(scrubbing ?? snapshot.positionMs ?? 0, duration || 0);
+  const position = Math.min(
+    scrubbing ?? snapshot.positionMs ?? 0,
+    duration || 0,
+  );
   const playing = snapshot.status === "playing";
   const loading = snapshot.status === "loading";
 
@@ -66,7 +73,11 @@ export function PlayerBar() {
           >
             <Shuffle aria-hidden="true" size={17} />
           </button>
-          <button type="button" aria-label="Previous track" onClick={() => void player.previous()}>
+          <button
+            type="button"
+            aria-label="Previous track"
+            onClick={() => void player.previous()}
+          >
             <SkipBack aria-hidden="true" size={18} />
           </button>
           <button
@@ -82,7 +93,11 @@ export function PlayerBar() {
               <Play aria-hidden="true" size={19} />
             )}
           </button>
-          <button type="button" aria-label="Next track" onClick={() => void player.next()}>
+          <button
+            type="button"
+            aria-label="Next track"
+            onClick={() => void player.next()}
+          >
             <SkipForward aria-hidden="true" size={18} />
           </button>
           <button
@@ -126,7 +141,9 @@ export function PlayerBar() {
             min="0"
             max="100"
             value={snapshot.volume}
-            onChange={(event) => void player.setVolume(Number(event.target.value))}
+            onChange={(event) =>
+              void player.setVolume(Number(event.target.value))
+            }
           />
         </label>
         <button

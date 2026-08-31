@@ -192,7 +192,9 @@ export async function resumePlayback(): Promise<PlayerSnapshot> {
   return unwrapResult(await commands.playerResume());
 }
 
-export async function seekPlayback(positionMs: number): Promise<PlayerSnapshot> {
+export async function seekPlayback(
+  positionMs: number,
+): Promise<PlayerSnapshot> {
   return unwrapResult(await commands.playerSeek(positionMs));
 }
 

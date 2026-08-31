@@ -1,7 +1,24 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import {
+  MemoryRouter,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ViewDefinition } from "../lib/types";
+import type {
+  PlayerSnapshot,
+  PlayerStateEvent,
+  PlayerTrackChangedEvent,
+  ViewDefinition,
+} from "../lib/types";
 import { useNavigationStore } from "../stores/navigation";
 
 const mocks = vi.hoisted(() => ({
@@ -9,6 +26,12 @@ const mocks = vi.hoisted(() => ({
   listViews: vi.fn(),
   onLibraryScanProgress: vi.fn(),
   searchLibrary: vi.fn(),
+  getPlayerState: vi.fn(),
+  onPlayerState: vi.fn(),
+  onPlayerTrackChanged: vi.fn(),
+  onPlayerQueueChanged: vi.fn(),
+  onPlayerError: vi.fn(),
+  pausePlayback: vi.fn(),
 }));
 
 vi.mock("../lib/tauri", () => ({
@@ -17,6 +40,20 @@ vi.mock("../lib/tauri", () => ({
   listViews: mocks.listViews,
   onLibraryScanProgress: mocks.onLibraryScanProgress,
   searchLibrary: mocks.searchLibrary,
+  getPlayerState: mocks.getPlayerState,
+  onPlayerState: mocks.onPlayerState,
+  onPlayerTrackChanged: mocks.onPlayerTrackChanged,
+  onPlayerQueueChanged: mocks.onPlayerQueueChanged,
+  onPlayerError: mocks.onPlayerError,
+  pausePlayback: mocks.pausePlayback,
+  resumePlayback: vi.fn(),
+  seekPlayback: vi.fn(),
+  nextTrack: vi.fn(),
+  previousTrack: vi.fn(),
+  playCollection: vi.fn(),
+  setPlaybackVolume: vi.fn(),
+  setPlaybackShuffle: vi.fn(),
+  setPlaybackRepeat: vi.fn(),
 }));
 
 import { AppShell } from "../components/shell/AppShell";
@@ -59,6 +96,12 @@ describe("Basis definitive shell", () => {
       playlists: [],
       views: [],
     });
+    mocks.getPlayerState.mockResolvedValue(emptyPlayerSnapshot());
+    mocks.onPlayerState.mockResolvedValue(vi.fn());
+    mocks.onPlayerTrackChanged.mockResolvedValue(vi.fn());
+    mocks.onPlayerQueueChanged.mockResolvedValue(vi.fn());
+    mocks.onPlayerError.mockResolvedValue(vi.fn());
+    mocks.pausePlayback.mockResolvedValue(emptyPlayerSnapshot());
   });
 
   it("renders pinned Views in the top toolbar and has no permanent sidebar", async () => {
@@ -122,7 +165,134 @@ describe("Basis definitive shell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Return" }));
     await waitFor(() => expect(canvas.scrollTop).toBe(137));
   });
+
+  it("updates transport on automatic queue advance without changing the canvas", async () => {
+    let stateHandler: ((event: PlayerStateEvent) => void) | undefined;
+    let trackHandler: ((event: PlayerTrackChangedEvent) => void) | undefined;
+    mocks.getPlayerState.mockResolvedValue(
+      playingSnapshot("First track", "first-id"),
+    );
+    mocks.onPlayerState.mockImplementation(async (handler) => {
+      stateHandler = handler;
+      return vi.fn();
+    });
+    mocks.onPlayerTrackChanged.mockImplementation(async (handler) => {
+      trackHandler = handler;
+      return vi.fn();
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/browse"]}>
+        <Routes>
+          <Route path="/" element={<AppShell />}>
+            <Route
+              path="browse"
+              element={
+                <>
+                  <LocationProbe />
+                  <p>Browse canvas</p>
+                </>
+              }
+            />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("First track")).toBeInTheDocument();
+    expect(screen.getByTestId("current-location")).toHaveTextContent("/browse");
+    const advanced = playingSnapshot("Second track", "second-id");
+    act(() => {
+      trackHandler?.({ currentTrack: advanced.currentTrack });
+      stateHandler?.({
+        status: advanced.status,
+        positionMs: advanced.positionMs,
+        durationMs: advanced.durationMs,
+        volume: advanced.volume,
+        shuffle: advanced.shuffle,
+        repeat: advanced.repeat,
+        error: advanced.error,
+        outputDevice: advanced.outputDevice,
+      });
+    });
+    expect(await screen.findByText("Second track")).toBeInTheDocument();
+    expect(screen.getByText("Browse canvas")).toBeInTheDocument();
+    expect(screen.getByTestId("current-location")).toHaveTextContent("/browse");
+  });
+
+  it("toggles playback with Space outside editable controls", async () => {
+    mocks.getPlayerState.mockResolvedValue(
+      playingSnapshot("Keyboard track", "keyboard-id"),
+    );
+    renderShell();
+    expect(await screen.findByText("Keyboard track")).toBeInTheDocument();
+    fireEvent.keyDown(window, { code: "Space", key: " " });
+    await waitFor(() => expect(mocks.pausePlayback).toHaveBeenCalledOnce());
+  });
 });
+
+function emptyPlayerSnapshot() {
+  return {
+    status: "idle" as const,
+    queue: [],
+    playOrder: [],
+    currentIndex: null,
+    currentTrack: null,
+    positionMs: 0,
+    durationMs: 0,
+    volume: 80,
+    shuffle: false,
+    repeat: "off" as const,
+    error: null,
+    outputDevice: null,
+  };
+}
+
+function playingSnapshot(title: string, id: string): PlayerSnapshot {
+  const item = {
+    queueId: `queue-${id}`,
+    track: {
+      id,
+      relPath: `Album/${title}.flac`,
+      title,
+      artist: "Artist",
+      artists: ["Artist"],
+      albumArtist: "Artist",
+      album: "Album",
+      year: 2026,
+      trackNo: 1,
+      discNo: 1,
+      genres: [],
+      composer: null,
+      durationMs: 180_000,
+      codec: "flac",
+      container: "flac",
+      sampleRate: 44_100,
+      bitDepth: 16,
+      channels: 2,
+      bitrate: null,
+      artworkKey: null,
+      addedAt: 0,
+      lastPlayed: null,
+      playCount: 0,
+      favorite: false,
+    },
+  };
+  return {
+    status: "playing",
+    queue: [item],
+    playOrder: [item.queueId],
+    currentIndex: 0,
+    currentTrack: item,
+    positionMs: 1_000,
+    durationMs: 180_000,
+    volume: 80,
+    shuffle: false,
+    repeat: "off",
+    error: null,
+    outputDevice: null,
+  };
+}
 
 function renderShell() {
   return render(
@@ -157,4 +327,9 @@ function HistoryPage({
       {label}
     </button>
   );
+}
+
+function LocationProbe() {
+  const location = useLocation();
+  return <span data-testid="current-location">{location.pathname}</span>;
 }

@@ -119,8 +119,12 @@ export function SearchView() {
               <TrackList
                 tracks={results.tracks}
                 onPlayTrack={(track) => void playSearchResults(track.id)}
-                onPlayNext={(track) => void player.playCollection([track.id], track.id, "next")}
-                onAddToQueue={(track) => void player.playCollection([track.id], track.id, "append")}
+                onPlayNext={(track) =>
+                  void player.playCollection([track.id], track.id, "next")
+                }
+                onAddToQueue={(track) =>
+                  void player.playCollection([track.id], track.id, "append")
+                }
               />
             </ResultSection>
           )}

@@ -1,4 +1,4 @@
-import { ArrowLeft, Play } from "lucide-react";
+import { ArrowLeft, Play, Shuffle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArtworkPlaceholder } from "../components/library/ArtworkPlaceholder";
@@ -96,8 +96,19 @@ export function AlbumDetail() {
             >
               <Play aria-hidden="true" size={17} /> Play
             </button>
+            <button
+              type="button"
+              disabled={detail.tracks.length === 0}
+              onClick={() => void startAlbum(detail.tracks[0]?.id, true)}
+            >
+              <Shuffle aria-hidden="true" size={17} /> Shuffle
+            </button>
           </div>
-          {player.error && <p className="inline-error" role="status">{player.error}</p>}
+          {player.error && (
+            <p className="inline-error" role="status">
+              {player.error}
+            </p>
+          )}
         </div>
       </header>
       <section className="detail-section" aria-labelledby="album-tracks">
@@ -105,15 +116,20 @@ export function AlbumDetail() {
         <TrackList
           tracks={detail.tracks}
           onPlayTrack={(track) => void startAlbum(track.id)}
-          onPlayNext={(track) => void player.playCollection([track.id], track.id, "next")}
-          onAddToQueue={(track) => void player.playCollection([track.id], track.id, "append")}
+          onPlayNext={(track) =>
+            void player.playCollection([track.id], track.id, "next")
+          }
+          onAddToQueue={(track) =>
+            void player.playCollection([track.id], track.id, "append")
+          }
         />
       </section>
     </article>
   );
 
-  async function startAlbum(startTrackId?: string) {
+  async function startAlbum(startTrackId?: string, shuffle = false) {
     if (!startTrackId) return;
+    if (shuffle) await player.setShuffle(true);
     const started = await player.playCollection(
       detail.tracks.map((track) => track.id),
       startTrackId,

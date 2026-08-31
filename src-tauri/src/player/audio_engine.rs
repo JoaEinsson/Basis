@@ -153,42 +153,142 @@ impl AudioEngine for VoxioEngine {
     }
 
     fn receive_event(&self, timeout: Duration) -> Option<AudioEngineEvent> {
-        self.events.recv_timeout(timeout).map(map_event)
+        self.events.recv_timeout(timeout).and_then(map_event)
     }
 }
 
-fn map_event(event: voxio::VoxEvent) -> AudioEngineEvent {
+fn map_event(event: voxio::VoxEvent) -> Option<AudioEngineEvent> {
     match event {
         voxio::VoxEvent::TrackStarted {
             duration, reason, ..
-        } => AudioEngineEvent::TrackStarted {
+        } => Some(AudioEngineEvent::TrackStarted {
             duration_ms: duration.as_secs_f64() * 1000.0,
             reason: match reason {
                 voxio::StartReason::Play => EngineStartReason::Play,
                 voxio::StartReason::Gapless => EngineStartReason::Gapless,
             },
-        },
-        voxio::VoxEvent::TrackEnded { reason, .. } => AudioEngineEvent::TrackEnded {
+        }),
+        voxio::VoxEvent::TrackEnded { reason, .. } => Some(AudioEngineEvent::TrackEnded {
             reason: match reason {
                 voxio::EndReason::EndOfStream => EngineEndReason::EndOfStream,
                 voxio::EndReason::Interrupted => EngineEndReason::Interrupted,
                 voxio::EndReason::Failed => EngineEndReason::Failed,
             },
-        },
-        voxio::VoxEvent::Stopped => AudioEngineEvent::Stopped,
-        voxio::VoxEvent::DurationResolved { duration, .. } => AudioEngineEvent::DurationResolved {
-            duration_ms: duration.as_secs_f64() * 1000.0,
-        },
-        voxio::VoxEvent::Error { error, recoverable } => AudioEngineEvent::Error {
+        }),
+        voxio::VoxEvent::Stopped => Some(AudioEngineEvent::Stopped),
+        voxio::VoxEvent::DurationResolved { duration, .. } => {
+            Some(AudioEngineEvent::DurationResolved {
+                duration_ms: duration.as_secs_f64() * 1000.0,
+            })
+        }
+        voxio::VoxEvent::Error { error, recoverable } => Some(AudioEngineEvent::Error {
             message: error.to_string(),
             recoverable,
-        },
-        voxio::VoxEvent::DeviceChanged { name, .. } => AudioEngineEvent::DeviceChanged { name },
-        voxio::VoxEvent::DeviceLost { name, error } => AudioEngineEvent::DeviceLost { name, error },
-        voxio::VoxEvent::StateChanged { paused } => AudioEngineEvent::StateChanged { paused },
-        _ => AudioEngineEvent::Error {
-            message: "The audio engine emitted an unsupported event".to_owned(),
-            recoverable: true,
-        },
+        }),
+        voxio::VoxEvent::DeviceChanged { name, .. } => {
+            Some(AudioEngineEvent::DeviceChanged { name })
+        }
+        voxio::VoxEvent::DeviceLost { name, error } => {
+            Some(AudioEngineEvent::DeviceLost { name, error })
+        }
+        voxio::VoxEvent::StateChanged { paused } => Some(AudioEngineEvent::StateChanged { paused }),
+        // NextReady is acknowledged synchronously by `set_next`; no domain
+        // transition is required. Future non-exhaustive events are ignored
+        // until the adapter assigns them explicit semantics.
+        voxio::VoxEvent::NextReady { .. } | _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{path::Path, time::Duration};
+
+    use super::{AudioEngine, AudioEngineEvent, EngineStartReason, VoxioEngine};
+
+    #[test]
+    #[ignore = "requires a real system default audio output; run explicitly for the M4 smoke test"]
+    fn real_default_device_starts_every_target_codec_fixture() {
+        let engine = VoxioEngine::open().expect("the system default audio device must open");
+        let fixture_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("the Tauri crate must have a repository parent")
+            .join("fixtures/library-a");
+        let fixtures = [
+            "Loose/one.mp3",
+            "Odd Structure/two.flac",
+            "Compilation/three.m4a",
+            "Codecs/five-alac.m4a",
+            "Codecs/six-vorbis.ogg",
+            "Café/four.wav",
+            "Codecs/seven-opus.opus",
+        ];
+
+        for relative_path in fixtures {
+            engine
+                .load_and_play(&fixture_root.join(relative_path))
+                .unwrap_or_else(|error| panic!("{relative_path} could not be submitted: {error}"));
+            wait_until_started(&engine, relative_path);
+            engine
+                .stop()
+                .unwrap_or_else(|error| panic!("{relative_path} could not stop: {error}"));
+        }
+    }
+
+    #[test]
+    #[ignore = "requires a real system default audio output; run explicitly for the M4 smoke test"]
+    fn real_transport_controls_and_gapless_advance_work() {
+        let engine = VoxioEngine::open().expect("the system default audio device must open");
+        let fixture_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("the Tauri crate must have a repository parent")
+            .join("fixtures/library-a");
+        engine
+            .load_and_play(&fixture_root.join("Loose/one.mp3"))
+            .unwrap();
+        wait_until_started(&engine, "Loose/one.mp3");
+        engine.set_volume(0.25).unwrap();
+        engine.pause().unwrap();
+        for _ in 0..10 {
+            if engine.state().unwrap().paused {
+                break;
+            }
+            let _ = engine.receive_event(Duration::from_millis(50));
+        }
+        assert!(engine.state().unwrap().paused, "pause did not settle");
+        engine.seek(0.5).unwrap();
+        engine
+            .prime_next(Some(&fixture_root.join("Odd Structure/two.flac")))
+            .unwrap();
+        engine.play().unwrap();
+
+        for _ in 0..20 {
+            match engine.receive_event(Duration::from_millis(250)) {
+                Some(AudioEngineEvent::TrackStarted {
+                    reason: EngineStartReason::Gapless,
+                    ..
+                }) => {
+                    engine.stop().unwrap();
+                    return;
+                }
+                Some(AudioEngineEvent::Error { message, .. }) => {
+                    panic!("transport/gapless smoke produced an error: {message}")
+                }
+                Some(_) | None => {}
+            }
+        }
+        panic!("the primed FLAC did not start gaplessly within the smoke-test timeout");
+    }
+
+    fn wait_until_started(engine: &VoxioEngine, relative_path: &str) {
+        for _ in 0..20 {
+            match engine.receive_event(Duration::from_millis(250)) {
+                Some(AudioEngineEvent::TrackStarted { .. }) => return,
+                Some(AudioEngineEvent::Error { message, .. }) => {
+                    panic!("{relative_path} produced a decoder/device error: {message}")
+                }
+                Some(_) | None => {}
+            }
+        }
+        panic!("{relative_path} did not start within the smoke-test timeout");
     }
 }

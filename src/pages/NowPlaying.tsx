@@ -24,11 +24,18 @@ export function NowPlaying() {
   const title = displayTrackTitle(track.title, track.relPath);
   return (
     <article className="page now-playing-view">
-      <button className="back-context" type="button" onClick={() => navigate(-1)}>
+      <button
+        className="back-context"
+        type="button"
+        onClick={() => navigate(-1)}
+      >
         <ArrowLeft aria-hidden="true" size={17} /> Back
       </button>
       <div className="now-playing-layout">
-        <section className="now-playing-track" aria-labelledby="now-playing-title">
+        <section
+          className="now-playing-track"
+          aria-labelledby="now-playing-title"
+        >
           <ArtworkPlaceholder
             className="now-playing-artwork"
             title={title}

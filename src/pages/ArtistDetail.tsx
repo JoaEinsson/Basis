@@ -1,4 +1,4 @@
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Play, Shuffle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AlbumGrid } from "../components/library/AlbumGrid";
@@ -72,6 +72,23 @@ export function ArtistDetail() {
         <p className="detail-metadata">
           {detail.artist.albumCount} albums · {detail.artist.trackCount} tracks
         </p>
+        <div className="detail-actions">
+          <button
+            className="primary-action"
+            type="button"
+            disabled={detail.tracks.length === 0}
+            onClick={() => void playArtist(detail.tracks[0]?.id)}
+          >
+            <Play aria-hidden="true" size={17} /> Play
+          </button>
+          <button
+            type="button"
+            disabled={detail.tracks.length === 0}
+            onClick={() => void playArtist(detail.tracks[0]?.id, true)}
+          >
+            <Shuffle aria-hidden="true" size={17} /> Shuffle
+          </button>
+        </div>
       </header>
       {detail.albums.length > 0 && (
         <section className="detail-section" aria-labelledby="artist-albums">
@@ -85,15 +102,21 @@ export function ArtistDetail() {
           <TrackList
             tracks={detail.tracks}
             onPlayTrack={(track) => void playArtist(track.id)}
-            onPlayNext={(track) => void player.playCollection([track.id], track.id, "next")}
-            onAddToQueue={(track) => void player.playCollection([track.id], track.id, "append")}
+            onPlayNext={(track) =>
+              void player.playCollection([track.id], track.id, "next")
+            }
+            onAddToQueue={(track) =>
+              void player.playCollection([track.id], track.id, "append")
+            }
           />
         </section>
       )}
     </article>
   );
 
-  async function playArtist(startTrackId: string) {
+  async function playArtist(startTrackId?: string, shuffle = false) {
+    if (!startTrackId) return;
+    if (shuffle) await player.setShuffle(true);
     const started = await player.playCollection(
       detail.tracks.map((track) => track.id),
       startTrackId,

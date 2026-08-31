@@ -206,7 +206,7 @@ mod tests {
             |_| {},
         )
         .unwrap();
-        assert_eq!(first.database.track_count().unwrap(), 4);
+        assert_eq!(first.database.track_count().unwrap(), 7);
         drop(first);
         fs::remove_file(&database_path).unwrap();
 
@@ -221,7 +221,7 @@ mod tests {
             |_| {},
         )
         .unwrap();
-        assert_eq!(rebuilt.database.track_count().unwrap(), 4);
+        assert_eq!(rebuilt.database.track_count().unwrap(), 7);
         assert!(rebuilt.root.join(".musiclib/manifest.json").is_file());
         fs::remove_dir_all(base).unwrap();
     }

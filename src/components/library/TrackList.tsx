@@ -106,9 +106,18 @@ export function TrackList({
                   onPlayTrack?.(track);
                 }
               }}
-              onDoubleClick={() => onPlayTrack?.(track)}
+              onDoubleClick={() => {
+                if (onSelectionChange) onPlayTrack?.(track);
+              }}
               onContextMenu={(event) => {
-                if (!onSelectionChange && !onPlayNext && !onAddToQueue) return;
+                if (
+                  !onSelectionChange &&
+                  !onPlayTrack &&
+                  !onPlayNext &&
+                  !onAddToQueue
+                ) {
+                  return;
+                }
                 event.preventDefault();
                 if (onSelectionChange && !selected.has(track.id)) {
                   onSelectionChange([track.id]);
@@ -158,12 +167,29 @@ export function TrackList({
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onPointerDown={(event) => event.stopPropagation()}
         >
+          {onPlayTrack && (
+            <button
+              role="menuitem"
+              type="button"
+              onClick={() => {
+                const track = tracks.find(
+                  (candidate) => candidate.id === contextMenu.trackId,
+                );
+                if (track) onPlayTrack(track);
+                setContextMenu(null);
+              }}
+            >
+              Play now
+            </button>
+          )}
           {onPlayNext && (
             <button
               role="menuitem"
               type="button"
               onClick={() => {
-                const track = tracks.find((candidate) => candidate.id === contextMenu.trackId);
+                const track = tracks.find(
+                  (candidate) => candidate.id === contextMenu.trackId,
+                );
                 if (track) onPlayNext(track);
                 setContextMenu(null);
               }}
@@ -176,7 +202,9 @@ export function TrackList({
               role="menuitem"
               type="button"
               onClick={() => {
-                const track = tracks.find((candidate) => candidate.id === contextMenu.trackId);
+                const track = tracks.find(
+                  (candidate) => candidate.id === contextMenu.trackId,
+                );
                 if (track) onAddToQueue(track);
                 setContextMenu(null);
               }}

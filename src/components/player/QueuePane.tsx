@@ -23,7 +23,11 @@ export function QueuePane() {
           <h2>Queue</h2>
           <p>{ordered.length} tracks · local session</p>
         </div>
-        <button type="button" aria-label="Close queue" onClick={() => player.setQueueOpen(false)}>
+        <button
+          type="button"
+          aria-label="Close queue"
+          onClick={() => player.setQueueOpen(false)}
+        >
           <X aria-hidden="true" size={18} />
         </button>
       </header>
@@ -34,10 +38,18 @@ export function QueuePane() {
       ) : (
         <ol className="queue-items">
           {ordered.map((item) => {
-            const title = displayTrackTitle(item.track.title, item.track.relPath);
+            const title = displayTrackTitle(
+              item.track.title,
+              item.track.relPath,
+            );
             return (
-              <li key={item.queueId} data-current={item.queueId === currentId || undefined}>
-                <span className="queue-position">{ordered.indexOf(item) + 1}</span>
+              <li
+                key={item.queueId}
+                data-current={item.queueId === currentId || undefined}
+              >
+                <span className="queue-position">
+                  {ordered.indexOf(item) + 1}
+                </span>
                 <span>
                   <strong>{title}</strong>
                   <small>{item.track.artist ?? "Unknown artist"}</small>

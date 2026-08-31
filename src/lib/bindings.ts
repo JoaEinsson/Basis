@@ -199,7 +199,14 @@ export type PlayerSnapshot = {
 };
 
 export type PlayerStateEvent = {
-	snapshot: PlayerSnapshot,
+	status: PlaybackStatus,
+	positionMs: number | null,
+	durationMs: number | null,
+	volume: number,
+	shuffle: boolean,
+	repeat: RepeatMode,
+	error: string | null,
+	outputDevice: string | null,
 };
 
 export type PlayerTrackChangedEvent = {

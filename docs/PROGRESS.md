@@ -11,7 +11,7 @@ the resolution.
 - [x] M2 — query/FTS/View Engine and album/artist detail
 - [x] M3a — UX, navigation, views, and command palette
 - [x] M3b — Theme Engine, built-ins, and portable editor
-- [ ] M4 — playback and queue
+- [x] M4 — playback and queue
 - [ ] M5 — playlists, events, and Home
 - [ ] M6 — LRC/LRCLIB and offline reuse
 - [ ] M7 — signed updater and release path
@@ -19,11 +19,11 @@ the resolution.
 
 ## Current gate
 
-`M4 — playback and queue`
+`M5 — playlists, events, and Home`
 
-Next concrete action: implement the AudioEngine adapter, explicit transient
-queue and transport state, persistent volume/repeat/shuffle state, and the
-non-focus-stealing Now Playing surface defined by `docs/DESIGN_UX.md`.
+Next concrete action: implement portable static/smart playlist documents and
+per-device append-only history events, derive local projections, and expose
+Home/Favorites/Recently Played through the existing Query/View Engine.
 
 ## Verification
 
@@ -148,6 +148,30 @@ the same navigation DOM and density/type scaling at the CSS boundary. Prettier,
 ESLint, TypeScript, Vitest, the production Vite build, generated Tauri bindings,
 `git diff --check`, and repeated brief `basis.exe` launches pass.
 
+2026-08-30 22:00 BRT — M4 playback, queue, and Now Playing gate
+Result: PASS
+Evidence: `AudioEngine` contains no Voxio types outside its adapter; Voxio
+0.2.3 remains behind that boundary after compiling and passing explicit real
+default-device smoke tests. `real_default_device_starts_every_target_codec_fixture`
+starts generated MP3, FLAC, AAC/M4A, ALAC/M4A, Ogg Vorbis, WAV, and Opus files;
+`real_transport_controls_and_gapless_advance_work` verifies volume, pause,
+seek, resume, next-track priming, and a real gapless handoff. The smoke exposed
+and fixed normal Voxio `NextReady` events being misclassified as errors. The
+queue implements replace/next/append, stable shuffle, previous/repeat rules,
+recoverable device/codec errors, small transport events, and 5-second local
+persistence under `sessions/<library_id>/<root_instance_hash>.json`; a test
+proves copied roots restore distinct paused sessions. The React shell mounts a
+persistent bottom transport outside the routed canvas, a closable responsive
+queue pane, deliberate `/now-playing` navigation, album/artist/View/Search play
+actions, Space/media keys, and no navigation from automatic events. A20b passes
+by advancing the current track while retaining `/browse`. Browser inspection at
+1280, 1000, and 720 px found document/shell/workspace widths equal to the
+viewport and no permanent pane/sidebar. `pnpm tauri dev` reached `basis.exe`
+without panic. Final evidence: 34 regular Rust tests pass with two explicit
+hardware smokes separately passing; strict Clippy/rustfmt, 10 frontend tests,
+Prettier, ESLint, TypeScript, production Vite build, generated bindings, and
+`git diff --check` pass.
+
 Format for new entries:
 
 ```text
@@ -167,6 +191,7 @@ Evidence: <objective summary, relevant test/file/log>
 | 2026-08-30 | D80 accepted as the strict Layout/Theme Engine boundary | Product owner clarified that structural anti-container rules must not prescribe flatness, radius, shadow, glow, or another aesthetic | Layout owns structure/state transitions; Theme Engine owns all visual treatment through semantic tokens, permitting substantially different themes without changing information architecture |
 | 2026-08-30 | D81 assigns the definitive layout to M3a | Building GenericView/detail routes in M2 would create a provisional UI and avoidable rework | M2 remains headless data/contracts; M3a implements the final shell/search/detail/navigation structure; M3b supplies theme values |
 | 2026-08-30 | Manual Light/Dark appearance is device-local while both selected Theme IDs remain portable | D49 defines two portable slots plus system following but no portable active-manual slot; the active device appearance is rendering state, not library content | The editor persists Paper/dark selections and follow-system in `workspace.json`; when system following is off, the last manually activated appearance is retained only in the local webview profile |
+| 2026-08-30 | Voxio 0.2.3 retained behind `AudioEngine` | It compiled inside the D45 timebox and real Windows default-device tests passed all target codecs, controls, and gapless handoff | No Rodio fallback was activated; normal/future adapter-only events are filtered until assigned explicit domain semantics |
 
 ## External blockers
 
