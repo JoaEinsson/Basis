@@ -1,7 +1,7 @@
 # Basis UI/UX polish plan
 
-Status: **accepted post-MVP product direction on September 1, 2026; planning
-only until the M8 release gate is green**.
+Status: **accepted post-MVP product direction on September 1, 2026; M8 entry
+gate green, implementation not started**.
 
 This document is the execution plan for the first general visual and interaction
 polish pass after the MVP. It extends `DESIGN_UX.md`; it does not replace its
@@ -324,6 +324,13 @@ Polish every representation:
 - folder and genre navigation, expansion, breadcrumbs, and empty states;
 - multiselect and bulk-action feedback.
 
+Before capturing final album/artist visual evidence, implement D89 as a narrow
+metadata-correctness regression: capture representative raw AlbumArtist and
+TrackArtists tags, preserve every original track credit, corroborate the primary
+album credit across compatible tracks, and deterministically reproject the
+rebuildable index. A05d must cover structured credits, single-string trailing
+`feat.`/`ft.`/`featuring`, ambiguous credits, and different-year releases.
+
 Album and artist cards receive bounded hover lift, artwork zoom, and action
 reveal. Artwork uses blur-up or opacity loading from a stable placeholder. When
 geometry is reliable, artwork maintains shared-element continuity from a grid
@@ -485,6 +492,7 @@ failure, and long-content cases where applicable.
 | POL19 | Synchronized/plain/candidate lyric content wraps at every supported width and never exposes a horizontal scrollbar. |
 | POL20 | Show/Hide Lyrics is accessible and device-local; artwork/metadata center in artwork-only mode, an explicit instrumental result activates it temporarily, and the prior manual mode returns for the next non-instrumental track. |
 | POL21 | Linux publishes and updates exactly `Basis.AppImage` plus `Basis.AppImage.sig`; optional XDG/KDE desktop integration points to a stable versionless executable path and survives a signed update and relaunch. |
+| POL22 | Featured track credits do not duplicate a corroborated album entity; original display credits remain intact, while ambiguous or differently dated releases remain separate. |
 
 ## Implementation discipline
 

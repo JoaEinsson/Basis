@@ -15,19 +15,17 @@ the resolution.
 - [x] M5 — playlists, events, and Home
 - [x] M6 — LRC/LRCLIB and offline reuse
 - [x] M7 — signed updater and release path
-- [ ] M8 — watcher, security, integration, and final build
+- [x] M8 — watcher, security, integration, and final build
 
 ## Current gate
 
-`M8 — watcher, security, integration, and final build`
+`M0–M8 complete — post-MVP UI/UX polish is accepted but not started`
 
-Next concrete action: implement and test D89 against captured raw featured-credit
-tags, including a deterministic reprojection of unchanged files in the
-rebuildable index. Then run the focused desktop watcher smoke against the active
-library: add, modify, and remove a disposable audio copy without restarting,
-atomically replace one portable View or playlist file, and confirm the open UI
-reloads. The remaining M8 security, audit, icon, and host-release checks are
-complete.
+The product owner accepted the packaged Arch/KDE result, library acquisition and
+indexing, and synchronization behavior on September 1, 2026. D89's
+featured-credit grouping correction was explicitly removed from M8 and belongs
+to the post-MVP P5 library-surface pass. The next implementation action, when
+requested, is P0 of `UI_UX_POLISH_PLAN.md`.
 
 ## Verification
 
@@ -42,7 +40,7 @@ complete.
 - [x] cargo audit
 - [x] pnpm production audit
 - [x] Tauri release build
-- [ ] end-to-end smoke test
+- [x] end-to-end smoke test
 - [x] copy-to-another-root + DB-rebuild smoke test
 - [x] valid updater and invalid-signature tests
 
@@ -525,6 +523,16 @@ integration uses a stable executable path plus XDG application/icon files,
 requires explicit consent, and must survive a signed update and KDE relaunch.
 No workflow or application code changed in this planning step.
 
+2026-09-01 15:34 BRT — M8 packaged Arch/KDE and synchronization acceptance
+Result: PASS — M8 CLOSED
+Evidence: after the nonblocking native-folder correction, the product owner
+confirmed that Add/Change music folder opens correctly in the packaged Linux
+app, the selected real library indexes, and the exercised synchronization flow
+works. Together with the recorded watcher, security, signed release, AppImage,
+copy/rebuild, and updater evidence, this closes the final MVP gate. Per the
+product-owner scope decision, D89 remains an accepted post-MVP P5 correction and
+is not a condition of M8 closure.
+
 Format for new entries:
 
 ```text
@@ -547,7 +555,7 @@ Evidence: <objective summary, relevant test/file/log>
 | 2026-08-30 | Voxio 0.2.3 retained behind `AudioEngine` | It compiled inside the D45 timebox and real Windows default-device tests passed all target codecs, controls, and gapless handoff | No Rodio fallback was activated; normal/future adapter-only events are filtered until assigned explicit domain semantics |
 | 2026-08-30 | The installation UUID is claimed atomically in local `basis/device.json` and mirrored in `basis/settings.json`; portable history replay runs after open/scan and event append | D32–D37 require one stable local writer identity and a disposable SQLite projection; the first manual smoke exposed concurrent development startups choosing different IDs without a no-clobber claim | Concurrent startups converge on one writer identity; each installation appends only its named JSONL file, and deleting the local index cannot remove favorites or play history |
 | 2026-08-31 | LRCLIB matching separates retrieval, semantic evaluation, and selection, with `high` and `review` outcomes | Literal album equality discarded synchronized results for semantically equivalent metadata, while blindly relaxing matching could select a remix/live/acoustic recording | D56 remains the automatic boundary; recording variants are rejected, release variants are ranked, uncertain synchronized results require confirmation, and plain lyrics remain the safe fallback |
-| 2026-09-01 | D86–D89 accepted for lyrics presentation and album identity | Paper inherits unsuitable dark lyric defaults, long synchronized lines expose horizontal overflow, instrumental tracks waste a lyric column, and full-string featured credits reach `album_key` as distinct artists | P1 corrects and previews lyric tokens; P6/P8 add wrapping, visibility, instrumental recomposition, and tests; M8 corrects featured-credit album identity and reprojects the disposable index without rewriting track display metadata |
+| 2026-09-01 | D86–D89 accepted for lyrics presentation and album identity | Paper inherits unsuitable dark lyric defaults, long synchronized lines expose horizontal overflow, instrumental tracks waste a lyric column, and full-string featured credits reach `album_key` as distinct artists | P1 corrects and previews lyric tokens; P6/P8 add wrapping, visibility, instrumental recomposition, and tests; P5 corrects featured-credit album identity and reprojects the disposable index without rewriting track display metadata |
 
 ## External blockers
 

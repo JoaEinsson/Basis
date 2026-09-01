@@ -1,7 +1,7 @@
 # Locked product and engineering decisions
 
 Status: **D01–D69 accepted by the product owner on August 29, 2026; D70–D81
-accepted on August 30, 2026; D82–D89 accepted on September 1, 2026**.
+accepted on August 30, 2026; D82–D90 accepted on September 1, 2026**.
 
 These decisions remove implementation freedom where two reasonable choices
 would produce incompatible behavior. They override earlier optional/suggested

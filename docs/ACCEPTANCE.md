@@ -37,7 +37,6 @@ when permitted, and do not confuse “not run” with “passed.” CI uses
 | A05 | incremental scan does not reparse unchanged size+mtime | Rust integration | M1 |
 | A05b | copied roots with one `library_id` use distinct local databases | Rust integration | M1 |
 | A05c | metadata normalization/grouping is identical with network disabled | Rust integration | M1 |
-| A05d | structured and single-string featured track credits preserve their display metadata but produce one corroborated primary-artist album identity; ambiguous/different-year releases remain separate and an existing rebuildable index is reprojected | Rust integration | M8 correction |
 | A06 | free-text/quotes/predicate parser produces AST | Rust unit | M2 |
 | A07 | AST compiles parameterized SQL using allowlists | Rust unit/integration | M2 |
 | A08 | FTS follows insert/update/delete | Rust integration | M2 |
@@ -67,6 +66,12 @@ Add component tests for keyboard/focus behavior in the top toolbar, pinned-View
 overflow, SearchView, command palette, navigation restoration, theme editor,
 filters, and multiselect. Avoid large snapshots; test behavior.
 
+## Accepted post-MVP regression
+
+| ID | Test | Level | Phase |
+|---|---|---|---|
+| A05d | structured and single-string featured track credits preserve their display metadata but produce one corroborated primary-artist album identity; ambiguous/different-year releases remain separate and an existing rebuildable index is reprojected | Rust integration | P5 correction |
+
 ## Minimum fixtures
 
 Create small, legally redistributable or generated test fixtures:
@@ -80,10 +85,11 @@ fixtures/library-a/
 ```
 
 Files must cover: complete tags, missing tags, multiple discs, album artist,
-structured featured artists, a malformed single-string trailing `feat.`/`ft.`
-credit, ambiguous artist text that must not be split, oversized/rejected
-artwork, corrupt file, Unicode path, and an LRC sidecar. Fixtures must not
-contain absolute paths or copyrighted music.
+ambiguous artist text that must not be split, oversized/rejected artwork,
+corrupt file, Unicode path, and an LRC sidecar. A05d extends that fixture set in
+P5 with structured featured artists and a malformed single-string trailing
+`feat.`/`ft.` credit. Fixtures must not contain absolute paths or copyrighted
+music.
 
 ## End-to-end smoke test
 
@@ -96,9 +102,9 @@ Run against a disposable copy of a real folder; the app does not expose delete.
 3. Verify title/artist/album/disc/track/duration for a known sample.
    Disable network, add another tagged file, and confirm that normalization and
    grouping remain fully functional without MusicBrainz or another provider.
-   Include an album whose track credits mix the primary artist with a trailing
-   featured credit: it must remain one album while the full track credit stays
-   visible.
+   The post-MVP P5 extension additionally includes an album whose track credits
+   mix the primary artist with a trailing featured credit: it must remain one
+   album while the full track credit stays visible.
 4. Navigate to Albums; open the first and confirm that only its tracks appear in
    disc/track order.
 5. Run free-text search and every structured example from spec section 7.2.
@@ -147,7 +153,7 @@ Run against a disposable copy of a real folder; the app does not expose delete.
 
 | Spec §28 | Primary evidence |
 |---|---|
-| 1–5 | smoke 1–4, A01–A05/A10 |
+| 1–5 | smoke 1–4, A01–A05c/A10 |
 | 6–9 | smoke 5–8/22, A06–A09c |
 | 10–14 | smoke 9–10/22, A14–A19b |
 | 15–16 | smoke 12, A11 |
