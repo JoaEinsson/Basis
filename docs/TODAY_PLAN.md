@@ -331,7 +331,9 @@ After M8 and the packaged Arch/KDE release smoke test are green, execute
 work. This program owns the unified custom Windows/Linux titlebar, the Signal
 Cyan Nocturne identity, shared interaction primitives, expressive and controlled
 system-wide motion, and the complete component polish matrix. It does not start
-M9 or add backend music features.
+M9 or add backend music features. It also owns the versionless
+`Basis.AppImage` release name and explicit per-user XDG/KDE desktop integration
+whose launcher path survives signed updates.
 
 ## M9 — only after the final gate
 

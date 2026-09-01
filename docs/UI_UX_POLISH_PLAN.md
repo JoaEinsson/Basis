@@ -386,9 +386,20 @@ Polish:
   validation, dialogs, import/export, and reset actions;
 - UpdatePanel idle/checking/available/downloading/installing/success/error
   states using concise product copy;
+- optional per-user Linux desktop integration for the AppImage: install or move
+  the executable to the stable `~/.local/bin/Basis.AppImage` path, write
+  `basis.desktop` under `$XDG_DATA_HOME/applications` with an absolute escaped
+  `Exec`/`TryExec`, install the Basis icon under the XDG icon hierarchy, refresh
+  integration after a path change, and provide an explicit removal action;
 - route errors, fatal boundary, local errors, scan progress, and recovery
   actions;
 - all confirmations and destructive actions.
+
+Directly launching a downloaded AppImage must not silently modify the user's
+application menu. Desktop integration is an explicit action, operates without
+root privileges, honors `XDG_DATA_HOME`, and never embeds a release version in
+the executable path. A user-selected alternative installation path is allowed
+only when the generated desktop entry records that exact stable absolute path.
 
 Gate: no developer-oriented, redundant, or self-congratulatory copy remains.
 Errors state what failed and the available action without explaining unrelated
@@ -413,7 +424,16 @@ architecture.
    timelines; reject visible jank at supported packaged-platform scale factors.
 5. Repeat manual smoke tests on Windows 10/11 and Arch KDE Wayland using the
    packaged builds, not only Vite/WebView development.
-6. Update screenshots and release notes only after the behavior is verified.
+6. Adjust the Linux release workflow so its final post-processed and signed
+   asset is exactly `Basis.AppImage`, with `Basis.AppImage.sig`; the internal
+   application version and tagged release metadata remain versioned. Generate
+   `latest.json` from those exact assets and reject a versioned AppImage
+   filename in release validation.
+7. On Arch/KDE, install the AppImage through the optional per-user integration,
+   launch it from the application menu, update from an older release, and prove
+   that the desktop entry still resolves the same `Basis.AppImage` path, the
+   executable bit and icon remain valid, and relaunch opens the new version.
+8. Update screenshots and release notes only after the behavior is verified.
 
 Gate: the exit matrix below is green and no visual change weakens playback,
 portability, updater signing, or the Query/View Engine.
@@ -464,6 +484,7 @@ failure, and long-content cases where applicable.
 | POL18 | Paper explicitly resolves readable active, past, upcoming, and translation lyric states after opacity; the editor exposes those semantic tokens and their effective-contrast warnings. |
 | POL19 | Synchronized/plain/candidate lyric content wraps at every supported width and never exposes a horizontal scrollbar. |
 | POL20 | Show/Hide Lyrics is accessible and device-local; artwork/metadata center in artwork-only mode, an explicit instrumental result activates it temporarily, and the prior manual mode returns for the next non-instrumental track. |
+| POL21 | Linux publishes and updates exactly `Basis.AppImage` plus `Basis.AppImage.sig`; optional XDG/KDE desktop integration points to a stable versionless executable path and survives a signed update and relaunch. |
 
 ## Implementation discipline
 

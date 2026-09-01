@@ -516,6 +516,15 @@ GTK/WebKit event loop free to open and operate Add/Change music folder dialogs.
 (55 unit plus updater-signature integration; 2 hardware smokes ignored), strict
 Clippy, and `git diff --check` pass.
 
+2026-09-01 15:14 BRT — Stable AppImage/KDE integration polish contract
+Result: DOCUMENTED (implementation intentionally deferred to post-MVP polish)
+Evidence: D90, P7/P8, POL21, and `RELEASE_AND_SIGNING.md` now require the final
+Linux assets to be exactly `Basis.AppImage` and `Basis.AppImage.sig` while the
+application and release metadata remain versioned. Optional per-user desktop
+integration uses a stable executable path plus XDG application/icon files,
+requires explicit consent, and must survive a signed update and KDE relaunch.
+No workflow or application code changed in this planning step.
+
 Format for new entries:
 
 ```text

@@ -12,7 +12,7 @@ Bundle identifier       io.github.joaeinsson.basis
 Repository              https://github.com/JoaEinsson/Basis
 Channel                 stable
 Windows artifact        NSIS x86_64 (Windows 10/11)
-Linux artifact          AppImage x86_64
+Linux artifact          Basis.AppImage (x86_64; stable versionless filename)
 Updater metadata        https://github.com/JoaEinsson/Basis/releases/latest/download/latest.json
 Initial version         0.1.0
 ```
@@ -23,6 +23,9 @@ Initial version         0.1.0
   API.
 - Sign Windows NSIS and Linux AppImage updater artifacts through the Tauri v2
   mechanism.
+- Publish the final Linux payload and signature as exactly `Basis.AppImage` and
+  `Basis.AppImage.sig`. Keep the version in the app, tag, release, and updater
+  metadata rather than in the AppImage filename.
 - Bundle the public key in the app configuration.
 - Keep the private key only in the CI/release secret store.
 - Use the locked GitHub Releases HTTPS endpoint above in production while
@@ -98,7 +101,8 @@ argument, issue, release note, or CI log.
 4. A build matrix creates Windows x86_64 NSIS and Linux x86_64 AppImage bundles;
    `.deb` may be published as a non-updater convenience artifact.
 5. The signer reads the private key from the secret store and signs each
-   artifact.
+   artifact. The final post-processed Linux payload is renamed to
+   `Basis.AppImage` before signing, producing `Basis.AppImage.sig`.
 6. Matrix jobs upload artifacts, signatures, and `latest.json` to the same
    draft `JoaEinsson/Basis` GitHub Release.
 7. A final job downloads `latest.json`, requires both Windows and Linux signed
@@ -169,6 +173,14 @@ installer, cryptographically verifies both detached signatures against the
 public key embedded in Basis, regenerates `latest.json` from those exact assets,
 and only then publishes the draft.
 
+The release workflow must accept exactly one Linux updater payload named
+`Basis.AppImage` and its adjacent `Basis.AppImage.sig`; a filename containing
+the application version fails release validation. GitHub release tags and the
+URL namespace still distinguish versions, so different releases may safely
+reuse the same asset filename. The updater manifest points at the stable asset
+inside the selected tag rather than deriving identity from a versioned local
+filename.
+
 Ubuntu 22.04 does not provide a reliable `minisign` package in the runner's APT
 sources. `scripts/install-minisign.sh` therefore downloads the official
 Minisign 0.12 x86_64 archive over TLS and verifies its pinned SHA-256 before
@@ -181,7 +193,11 @@ libraries as a release workaround. Before the first stable Linux publication,
 run the release-candidate AppImage directly on Arch Linux with KDE/Wayland and
 record: launch without `LD_PRELOAD`, audio playback, signed update from the
 previous version, relaunch into the new version, preserved app-data, and a
-second launch from the KDE application menu. The clean Ubuntu build and bundle
+second launch from the KDE application menu. When the optional post-MVP desktop
+integration is present, install to `~/.local/bin/Basis.AppImage` (or an explicit
+stable alternative), write `basis.desktop` and the icon through XDG user paths,
+then prove the desktop entry still resolves after the signed update. Direct
+AppImage launch never silently installs those files. The clean Ubuntu build and bundle
 inspection are deterministic CI gates; the Arch/KDE compositor smoke remains a
 real-host release check because GitHub's Ubuntu runner cannot prove it.
 
@@ -217,6 +233,9 @@ Record only IDs/versions/results, never key material.
 - production configuration has no HTTP endpoint or signature bypass;
 - `latest.json` is available from the locked GitHub Releases URL and references
   the NSIS/AppImage artifacts for the same stable version;
+- the Linux release contains exactly `Basis.AppImage` and
+  `Basis.AppImage.sig`, and any enabled XDG/KDE integration survives a signed
+  update without changing its executable path;
 - valid and negative tests have evidence in `PROGRESS.md`;
 - update failure was tested during playback and did not interrupt audio;
 - README/release notes explain which secrets a maintainer must configure and how
