@@ -1,14 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-shopt -s nullglob
-artifacts=(src-tauri/target/release/bundle/appimage/*.AppImage)
-if [[ ${#artifacts[@]} -ne 1 ]]; then
-  echo "Expected exactly one Basis AppImage, found ${#artifacts[@]}." >&2
-  exit 1
+if [[ $# -gt 1 ]]; then
+  echo "Usage: scripts/validate-appimage.sh [AppImage]" >&2
+  exit 2
 fi
 
-appimage="$(realpath "${artifacts[0]}")"
+if [[ $# -eq 1 ]]; then
+  appimage="$(realpath "$1")"
+else
+  shopt -s nullglob
+  artifacts=(src-tauri/target/release/bundle/appimage/*.AppImage)
+  if [[ ${#artifacts[@]} -ne 1 ]]; then
+    echo "Expected exactly one Basis AppImage, found ${#artifacts[@]}." >&2
+    exit 1
+  fi
+  appimage="$(realpath "${artifacts[0]}")"
+fi
 chmod +x "$appimage"
 extract_dir="$(mktemp -d)"
 trap 'rm -rf -- "$extract_dir"' EXIT
@@ -44,16 +52,17 @@ if ldd "$main_binary" | grep -q 'not found'; then
   exit 1
 fi
 
-# EGL and Wayland ABI libraries must come from the host graphics stack. Bundling
-# them can produce WebKitWebProcess EGL_BAD_PARAMETER failures on rolling Linux
-# distributions such as Arch/KDE Wayland.
-if find "$appdir" -type f \( \
+# EGL, GLES, and Wayland ABI libraries must come from the host graphics stack.
+# Bundling them can produce WebKitWebProcess EGL_BAD_PARAMETER failures on
+# rolling Linux distributions such as Arch/KDE Wayland.
+mapfile -t graphics_libraries < <(find "$appdir" \( -type f -o -type l \) \( \
   -name 'libEGL.so*' -o \
   -name 'libGLES.so*' -o \
-  -name 'libwayland-client.so*' -o \
-  -name 'libwayland-egl.so*' \
-\) -print -quit | grep -q .; then
+  -name 'libwayland-*.so*' \
+\) -print)
+if [[ ${#graphics_libraries[@]} -gt 0 ]]; then
   echo "The AppImage unexpectedly bundles host graphics-stack libraries." >&2
+  printf '  %s\n' "${graphics_libraries[@]#$appdir/}" >&2
   exit 1
 fi
 

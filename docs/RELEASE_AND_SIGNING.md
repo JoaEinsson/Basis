@@ -152,13 +152,22 @@ Ubuntu workflow job.
 The Linux build uses the PNG icon set generated from
 `assets/brand/basis-icon-signal.svg`; release validation checks the required
 32, 64, 128, 256, and 512 pixel RGBA inputs before packaging. After the Ubuntu
-job builds the AppImage, `scripts/validate-appimage.sh` extracts it and verifies
-that its desktop entry resolves to a packaged icon, the Basis executable has no
-unresolved libraries on the build host, and the bundle does not carry its own
-EGL/GLES or Wayland client ABI libraries. Those graphics-stack libraries must
-come from the host. This prevents a known class of `WebKitWebProcess`
-`EGL_BAD_PARAMETER` failures caused by mixing an AppImage's display libraries
-with a rolling distribution's Mesa/Wayland stack.
+job builds the AppImage, `scripts/repack-appimage.sh` extracts it, removes every
+bundled `libwayland-*` ABI library, and rebuilds it with appimagetool 1.9.1
+verified against its published SHA-256. The original Tauri-selected AppImage
+runtime is preserved. Because rebuilding changes the payload, CI discards the
+original updater signature and signs the final AppImage again.
+
+`scripts/validate-appimage.sh` then verifies that the desktop entry resolves to
+a packaged icon, the Basis executable has no unresolved libraries on the build
+host, and the final bundle does not carry EGL/GLES or Wayland ABI libraries.
+Those graphics-stack libraries must come from the host. This prevents a known
+class of `WebKitWebProcess` `EGL_BAD_PARAMETER` failures caused by mixing an
+AppImage's display libraries with a rolling distribution's Mesa/Wayland stack.
+The final release job downloads the post-processed AppImage and Windows NSIS
+installer, cryptographically verifies both detached signatures against the
+public key embedded in Basis, regenerates `latest.json` from those exact assets,
+and only then publishes the draft.
 
 Do not add `LD_PRELOAD`, blanket environment overrides, or copied host graphics
 libraries as a release workaround. Before the first stable Linux publication,

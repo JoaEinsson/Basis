@@ -12,6 +12,11 @@ const appImageValidator = await readFile(
   "scripts/validate-appimage.sh",
   "utf8",
 );
+const appImageRepacker = await readFile("scripts/repack-appimage.sh", "utf8");
+const signatureVerifier = await readFile(
+  "scripts/verify-updater-signatures.sh",
+  "utf8",
+);
 const cargoVersion = cargo.match(/^version\s*=\s*"([^"]+)"/m)?.[1];
 const expectedEndpoint =
   "https://github.com/JoaEinsson/Basis/releases/latest/download/latest.json";
@@ -116,6 +121,10 @@ for (const requiredWorkflowText of [
   "releaseDraft: true",
   "gh release edit",
   "scripts/validate-appimage.sh",
+  "scripts/repack-appimage.sh",
+  "pnpm tauri signer sign",
+  "scripts/verify-updater-signatures.sh",
+  "scripts/finalize-updater-manifest.mjs",
   "pnpm audit --prod",
   "cargo audit --file src-tauri/Cargo.lock",
 ]) {
@@ -126,12 +135,22 @@ for (const requiredWorkflowText of [
 for (const forbiddenBundledLibrary of [
   "libEGL.so",
   "libGLES.so",
-  "libwayland-client.so",
-  "libwayland-egl.so",
+  "libwayland-",
 ]) {
   if (!appImageValidator.includes(forbiddenBundledLibrary)) {
     errors.push(`AppImage validation is missing ${forbiddenBundledLibrary}`);
   }
+}
+if (
+  !appImageRepacker.includes("AppImage/appimagetool/releases/download/1.9.1") ||
+  !appImageRepacker.includes(
+    "ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0",
+  )
+) {
+  errors.push("AppImage repacking must use the pinned appimagetool release");
+}
+if (!signatureVerifier.includes("minisign -Vm")) {
+  errors.push("final updater artifacts are not cryptographically verified");
 }
 
 const tag =

@@ -426,6 +426,31 @@ were removed without touching settings, device identity, or real music. The
 frontend suite passes 30 tests; ESLint, TypeScript, Prettier, and the production
 Vite build pass.
 
+2026-09-01 05:17 BRT — M8 Linux AppImage release-candidate correction
+Result: PASS (clean CI rerun and Arch/KDE smoke pending)
+Evidence: release run 33483360730 successfully built and signed the 88,820,216
+byte AppImage, then correctly stopped while it was still a draft because the
+payload contained `libwayland-client`, `libwayland-cursor`, `libwayland-egl`,
+and `libwayland-server`. Inspection of that exact artifact confirmed the gate
+was detecting the anticipated Mesa/Wayland compatibility hazard rather than a
+compile or signing failure. The release workflow now extracts the AppImage,
+removes every `libwayland-*` ABI library, preserves its original runtime,
+rebuilds it with appimagetool 1.9.1 pinned by its published SHA-256, re-signs the
+changed payload, and replaces the unsafe draft assets. A final job downloads
+the Linux and Windows updater artifacts, verifies both signatures against the
+public key embedded in Basis, regenerates `latest.json` from their stable
+browser-download URLs, validates it, and only then publishes the draft.
+
+The post-processor was executed locally under WSL against the failed CI
+AppImage: it found all four bundled Wayland libraries, rebuilt the real payload,
+and direct extraction proved no forbidden EGL/GLES/Wayland library remained.
+The remaining local `ldd` check could not pass because that minimal WSL host
+lacks system `libwayland-server`; the Ubuntu CI image installs the declared GTK
+build dependencies before performing the same check. Shell syntax, workflow
+YAML parsing, four updater-manifest regressions, manifest finalization,
+`release:validate`, ESLint, TypeScript, the 30-test frontend suite, Prettier, and
+`git diff --check` pass.
+
 Format for new entries:
 
 ```text

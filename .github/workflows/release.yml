@@ -94,9 +94,31 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+      - name: Remove bundled Wayland ABI libraries and re-sign AppImage
+        if: matrix.platform == 'ubuntu-22.04'
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          bash scripts/repack-appimage.sh
+          appimage=$(find src-tauri/target/release/bundle/appimage -maxdepth 1 -type f -name '*.AppImage' -print -quit)
+          test -n "$appimage"
+          rm -f -- "$appimage.sig"
+          pnpm tauri signer sign "$appimage"
+          test -s "$appimage.sig"
       - name: Validate Linux AppImage payload and icon
         if: matrix.platform == 'ubuntu-22.04'
         run: bash scripts/validate-appimage.sh
+      - name: Replace draft AppImage with the validated artifact
+        if: matrix.platform == 'ubuntu-22.04'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          appimage=$(find src-tauri/target/release/bundle/appimage -maxdepth 1 -type f -name '*.AppImage' -print -quit)
+          test -n "$appimage"
+          gh release upload "$GITHUB_REF_NAME" "$appimage" "$appimage.sig" --clobber
 
   validate-release-metadata:
     needs: publish
@@ -105,9 +127,29 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v7
-      - name: Download generated updater metadata
-        run: gh release download "$GITHUB_REF_NAME" --pattern latest.json
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - name: Install updater-signature verifier
+        run: sudo apt-get update && sudo apt-get install -y minisign
+      - name: Download final updater artifacts and signatures
+        run: |
+          mkdir release-assets
+          gh release download "$GITHUB_REF_NAME" \
+            --pattern '*.AppImage' \
+            --pattern '*.AppImage.sig' \
+            --pattern '*-setup.exe' \
+            --pattern '*-setup.exe.sig' \
+            --dir release-assets
+      - name: Verify artifacts against the embedded updater key
+        run: bash scripts/verify-updater-signatures.sh release-assets
+      - name: Generate metadata from the verified final artifacts
+        run: >-
+          node scripts/finalize-updater-manifest.mjs
+          release-assets "$GITHUB_REF_NAME" "$GITHUB_REPOSITORY" latest.json
       - name: Validate both signed updater targets
         run: node scripts/validate-updater-manifest.mjs latest.json "$GITHUB_REF_NAME"
+      - name: Replace generated updater metadata
+        run: gh release upload "$GITHUB_REF_NAME" latest.json --clobber
       - name: Publish the validated stable release
         run: gh release edit "$GITHUB_REF_NAME" --draft=false --prerelease=false

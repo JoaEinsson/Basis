@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { validateUpdaterManifest } from "./updater-manifest.mjs";
+import {
+  createUpdaterManifest,
+  validateUpdaterManifest,
+} from "./updater-manifest.mjs";
 
 const signature = "trusted-signature-material".repeat(3);
 
@@ -48,4 +51,31 @@ test("rejects missing signatures, insecure URLs, targets, and version drift", ()
   assert.ok(errors.some((error) => error.includes("HTTPS")));
   assert.ok(errors.some((error) => error.includes("signature")));
   assert.ok(errors.some((error) => error.includes("linux-x86_64")));
+});
+
+test("creates stable browser-download metadata from final signed assets", () => {
+  const manifest = createUpdaterManifest({
+    tag: "v0.2.0",
+    repository: "JoaEinsson/Basis",
+    pubDate: "2026-09-01T00:00:00.000Z",
+    notes: "Basis 0.2.0 stable release.",
+    linux: {
+      file: "Basis_0.2.0_amd64.AppImage",
+      signature,
+    },
+    windows: {
+      file: "Basis_0.2.0_x64-setup.exe",
+      signature,
+    },
+  });
+
+  assert.deepEqual(validateUpdaterManifest(manifest, "v0.2.0"), []);
+  assert.equal(
+    manifest.platforms["linux-x86_64"].url,
+    "https://github.com/JoaEinsson/Basis/releases/download/v0.2.0/Basis_0.2.0_amd64.AppImage",
+  );
+  assert.equal(
+    manifest.platforms["windows-x86_64"].url,
+    "https://github.com/JoaEinsson/Basis/releases/download/v0.2.0/Basis_0.2.0_x64-setup.exe",
+  );
 });

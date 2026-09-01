@@ -38,6 +38,59 @@ export function validateUpdaterManifest(manifest, expectedVersion) {
   return errors;
 }
 
+export function createUpdaterManifest({
+  tag,
+  repository,
+  pubDate,
+  notes,
+  linux,
+  windows,
+}) {
+  if (!/^v\d+\.\d+\.\d+$/.test(tag)) {
+    throw new Error(`Invalid stable release tag: ${tag}`);
+  }
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository)) {
+    throw new Error(`Invalid GitHub repository: ${repository}`);
+  }
+  for (const [platform, artifact] of Object.entries({ linux, windows })) {
+    if (
+      !artifact ||
+      typeof artifact.file !== "string" ||
+      artifact.file.includes("/") ||
+      artifact.file.includes("\\")
+    ) {
+      throw new Error(`Invalid ${platform} updater filename`);
+    }
+    if (
+      typeof artifact.signature !== "string" ||
+      artifact.signature.trim().length < 32
+    ) {
+      throw new Error(`Invalid ${platform} updater signature`);
+    }
+  }
+
+  const linuxArtifact = releaseArtifact(repository, tag, linux);
+  const windowsArtifact = releaseArtifact(repository, tag, windows);
+  return {
+    version: tag.slice(1),
+    notes,
+    pub_date: pubDate,
+    platforms: {
+      "linux-x86_64": linuxArtifact,
+      "linux-x86_64-appimage": linuxArtifact,
+      "windows-x86_64": windowsArtifact,
+      "windows-x86_64-nsis": windowsArtifact,
+    },
+  };
+}
+
+function releaseArtifact(repository, tag, artifact) {
+  return {
+    signature: artifact.signature.trim(),
+    url: `https://github.com/${repository}/releases/download/${encodeURIComponent(tag)}/${encodeURIComponent(artifact.file)}`,
+  };
+}
+
 function isHttpsUrl(value) {
   if (typeof value !== "string") return false;
   try {
