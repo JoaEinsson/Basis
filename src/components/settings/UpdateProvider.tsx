@@ -82,9 +82,9 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
         notes: next.body ?? null,
       });
       setStatus("available");
-    } catch (cause) {
+    } catch {
       setStatus("error");
-      setError(messageFrom(cause));
+      setError(messageFrom());
     } finally {
       checkInFlight.current = false;
     }
@@ -101,9 +101,9 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
     setError(null);
     try {
       setPolicy(await setAutomaticUpdateChecks(enabled));
-    } catch (cause) {
+    } catch {
       setStatus("error");
-      setError(messageFrom(cause));
+      setError(messageFrom());
     }
   }, []);
 
@@ -127,9 +127,9 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
         setStatus("installing");
       });
       await relaunch();
-    } catch (cause) {
+    } catch {
       setStatus("error");
-      setError(messageFrom(cause));
+      setError(messageFrom());
     }
   }, []);
 
@@ -158,8 +158,6 @@ export function useUpdater() {
   return value;
 }
 
-function messageFrom(cause: unknown) {
-  return cause instanceof Error
-    ? cause.message
-    : "Basis could not complete the update operation.";
+function messageFrom() {
+  return "Could not complete the update operation.";
 }

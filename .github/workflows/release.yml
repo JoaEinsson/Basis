@@ -34,6 +34,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run release:validate
       - run: pnpm run release:test
+      - run: pnpm audit --prod
       - run: pnpm run lint
       - run: pnpm run typecheck
       - run: pnpm run test
@@ -41,6 +42,8 @@ jobs:
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
       - run: cargo test --manifest-path src-tauri/Cargo.toml --all-targets
+      - run: cargo install cargo-audit --locked
+      - run: cargo audit --file src-tauri/Cargo.lock
 
   publish:
     needs: quality
@@ -91,6 +94,9 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+      - name: Validate Linux AppImage payload and icon
+        if: matrix.platform == 'ubuntu-22.04'
+        run: bash scripts/validate-appimage.sh
 
   validate-release-metadata:
     needs: publish

@@ -74,6 +74,7 @@ export const commands = {
 
 /** Events */
 export const events = {
+	libraryChanged: makeEvent<LibraryChangedEvent>("library://changed"),
 	libraryScanProgress: makeEvent<LibraryScanEvent>("library://scan-progress"),
 	playerError: makeEvent<PlayerErrorEvent>("player://error"),
 	playerQueueChanged: makeEvent<PlayerQueueChangedEvent>("player://queue-changed"),
@@ -170,6 +171,15 @@ export type HistoryEventType = "played" | "skipped" | "favorite_set";
 export type HistoryPayload = ({ seconds: number | null }) & { value?: never } | ({ value: boolean }) & { seconds?: never };
 
 export type LayoutKind = "grid" | "list" | "table";
+
+export type LibraryChangeKind = "audio" | "views" | "playlists" | "events" | "themes" | "workspace" | "lyrics";
+
+export type LibraryChangedEvent = {
+	summary: LibrarySummary,
+	kinds: LibraryChangeKind[],
+	changedPaths: string[],
+	error: string | null,
+};
 
 export type LibraryScanEvent = {
 	summary: LibrarySummary,

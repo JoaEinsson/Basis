@@ -23,6 +23,12 @@ export function NowPlaying() {
   const scrollTimer = useRef<number | null>(null);
 
   useEffect(() => {
+    const reload = () => setRequestVersion((version) => version + 1);
+    window.addEventListener("basis:lyrics-changed", reload);
+    return () => window.removeEventListener("basis:lyrics-changed", reload);
+  }, []);
+
+  useEffect(() => {
     if (!track) {
       setResolution(null);
       setLyricsError(null);

@@ -14,18 +14,18 @@ the resolution.
 - [x] M4 — playback and queue
 - [x] M5 — playlists, events, and Home
 - [x] M6 — LRC/LRCLIB and offline reuse
-- [ ] M7 — signed updater and release path
+- [x] M7 — signed updater and release path
 - [ ] M8 — watcher, security, integration, and final build
 
 ## Current gate
 
-`M7 — signed updater and release path`
+`M8 — watcher, security, integration, and final build`
 
-Next concrete action: run the focused desktop updater smoke in Settings while
-audio is playing: manual endpoint failure must remain non-fatal, the automatic
-toggle must persist across restart, and no download/install may begin without
-the confirmation dialog. The signed host build, signature verification, policy,
-UI, and cross-platform release workflow already have automated evidence.
+Next concrete action: run the focused desktop watcher smoke against the active
+library: add, modify, and remove a disposable audio copy without restarting,
+then atomically replace one portable View or playlist file and confirm the open
+UI reloads. Automated M8 implementation, security, audit, icon, and host-release
+checks are complete.
 
 ## Verification
 
@@ -37,11 +37,11 @@ UI, and cross-platform release workflow already have automated evidence.
 - [x] rustfmt
 - [x] clippy `-D warnings`
 - [x] cargo tests
-- [ ] cargo audit
-- [ ] pnpm production audit
+- [x] cargo audit
+- [x] pnpm production audit
 - [x] Tauri release build
 - [ ] end-to-end smoke test
-- [ ] copy-to-another-root + DB-rebuild smoke test
+- [x] copy-to-another-root + DB-rebuild smoke test
 - [x] valid updater and invalid-signature tests
 
 ## Latest verification
@@ -371,6 +371,60 @@ signature integration test (2 hardware tests ignored after M4 evidence),
 strict Clippy, ESLint, TypeScript, Prettier, production Vite build, rustfmt, and
 `git diff --check` pass. Repository search finds no private-key marker or
 developer-specific absolute path outside ignored build/dependency output.
+
+2026-08-31 23:02 BRT — M7 focused desktop acceptance
+Result: PASS
+Evidence: while local audio was playing, the user confirmed that the manual
+check failure remained non-fatal, the automatic-check preference persisted
+across restart, and the remainder of the updater Settings flow behaved as
+specified. Product-copy review removed unnecessary implementation language
+from the About and error states. M7 is closed and work advances to M8.
+
+2026-09-01 04:04 BRT — M8 automated watcher, security, icon, and release gate
+Result: PASS (focused desktop watcher smoke pending)
+Evidence: a native recursive watcher starts only after the initial scan,
+debounces each burst for 500 ms, coalesces normalized paths, waits for stable
+size/mtime, incrementally adds/updates/removes audio and directory subtrees, and
+falls back to a bounded full rescan only if a burst exceeds 4096 paths. External
+atomic changes to Views, playlists, events, themes, workspace, and lyrics emit
+typed refresh events; active library pages, details, Home, playlists, themes,
+Search state, and Now Playing subscribe without requiring a restart. Rust tests
+cover single-file add/change/remove, subtree replacement, and final-path
+classification after an atomic portable rename. The frontend event regression
+proves that a watcher event refreshes the live library projection.
+
+The provided adaptive and signal SVGs are retained under `assets/brand/`; the
+signal mark replaces the app-shell placeholder and generated the Tauri RGBA
+PNG/ICO/ICNS desktop set. Release validation checks the icon dimensions and
+alpha, a production CSP without localhost/WebSocket origins, and an exact
+three-permission main-window allowlist. Linux CI extracts the built AppImage,
+resolves its desktop icon, checks linked libraries, and rejects bundled
+EGL/GLES/Wayland client ABI libraries; a real Arch/KDE Wayland launch/updater
+smoke remains required before the first Linux publication because the Ubuntu
+runner cannot emulate that host stack.
+
+Evidence commands: 29 frontend tests, 56 effective Rust tests with the two
+previously proven hardware tests still explicitly ignored, strict Clippy,
+rustfmt, ESLint, TypeScript, Prettier, Vite production build,
+`release:validate`, updater manifest tests, and `git diff --check` pass.
+`pnpm audit --prod` reports no known vulnerability. `cargo audit` reports no
+denied vulnerability and exits successfully; it lists 18 upstream maintenance
+or soundness warnings in target/build-time Tauri/GTK/urlpattern dependency
+lines for ongoing upstream tracking. The signed Windows host build produced
+`Basis_0.1.0_x64-setup.exe` (6,876,597 bytes) and its 416-byte updater
+signature. Existing M1 tests prove copied roots get separate indexes and that
+deleting only SQLite rebuilds all portable/authored state.
+
+2026-09-01 04:25 BRT — Library-root recovery and switch UX
+Result: PASS (manual folder selection pending)
+Evidence: the application menu now exposes `Add music folder…` with no active
+root and `Change music folder…` with an active root. Settings shows the current
+root and provides the same action. The flow reuses the established native
+folder picker and scan pipeline and never deletes portable `.musiclib` data.
+All temporary M5/M8 fixture roots and their derived local SQLite/artwork data
+were removed without touching settings, device identity, or real music. The
+frontend suite passes 30 tests; ESLint, TypeScript, Prettier, and the production
+Vite build pass.
 
 Format for new entries:
 

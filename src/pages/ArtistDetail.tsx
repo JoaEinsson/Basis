@@ -16,6 +16,14 @@ export function ArtistDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [playlistTracks, setPlaylistTracks] = useState<TrackDto[] | null>(null);
+  const [libraryRevision, setLibraryRevision] = useState(0);
+
+  useEffect(() => {
+    const reload = () => setLibraryRevision((revision) => revision + 1);
+    window.addEventListener("basis:library-projection-changed", reload);
+    return () =>
+      window.removeEventListener("basis:library-projection-changed", reload);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -39,7 +47,7 @@ export function ArtistDetail() {
     return () => {
       active = false;
     };
-  }, [artistKey]);
+  }, [artistKey, libraryRevision]);
 
   if (loading) {
     return (

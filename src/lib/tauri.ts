@@ -7,6 +7,7 @@ import type {
   Expr,
   GlobalSearchResults,
   LibraryScanEvent,
+  LibraryChangedEvent,
   LibrarySummary,
   PlayerErrorEvent,
   PlayerQueueChangedEvent,
@@ -206,6 +207,14 @@ export function onLibraryScanProgress(
   handler: (event: LibraryScanEvent) => void,
 ): Promise<UnlistenFn> {
   return events.libraryScanProgress.listen((event) => {
+    handler(event.payload);
+  });
+}
+
+export function onLibraryChanged(
+  handler: (event: LibraryChangedEvent) => void,
+): Promise<UnlistenFn> {
+  return events.libraryChanged.listen((event) => {
     handler(event.payload);
   });
 }

@@ -8,6 +8,10 @@ const capabilities = JSON.parse(
 const cargo = await readFile("src-tauri/Cargo.toml", "utf8");
 const cargoLock = await readFile("src-tauri/Cargo.lock", "utf8");
 const workflow = await readFile(".github/workflows/release.yml", "utf8");
+const appImageValidator = await readFile(
+  "scripts/validate-appimage.sh",
+  "utf8",
+);
 const cargoVersion = cargo.match(/^version\s*=\s*"([^"]+)"/m)?.[1];
 const expectedEndpoint =
   "https://github.com/JoaEinsson/Basis/releases/latest/download/latest.json";
@@ -23,6 +27,16 @@ if (tauri.identifier !== "io.github.joaeinsson.basis") {
 }
 if (tauri.bundle?.createUpdaterArtifacts !== true) {
   errors.push("bundle.createUpdaterArtifacts must be true");
+}
+const productionCsp = tauri.app?.security?.csp;
+if (
+  typeof productionCsp !== "string" ||
+  !productionCsp.includes("object-src 'none'")
+) {
+  errors.push("the production CSP must deny object embedding");
+}
+if (/localhost|127\.0\.0\.1|ws:\/\//.test(productionCsp ?? "")) {
+  errors.push("the production CSP contains a development network origin");
 }
 if (!tauri.plugins?.updater?.endpoints?.includes(expectedEndpoint)) {
   errors.push("the locked GitHub Releases updater endpoint is missing");
@@ -68,6 +82,31 @@ for (const permission of ["updater:default", "process:allow-restart"]) {
     errors.push(`${permission} is missing from the main-window capability`);
   }
 }
+const allowedPermissions = new Set([
+  "core:default",
+  "updater:default",
+  "process:allow-restart",
+]);
+for (const permission of capabilities.permissions ?? []) {
+  if (!allowedPermissions.has(permission)) {
+    errors.push(`unexpected main-window capability: ${permission}`);
+  }
+}
+for (const [file, width, height] of [
+  ["src-tauri/icons/32x32.png", 32, 32],
+  ["src-tauri/icons/64x64.png", 64, 64],
+  ["src-tauri/icons/128x128.png", 128, 128],
+  ["src-tauri/icons/128x128@2x.png", 256, 256],
+  ["src-tauri/icons/icon.png", 512, 512],
+]) {
+  await validatePng(file, width, height, errors);
+  if (file !== "src-tauri/icons/icon.png") {
+    const relative = file.replace("src-tauri/", "");
+    if (!tauri.bundle?.icon?.includes(relative)) {
+      errors.push(`${relative} is missing from bundle.icon`);
+    }
+  }
+}
 for (const requiredWorkflowText of [
   "windows-latest",
   "--bundles nsis",
@@ -76,9 +115,22 @@ for (const requiredWorkflowText of [
   "TAURI_SIGNING_PRIVATE_KEY",
   "releaseDraft: true",
   "gh release edit",
+  "scripts/validate-appimage.sh",
+  "pnpm audit --prod",
+  "cargo audit --file src-tauri/Cargo.lock",
 ]) {
   if (!workflow.includes(requiredWorkflowText)) {
     errors.push(`release workflow is missing ${requiredWorkflowText}`);
+  }
+}
+for (const forbiddenBundledLibrary of [
+  "libEGL.so",
+  "libGLES.so",
+  "libwayland-client.so",
+  "libwayland-egl.so",
+]) {
+  if (!appImageValidator.includes(forbiddenBundledLibrary)) {
+    errors.push(`AppImage validation is missing ${forbiddenBundledLibrary}`);
   }
 }
 
@@ -103,4 +155,24 @@ function lockedCargoVersion(lockfile, packageName) {
       `\\[\\[package\\]\\]\\r?\\nname = "${escaped}"\\r?\\nversion = "([^"]+)"`,
     ),
   )?.[1];
+}
+
+async function validatePng(file, expectedWidth, expectedHeight, failures) {
+  const bytes = await readFile(file);
+  const signature = "89504e470d0a1a0a";
+  if (bytes.length < 33 || bytes.subarray(0, 8).toString("hex") !== signature) {
+    failures.push(`${file} is not a valid PNG`);
+    return;
+  }
+  const width = bytes.readUInt32BE(16);
+  const height = bytes.readUInt32BE(20);
+  const colorType = bytes[25];
+  if (width !== expectedWidth || height !== expectedHeight) {
+    failures.push(
+      `${file} must be ${expectedWidth}x${expectedHeight}, found ${width}x${height}`,
+    );
+  }
+  if (colorType !== 4 && colorType !== 6) {
+    failures.push(`${file} must preserve an alpha channel`);
+  }
 }

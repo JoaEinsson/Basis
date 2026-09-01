@@ -14,6 +14,7 @@ import {
 } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
+  LibraryChangedEvent,
   PlayerSnapshot,
   PlayerStateEvent,
   PlayerTrackChangedEvent,
@@ -22,9 +23,11 @@ import type {
 import { useNavigationStore } from "../stores/navigation";
 
 const mocks = vi.hoisted(() => ({
+  chooseLibraryRoot: vi.fn(),
   getLibraryStatus: vi.fn(),
   listViews: vi.fn(),
   onLibraryScanProgress: vi.fn(),
+  onLibraryChanged: vi.fn(),
   searchLibrary: vi.fn(),
   getPlayerState: vi.fn(),
   onPlayerState: vi.fn(),
@@ -35,10 +38,11 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../lib/tauri", () => ({
-  chooseLibraryRoot: vi.fn(),
+  chooseLibraryRoot: mocks.chooseLibraryRoot,
   getLibraryStatus: mocks.getLibraryStatus,
   listViews: mocks.listViews,
   onLibraryScanProgress: mocks.onLibraryScanProgress,
+  onLibraryChanged: mocks.onLibraryChanged,
   searchLibrary: mocks.searchLibrary,
   getPlayerState: mocks.getPlayerState,
   onPlayerState: mocks.onPlayerState,
@@ -84,8 +88,10 @@ describe("Basis definitive shell", () => {
       viewEntries: {},
     });
     mocks.getLibraryStatus.mockResolvedValue(null);
+    mocks.chooseLibraryRoot.mockResolvedValue(null);
     mocks.listViews.mockResolvedValue([albumsView]);
     mocks.onLibraryScanProgress.mockResolvedValue(vi.fn());
+    mocks.onLibraryChanged.mockResolvedValue(vi.fn());
     mocks.searchLibrary.mockResolvedValue({
       query: { kind: "text", value: "Sleep Token" },
       artists: [],
@@ -104,6 +110,44 @@ describe("Basis definitive shell", () => {
     mocks.pausePlayback.mockResolvedValue(emptyPlayerSnapshot());
   });
 
+  it("refreshes the active library when the filesystem watcher publishes a change", async () => {
+    let publish: ((event: LibraryChangedEvent) => void) | undefined;
+    mocks.onLibraryChanged.mockImplementationOnce(
+      (handler: (event: LibraryChangedEvent) => void) => {
+        publish = handler;
+        return Promise.resolve(vi.fn());
+      },
+    );
+    const projectionChanged = vi.fn();
+    window.addEventListener(
+      "basis:library-projection-changed",
+      projectionChanged,
+    );
+    renderShell();
+    await screen.findByRole("link", { name: "Albums" });
+
+    act(() => {
+      publish?.({
+        summary: {
+          libraryId: "00000000-0000-0000-0000-000000000001",
+          rootInstanceHash: "root",
+          rootPath: "C:/Music",
+          trackCount: 8,
+          status: "ready",
+        },
+        kinds: ["audio"],
+        changedPaths: ["Album/new.flac"],
+        error: null,
+      });
+    });
+
+    expect(projectionChanged).toHaveBeenCalledTimes(1);
+    window.removeEventListener(
+      "basis:library-projection-changed",
+      projectionChanged,
+    );
+  });
+
   it("renders pinned Views in the top toolbar and has no permanent sidebar", async () => {
     const { container } = renderShell();
     expect(
@@ -111,6 +155,15 @@ describe("Basis definitive shell", () => {
     ).toBeInTheDocument();
     expect(container.querySelector("aside")).toBeNull();
     expect(container.querySelector(".sidebar")).toBeNull();
+  });
+
+  it("lets an empty library choose a music folder from the application menu", async () => {
+    renderShell();
+    fireEvent.click(await screen.findByLabelText("Application menu"));
+    fireEvent.click(
+      screen.getByRole("menuitem", { name: "Add music folder…" }),
+    );
+    await waitFor(() => expect(mocks.chooseLibraryRoot).toHaveBeenCalledOnce());
   });
 
   it("opens the command palette with Ctrl+K independently of Search", async () => {

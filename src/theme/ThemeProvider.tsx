@@ -102,6 +102,13 @@ export function ThemeProvider({
   }, [refresh]);
 
   useEffect(() => {
+    const handleExternalChange = () => void refresh();
+    window.addEventListener("basis:themes-changed", handleExternalChange);
+    return () =>
+      window.removeEventListener("basis:themes-changed", handleExternalChange);
+  }, [refresh]);
+
+  useEffect(() => {
     if (typeof window.matchMedia !== "function") return;
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     const update = () => setSystemAppearance(media.matches ? "dark" : "light");

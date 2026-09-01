@@ -13,7 +13,7 @@ use tauri_specta::Event;
 use crate::{
     app_state::AppState,
     domain::track::{LibrarySummary, ScanProgress},
-    library::{scanner::scan_library, service::open_library},
+    library::{scanner::scan_library, service::open_library, watcher::start_library_watcher},
     local_settings::remember_library_root,
     player::service::PlayerService,
     portable::events::rebuild_projection,
@@ -146,6 +146,8 @@ pub(crate) fn start_scan(app: AppHandle, state: AppState, generation: u64) {
                 }
                 .emit(&app);
             }
+        } else if state.is_generation_current(generation) {
+            start_library_watcher(app, state, generation);
         }
     });
 }

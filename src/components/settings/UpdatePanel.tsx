@@ -30,10 +30,7 @@ export function UpdatePanel() {
       <div className="settings-section-heading">
         <div>
           <h2 id="update-settings">About and updates</h2>
-          <p>
-            Basis {currentVersion ?? ""} checks the signed stable channel on
-            GitHub Releases.
-          </p>
+          <p>Version {currentVersion ?? "…"}</p>
         </div>
         <button
           type="button"
@@ -72,7 +69,7 @@ export function UpdatePanel() {
       )}
       {updater.error && (
         <p className="inline-error" role="alert">
-          Update check failed without affecting local playback: {updater.error}
+          {updater.error}
         </p>
       )}
 

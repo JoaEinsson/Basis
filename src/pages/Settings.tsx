@@ -1,4 +1,12 @@
-import { ArrowDown, ArrowUp, Eye, EyeOff, Pencil, Trash2 } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Eye,
+  EyeOff,
+  FolderOpen,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import { useState } from "react";
 import { AppearanceEditor } from "../components/settings/AppearanceEditor";
 import { UpdatePanel } from "../components/settings/UpdatePanel";
@@ -7,7 +15,8 @@ import { deleteView, saveView, setPinnedViews } from "../lib/tauri";
 import type { ViewDefinition } from "../lib/types";
 
 export function Settings() {
-  const { library, views, refreshViews } = useLibraryContext();
+  const { library, views, refreshViews, chooseLibrary, choosingLibrary } =
+    useLibraryContext();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [renaming, setRenaming] = useState<ViewDefinition | null>(null);
@@ -95,6 +104,33 @@ export function Settings() {
           <h1 id="settings-title">Settings</h1>
         </div>
       </div>
+      <section
+        className="settings-section"
+        aria-labelledby="music-folder-settings"
+      >
+        <div className="settings-section-heading">
+          <div>
+            <h2 id="music-folder-settings">Music folder</h2>
+            <p>
+              {library
+                ? `Current folder: ${library.rootPath}`
+                : "Choose the folder that contains your music."}
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={choosingLibrary}
+            onClick={() => void chooseLibrary()}
+          >
+            <FolderOpen aria-hidden="true" size={16} />
+            {choosingLibrary
+              ? "Opening…"
+              : library
+                ? "Change folder…"
+                : "Add folder…"}
+          </button>
+        </div>
+      </section>
       <AppearanceEditor libraryReady={library !== null} />
       <UpdatePanel />
       <section

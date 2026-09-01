@@ -171,13 +171,11 @@ kbd {
 }
 
 .brand-mark {
-  display: grid;
+  display: block;
   width: 1.8rem;
   height: 1.8rem;
-  place-items: center;
-  border-radius: var(--mv-shape-radius-control);
-  background: var(--mv-color-accent);
-  color: var(--mv-color-on-accent);
+  flex: none;
+  object-fit: contain;
 }
 
 .history-controls,

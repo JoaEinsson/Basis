@@ -2,6 +2,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Command,
+  FolderOpen,
   MoreHorizontal,
   Search,
   Settings2,
@@ -22,10 +23,12 @@ import {
   useNavigate,
   useSearchParams,
 } from "react-router-dom";
+import basisIconSignal from "../../../assets/brand/basis-icon-signal.svg";
 import {
   chooseLibraryRoot,
   getLibraryStatus,
   listViews,
+  onLibraryChanged,
   onLibraryScanProgress,
 } from "../../lib/tauri";
 import type {
@@ -63,6 +66,56 @@ export function AppShell() {
     const next = await listViews();
     setViews(Array.isArray(next) ? next : []);
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    let unlisten: (() => void) | undefined;
+    void onLibraryChanged((event) => {
+      if (!active) return;
+      setLibrary(event.summary);
+      setLibraryError(event.error);
+      if (event.kinds.includes("views") || event.kinds.includes("workspace")) {
+        void refreshViews().catch((cause: unknown) => {
+          if (active) {
+            setLibraryError(
+              cause instanceof Error
+                ? cause.message
+                : "Views could not reload.",
+            );
+          }
+        });
+      }
+      if (event.kinds.includes("audio") || event.kinds.includes("events")) {
+        window.dispatchEvent(
+          new CustomEvent("basis:library-projection-changed", {
+            detail: event,
+          }),
+        );
+      }
+      if (event.kinds.includes("playlists")) {
+        window.dispatchEvent(
+          new CustomEvent("basis:playlists-changed", { detail: event }),
+        );
+      }
+      if (event.kinds.includes("themes") || event.kinds.includes("workspace")) {
+        window.dispatchEvent(
+          new CustomEvent("basis:themes-changed", { detail: event }),
+        );
+      }
+      if (event.kinds.includes("lyrics")) {
+        window.dispatchEvent(
+          new CustomEvent("basis:lyrics-changed", { detail: event }),
+        );
+      }
+    }).then((stop) => {
+      if (active) unlisten = stop;
+      else stop();
+    });
+    return () => {
+      active = false;
+      unlisten?.();
+    };
+  }, [refreshViews]);
 
   useEffect(() => {
     let active = true;
@@ -188,9 +241,12 @@ export function AppShell() {
                 to="/home"
                 aria-label="Basis library"
               >
-                <span className="brand-mark" aria-hidden="true">
-                  B
-                </span>
+                <img
+                  className="brand-mark"
+                  src={basisIconSignal}
+                  alt=""
+                  aria-hidden="true"
+                />
                 <span>Basis</span>
               </Link>
               <div className="history-controls" aria-label="Navigation history">
@@ -288,6 +344,19 @@ export function AppShell() {
                     >
                       <Command aria-hidden="true" size={16} /> Command palette
                       <kbd>Ctrl K</kbd>
+                    </button>
+                    <button
+                      role="menuitem"
+                      type="button"
+                      disabled={choosingLibrary}
+                      onClick={() => void chooseLibrary()}
+                    >
+                      <FolderOpen aria-hidden="true" size={16} />
+                      {choosingLibrary
+                        ? "Opening…"
+                        : library
+                          ? "Change music folder…"
+                          : "Add music folder…"}
                     </button>
                     <Link role="menuitem" to="/settings">
                       <Settings2 aria-hidden="true" size={16} /> Settings

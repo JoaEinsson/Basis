@@ -72,6 +72,7 @@ pub fn run() {
         ])
         .events(collect_events![
             commands::library::LibraryScanEvent,
+            library::watcher::LibraryChangedEvent,
             domain::player::PlayerStateEvent,
             domain::player::PlayerTrackChangedEvent,
             domain::player::PlayerQueueChangedEvent,

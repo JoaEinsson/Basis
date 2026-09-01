@@ -37,6 +37,13 @@ function PlaylistIndex() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [portableRevision, setPortableRevision] = useState(0);
+
+  useEffect(() => {
+    const reload = () => setPortableRevision((revision) => revision + 1);
+    window.addEventListener("basis:playlists-changed", reload);
+    return () => window.removeEventListener("basis:playlists-changed", reload);
+  }, []);
 
   async function refresh() {
     const catalog = await listPlaylists();
@@ -67,7 +74,7 @@ function PlaylistIndex() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [portableRevision]);
 
   return (
     <section className="page playlists-page" aria-labelledby="playlists-title">
@@ -238,6 +245,13 @@ function PlaylistDetail({ id }: { id: string }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [queryText, setQueryText] = useState("");
+  const [portableRevision, setPortableRevision] = useState(0);
+
+  useEffect(() => {
+    const reload = () => setPortableRevision((revision) => revision + 1);
+    window.addEventListener("basis:playlists-changed", reload);
+    return () => window.removeEventListener("basis:playlists-changed", reload);
+  }, []);
 
   async function refresh() {
     const next = await resolvePlaylist(id);
@@ -264,7 +278,7 @@ function PlaylistDetail({ id }: { id: string }) {
     return () => {
       active = false;
     };
-  }, [id]);
+  }, [id, portableRevision]);
 
   async function savePlaylist(playlist: Playlist) {
     setSaving(true);

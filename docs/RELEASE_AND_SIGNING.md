@@ -147,6 +147,28 @@ remove the signing environment variables afterward. Do not copy the key into
 the workspace. Linux AppImage production packaging is performed by the clean
 Ubuntu workflow job.
 
+## Linux AppImage compatibility gate
+
+The Linux build uses the PNG icon set generated from
+`assets/brand/basis-icon-signal.svg`; release validation checks the required
+32, 64, 128, 256, and 512 pixel RGBA inputs before packaging. After the Ubuntu
+job builds the AppImage, `scripts/validate-appimage.sh` extracts it and verifies
+that its desktop entry resolves to a packaged icon, the Basis executable has no
+unresolved libraries on the build host, and the bundle does not carry its own
+EGL/GLES or Wayland client ABI libraries. Those graphics-stack libraries must
+come from the host. This prevents a known class of `WebKitWebProcess`
+`EGL_BAD_PARAMETER` failures caused by mixing an AppImage's display libraries
+with a rolling distribution's Mesa/Wayland stack.
+
+Do not add `LD_PRELOAD`, blanket environment overrides, or copied host graphics
+libraries as a release workaround. Before the first stable Linux publication,
+run the release-candidate AppImage directly on Arch Linux with KDE/Wayland and
+record: launch without `LD_PRELOAD`, audio playback, signed update from the
+previous version, relaunch into the new version, preserved app-data, and a
+second launch from the KDE application menu. The clean Ubuntu build and bundle
+inspection are deterministic CI gates; the Arch/KDE compositor smoke remains a
+real-host release check because GitHub's Ubuntu runner cannot prove it.
+
 ## Controlled signature test
 
 `fixtures/updater/latest.json`, its tiny payload, and detached signature are a

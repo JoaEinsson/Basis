@@ -10,6 +10,8 @@ export type {
   GenreDto,
   GlobalSearchResults,
   LibraryScanEvent,
+  LibraryChangeKind,
+  LibraryChangedEvent,
   LibrarySummary,
   LyricsCandidate,
   LyricsDocument,

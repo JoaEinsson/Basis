@@ -86,6 +86,23 @@ impl AppState {
         Ok(Some(library.summary.clone()))
     }
 
+    pub fn is_generation_current(&self, generation: u64) -> bool {
+        self.scan_generation.load(Ordering::SeqCst) == generation
+    }
+
+    pub fn refresh_summary(&self, generation: u64) -> Result<Option<LibrarySummary>, String> {
+        if !self.is_generation_current(generation) {
+            return Ok(None);
+        }
+        let mut guard = self.lock()?;
+        let Some(library) = guard.as_mut() else {
+            return Ok(None);
+        };
+        library.summary.track_count = ui_count(library.database.track_count()?);
+        library.summary.status = LibraryStatus::Ready;
+        Ok(Some(library.summary.clone()))
+    }
+
     fn lock(&self) -> Result<std::sync::MutexGuard<'_, Option<ActiveLibrary>>, String> {
         self.inner
             .lock()

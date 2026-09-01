@@ -21,6 +21,14 @@ use crate::{
 const AUDIO_EXTENSIONS: &[&str] = &["mp3", "flac", "m4a", "aac", "ogg", "oga", "opus", "wav"];
 const MAX_EMBEDDED_ARTWORK_BYTES: usize = 25 * 1024 * 1024;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum IncrementalIndexOutcome {
+    Indexed,
+    Removed,
+    Unchanged,
+    Failed,
+}
+
 pub fn scan_library<F>(
     root: &Path,
     library_id: Uuid,
@@ -264,7 +272,7 @@ fn cache_artwork(
         .ok()
 }
 
-fn is_supported_audio_path(path: &Path) -> bool {
+pub(crate) fn is_supported_audio_path(path: &Path) -> bool {
     path.extension()
         .and_then(|extension| extension.to_str())
         .is_some_and(|extension| {
@@ -272,6 +280,97 @@ fn is_supported_audio_path(path: &Path) -> bool {
                 .iter()
                 .any(|allowed| extension.eq_ignore_ascii_case(allowed))
         })
+}
+
+pub fn reindex_audio_path(
+    root: &Path,
+    library_id: Uuid,
+    database: &IndexDatabase,
+    artwork_cache_dir: &Path,
+    path: &Path,
+) -> Result<IncrementalIndexOutcome, String> {
+    let rel_path = normalize_from_absolute(root, path)?;
+    let session = database.scan_session(epoch_millis(SystemTime::now()))?;
+    let metadata = match fs::symlink_metadata(path) {
+        Ok(metadata) if metadata.file_type().is_file() && !metadata.file_type().is_symlink() => {
+            metadata
+        }
+        Ok(_) | Err(_) => {
+            session.remove_path(&rel_path)?;
+            session.commit()?;
+            return Ok(IncrementalIndexOutcome::Removed);
+        }
+    };
+    let file_size = i64::try_from(metadata.len()).unwrap_or(i64::MAX);
+    let mtime_ns = modified_ns(&metadata);
+    if session.is_unchanged(&rel_path, file_size, mtime_ns)? {
+        session.commit()?;
+        return Ok(IncrementalIndexOutcome::Unchanged);
+    }
+    match read_track(
+        path,
+        library_id,
+        rel_path.clone(),
+        file_size,
+        mtime_ns,
+        artwork_cache_dir,
+    ) {
+        Ok(track) => {
+            session.upsert_track(&track)?;
+            session.commit()?;
+            Ok(IncrementalIndexOutcome::Indexed)
+        }
+        Err(error) => {
+            session.remove_path(&rel_path)?;
+            session.record_failure(&rel_path, file_size, mtime_ns, &error)?;
+            session.commit()?;
+            Ok(IncrementalIndexOutcome::Failed)
+        }
+    }
+}
+
+pub fn remove_indexed_path_prefix(
+    root: &Path,
+    database: &IndexDatabase,
+    path: &Path,
+) -> Result<(), String> {
+    let rel_path = normalize_from_absolute(root, path)?;
+    let session = database.scan_session(epoch_millis(SystemTime::now()))?;
+    session.remove_path_prefix(&rel_path)?;
+    session.commit()
+}
+
+pub fn reindex_audio_tree(
+    root: &Path,
+    library_id: Uuid,
+    database: &IndexDatabase,
+    artwork_cache_dir: &Path,
+    path: &Path,
+) -> Result<(), String> {
+    remove_indexed_path_prefix(root, database, path)?;
+    let mut walker = WalkBuilder::new(path);
+    walker
+        .hidden(false)
+        .follow_links(false)
+        .git_ignore(false)
+        .git_global(false)
+        .git_exclude(false)
+        .filter_entry(|entry| entry.file_name() != ".musiclib");
+    for entry in walker.build() {
+        let Ok(entry) = entry else {
+            continue;
+        };
+        if entry.path_is_symlink()
+            || !entry
+                .file_type()
+                .is_some_and(|file_type| file_type.is_file())
+            || !is_supported_audio_path(entry.path())
+        {
+            continue;
+        }
+        reindex_audio_path(root, library_id, database, artwork_cache_dir, entry.path())?;
+    }
+    Ok(())
 }
 
 fn modified_ns(metadata: &fs::Metadata) -> i64 {
@@ -308,7 +407,7 @@ mod tests {
 
     use crate::{index::db::IndexDatabase, portable::manifest::ensure_layout};
 
-    use super::scan_library;
+    use super::{reindex_audio_path, reindex_audio_tree, scan_library, IncrementalIndexOutcome};
 
     #[test]
     fn scanner_isolates_invalid_files_and_skips_musiclib_and_symlinks() {
@@ -438,6 +537,72 @@ mod tests {
         assert_eq!(rescan.skipped_unchanged, 8, "{rescan:?}");
         assert_eq!(rescan.indexed, 0, "{rescan:?}");
         assert_eq!(rescan.failed, 0, "{rescan:?}");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn incremental_index_adds_changes_and_removes_one_audio_path() {
+        let root = temporary_root("watch-incremental");
+        let path = root.join("live.wav");
+        let database = IndexDatabase::open(root.join("index.sqlite3")).unwrap();
+        let library_id = Uuid::new_v4();
+        let cache = root.join("artwork-cache");
+
+        write_tagged_wav(&path);
+        assert_eq!(
+            reindex_audio_path(&root, library_id, &database, &cache, &path).unwrap(),
+            IncrementalIndexOutcome::Indexed
+        );
+        assert_eq!(database.track_count().unwrap(), 1);
+        assert_eq!(
+            reindex_audio_path(&root, library_id, &database, &cache, &path).unwrap(),
+            IncrementalIndexOutcome::Unchanged
+        );
+
+        let mut tag = Tag::new(TagType::RiffInfo);
+        assert!(tag.insert_text(ItemKey::TrackTitle, "Changed Live Title".to_owned()));
+        assert!(tag.insert_text(ItemKey::TrackArtist, "Offline Artist".to_owned()));
+        tag.save_to_path(&path, WriteOptions::default()).unwrap();
+        assert_eq!(
+            reindex_audio_path(&root, library_id, &database, &cache, &path).unwrap(),
+            IncrementalIndexOutcome::Indexed
+        );
+        assert_eq!(
+            database.track_title("live.wav").unwrap(),
+            Some("Changed Live Title".to_owned())
+        );
+
+        fs::remove_file(&path).unwrap();
+        assert_eq!(
+            reindex_audio_path(&root, library_id, &database, &cache, &path).unwrap(),
+            IncrementalIndexOutcome::Removed
+        );
+        assert_eq!(database.track_count().unwrap(), 0);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn incremental_directory_replacement_rebuilds_only_that_subtree() {
+        let root = temporary_root("watch-directory");
+        let album = root.join("Incoming Album");
+        fs::create_dir_all(&album).unwrap();
+        write_tagged_wav(&album.join("track.wav"));
+        let database = IndexDatabase::open(root.join("index.sqlite3")).unwrap();
+
+        reindex_audio_tree(
+            &root,
+            Uuid::new_v4(),
+            &database,
+            &root.join("artwork-cache"),
+            &album,
+        )
+        .unwrap();
+
+        assert_eq!(database.track_count().unwrap(), 1);
+        assert_eq!(
+            database.track_title("Incoming Album/track.wav").unwrap(),
+            Some("Offline Title".to_owned())
+        );
         fs::remove_dir_all(root).unwrap();
     }
 

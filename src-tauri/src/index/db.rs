@@ -395,6 +395,38 @@ impl IndexScanSession {
         Ok(())
     }
 
+    pub fn remove_path(&self, rel_path: &str) -> Result<(), String> {
+        self.connection()
+            .execute("DELETE FROM tracks WHERE rel_path = ?1", [rel_path])
+            .map_err(sql_error)?;
+        self.connection()
+            .execute("DELETE FROM scan_failures WHERE rel_path = ?1", [rel_path])
+            .map_err(sql_error)?;
+        Ok(())
+    }
+
+    pub fn remove_path_prefix(&self, rel_path: &str) -> Result<(), String> {
+        const DELETE_TRACKS: &str =
+            "DELETE FROM tracks WHERE rel_path = ?1 OR substr(rel_path, 1, length(?1) + 1) = ?1 || '/'";
+        const DELETE_FAILURES: &str =
+            "DELETE FROM scan_failures WHERE rel_path = ?1 OR substr(rel_path, 1, length(?1) + 1) = ?1 || '/'";
+        self.connection()
+            .execute(DELETE_TRACKS, [rel_path])
+            .map_err(sql_error)?;
+        self.connection()
+            .execute(DELETE_FAILURES, [rel_path])
+            .map_err(sql_error)?;
+        Ok(())
+    }
+
+    pub fn commit(mut self) -> Result<(), String> {
+        let connection = self
+            .connection
+            .take()
+            .ok_or_else(|| "Index scan connection is already closed".to_owned())?;
+        connection.execute_batch("COMMIT;").map_err(sql_error)
+    }
+
     pub fn finish(mut self) -> Result<(), String> {
         let connection = self
             .connection

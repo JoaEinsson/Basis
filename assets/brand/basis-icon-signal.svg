@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="1254" height="1254" viewBox="0 0 1254 1254"
+     role="img" aria-labelledby="title desc">
+  <title id="title">Basis — Signal icon</title>
+  <desc id="desc">Basis B monogram formed from flowing audio-wave ribbons.</desc>
+
+  <defs>
+    <!-- Brand palette intentionally independent from user theme accents. -->
+    <radialGradient id="basis-bg" cx="50%" cy="12%" r="86%">
+      <stop offset="0" stop-color="#20262B"/>
+      <stop offset=".58" stop-color="#11161A"/>
+      <stop offset="1" stop-color="#080B0D"/>
+    </radialGradient>
+
+    <!-- Signal Cyan: audio/signal/instrumentation identity without tying Basis to one UI theme. -->
+    <linearGradient id="basis-signal"
+                    x1="401" y1="0" x2="877" y2="0"
+                    gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F2FFFC"/>
+      <stop offset=".32" stop-color="#A5F4E6"/>
+      <stop offset=".68" stop-color="#49D9C7"/>
+      <stop offset="1" stop-color="#20AFC8"/>
+    </linearGradient>
+
+    <linearGradient id="basis-rim"
+                    x1="90" y1="80" x2="1160" y2="1170"
+                    gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5DE1D0" stop-opacity=".45"/>
+      <stop offset=".45" stop-color="#2BB7C8" stop-opacity=".15"/>
+      <stop offset="1" stop-color="#19768A" stop-opacity=".28"/>
+    </linearGradient>
+
+    <filter id="basis-shadow" x="-15%" y="-15%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="10" stdDeviation="13"
+                    flood-color="#000000" flood-opacity=".34"/>
+    </filter>
+  </defs>
+
+  <rect x="76" y="73" width="1102" height="1097" rx="226"
+        fill="url(#basis-bg)"/>
+  <rect x="80" y="76" width="1094" height="1090" rx="222"
+        fill="none" stroke="url(#basis-rim)" stroke-width="5"/>
+
+  <g fill="url(#basis-signal)" filter="url(#basis-shadow)">
+    <path d="M 401 293 L 401 355 L 403 357 L 708 357 L 709 358 L 720 358 L 721 359 L 733 360 L 760 368 L 776 376 L 791 386 L 813 407 L 826 426 L 837 451 L 841 467 L 842 483 L 843 484 L 842 505 L 837 525 L 828 544 L 824 550 L 820 554 L 818 554 L 800 543 L 779 522 L 760 497 L 734 458 L 719 439 L 695 417 L 678 406 L 666 400 L 647 393 L 635 390 L 617 388 L 616 387 L 605 387 L 604 386 L 403 386 L 401 388 L 401 434 L 403 436 L 605 436 L 606 437 L 624 439 L 641 444 L 653 449 L 666 456 L 684 469 L 701 485 L 728 516 L 757 544 L 777 558 L 790 565 L 802 569 L 803 571 L 792 579 L 766 591 L 740 591 L 717 585 L 697 575 L 680 563 L 659 544 L 615 499 L 595 484 L 572 472 L 561 468 L 540 463 L 526 462 L 525 461 L 403 461 L 401 463 L 401 502 L 403 504 L 519 504 L 520 505 L 527 505 L 546 509 L 563 515 L 582 525 L 600 538 L 637 569 L 660 584 L 684 595 L 696 599 L 715 603 L 711 605 L 701 605 L 700 606 L 662 607 L 661 606 L 643 605 L 620 600 L 603 594 L 577 580 L 540 552 L 524 542 L 514 537 L 497 531 L 477 527 L 467 527 L 466 526 L 403 526 L 401 528 L 401 558 L 403 560 L 428 560 L 429 559 L 434 560 L 451 559 L 452 560 L 453 559 L 461 559 L 462 560 L 474 560 L 475 561 L 486 562 L 509 569 L 564 597 L 596 609 L 617 614 L 636 616 L 637 617 L 697 618 L 698 617 L 722 616 L 723 615 L 729 615 L 730 614 L 751 611 L 763 607 L 770 606 L 794 597 L 813 587 L 831 574 L 844 561 L 857 542 L 866 522 L 871 506 L 874 491 L 874 485 L 875 484 L 875 476 L 876 475 L 875 435 L 869 407 L 865 395 L 854 372 L 838 349 L 814 326 L 789 310 L 766 300 L 745 294 L 728 292 L 727 291 L 720 291 L 719 290 L 703 290 L 702 289 L 406 289 Z"/>
+    <path d="M 857 704 L 849 691 L 836 675 L 817 659 L 797 647 L 778 639 L 749 631 L 728 628 L 727 627 L 718 627 L 708 625 L 689 625 L 688 624 L 644 625 L 643 626 L 626 627 L 602 632 L 567 645 L 530 666 L 508 677 L 485 684 L 475 685 L 474 686 L 463 686 L 462 687 L 402 687 L 401 688 L 401 720 L 403 722 L 461 722 L 462 721 L 481 720 L 498 716 L 520 707 L 539 695 L 566 673 L 585 660 L 616 645 L 644 638 L 665 637 L 666 636 L 686 636 L 687 637 L 702 637 L 703 638 L 714 638 L 715 639 L 713 641 L 700 643 L 680 650 L 654 664 L 632 680 L 608 702 L 583 722 L 568 731 L 552 738 L 529 744 L 510 745 L 509 746 L 402 746 L 401 748 L 401 788 L 403 790 L 513 790 L 514 789 L 534 788 L 556 783 L 570 778 L 591 767 L 611 752 L 638 725 L 652 709 L 678 684 L 698 669 L 720 658 L 746 652 L 765 652 L 784 660 L 800 670 L 804 674 L 802 676 L 790 680 L 781 685 L 761 699 L 730 729 L 703 761 L 685 779 L 662 796 L 646 804 L 620 812 L 615 812 L 608 814 L 598 814 L 597 815 L 403 815 L 401 817 L 401 862 L 403 864 L 604 864 L 605 863 L 616 863 L 617 862 L 633 860 L 661 851 L 677 843 L 694 832 L 715 813 L 735 788 L 760 750 L 781 722 L 801 702 L 819 691 L 824 695 L 835 715 L 840 730 L 841 740 L 842 741 L 842 749 L 843 750 L 843 764 L 842 765 L 842 775 L 840 785 L 835 802 L 825 823 L 813 840 L 796 857 L 781 868 L 762 878 L 742 885 L 727 888 L 719 888 L 718 889 L 404 889 L 401 892 L 401 953 L 402 955 L 405 957 L 702 957 L 703 956 L 729 955 L 730 954 L 746 952 L 767 946 L 786 938 L 800 930 L 817 918 L 840 895 L 856 871 L 862 859 L 869 840 L 875 812 L 876 771 L 875 770 L 875 762 L 870 737 L 864 719 Z"/>
+  </g>
+</svg>

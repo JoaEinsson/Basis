@@ -19,6 +19,7 @@ blake3 = "1.8"
 ignore = "0.4"
 image = { version = "0.24.9", default-features = false, features = ["bmp", "gif", "jpeg", "png", "tiff", "webp"] }
 lofty = "0.25"
+notify = "8"
 palette = { version = "0.7", default-features = false, features = ["std"] }
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
 rusqlite = { version = "0.40", features = ["bundled", "modern_sqlite"] }
