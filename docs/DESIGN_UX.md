@@ -504,6 +504,11 @@ Now Playing replaces the main canvas; it is not a modal. At wide desktop sizes:
 - the right region provides a comfortable, vertically scrollable lyric column;
 - artwork and lyrics sit directly on the page background, not in dashboard
   cards;
+- a Show/Hide Lyrics action recomposes the page; it does not merely make the
+  lyric column invisible;
+- when lyrics are hidden or the resolved document is explicitly instrumental,
+  artwork and track metadata are centered in the available main canvas with no
+  empty lyric column;
 - a clear Back action restores the source page exactly;
 - the bottom transport remains visible.
 
@@ -513,14 +518,17 @@ Synchronized lyrics:
 
 - keep the active line near the visual focus with smooth scrolling;
 - emphasize the active line using theme tokens;
-- keep past/future lines readable but quieter;
+- keep past/future lines readable but quieter, including after the configured
+  inactive opacity is composited on Paper or another light theme;
+- wrap each line inside the available column and never introduce a horizontal
+  lyric scrollbar; unusually long words use safe overflow wrapping;
 - allow a timestamped line to seek when supported;
 - suspend follow mode during manual scrolling;
 - resume follow mode after a documented interaction timeout or explicit
   follow control, without snapping violently.
 
-Plain lyrics render as ordinary scrollable text. Loading and missing states are
-quiet:
+Plain lyrics and candidate copy follow the same wrapping and contrast rules.
+Loading and missing states are quiet:
 
 ```text
 Fetching lyrics...
@@ -532,7 +540,19 @@ Lyrics unavailable
 ```
 
 Lyrics are content, not a widget. They remain bounded and rendered as untrusted
-text under the security contract.
+text under the security contract. `color.lyrics.active`,
+`color.lyrics.past`, `color.lyrics.upcoming`,
+`color.lyrics.translation`, `component.lyrics.activeScale`, and
+`component.lyrics.inactiveOpacity` remain editable Theme Engine values. The
+editor previews their effective appearance and warns when resolved contrast is
+insufficient.
+
+The Show/Hide Lyrics preference is device-local and persists across track
+changes. An explicitly instrumental document temporarily forces the same
+artwork-only composition without changing that preference. The next
+non-instrumental track restores the user's prior mode. A missing lyric or
+provider error does not imply instrumental: Basis retains the unavailable/error
+state and its retry action.
 
 ## Responsive recomposition
 

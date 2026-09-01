@@ -117,10 +117,14 @@ file and increments the error summary; it does not abort the batch.
   and reinserts its FTS/metadata within the same transaction boundary.
 - Results are paginated and DTOs never carry raw artwork.
 - Preserve original metadata display values and use normalized relation tables
-  for structured artists and genres; never split an artist display string by
-  punctuation heuristics.
+  for structured artists and genres; never split an artist display string into
+  relations by punctuation heuristics. D89 permits only a deterministic,
+  identity-only featured-suffix fallback for corroborated album grouping; it
+  never changes the stored track credit or its artist relations.
 - Albums/artists may be derived tables or aggregate queries. Album identity and
-  missing-metadata behavior follow D15–D18 exactly.
+  missing-metadata behavior follow D15–D18 and D89 exactly. Album projection
+  presents the canonical primary release credit rather than an arbitrary
+  featured-track string.
 - FTS5 uses `unicode61 remove_diacritics 2` and BM25 ranking.
 
 ## Query and View Engine

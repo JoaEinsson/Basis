@@ -37,6 +37,7 @@ when permitted, and do not confuse “not run” with “passed.” CI uses
 | A05 | incremental scan does not reparse unchanged size+mtime | Rust integration | M1 |
 | A05b | copied roots with one `library_id` use distinct local databases | Rust integration | M1 |
 | A05c | metadata normalization/grouping is identical with network disabled | Rust integration | M1 |
+| A05d | structured and single-string featured track credits preserve their display metadata but produce one corroborated primary-artist album identity; ambiguous/different-year releases remain separate and an existing rebuildable index is reprojected | Rust integration | M8 correction |
 | A06 | free-text/quotes/predicate parser produces AST | Rust unit | M2 |
 | A07 | AST compiles parameterized SQL using allowlists | Rust unit/integration | M2 |
 | A08 | FTS follows insert/update/delete | Rust integration | M2 |
@@ -79,8 +80,10 @@ fixtures/library-a/
 ```
 
 Files must cover: complete tags, missing tags, multiple discs, album artist,
-oversized/rejected artwork, corrupt file, Unicode path, and an LRC sidecar.
-Fixtures must not contain absolute paths or copyrighted music.
+structured featured artists, a malformed single-string trailing `feat.`/`ft.`
+credit, ambiguous artist text that must not be split, oversized/rejected
+artwork, corrupt file, Unicode path, and an LRC sidecar. Fixtures must not
+contain absolute paths or copyrighted music.
 
 ## End-to-end smoke test
 
@@ -93,6 +96,9 @@ Run against a disposable copy of a real folder; the app does not expose delete.
 3. Verify title/artist/album/disc/track/duration for a known sample.
    Disable network, add another tagged file, and confirm that normalization and
    grouping remain fully functional without MusicBrainz or another provider.
+   Include an album whose track credits mix the primary artist with a trailing
+   featured credit: it must remain one album while the full track credit stays
+   visible.
 4. Navigate to Albums; open the first and confirm that only its tracks appear in
    disc/track order.
 5. Run free-text search and every structured example from spec section 7.2.

@@ -21,11 +21,13 @@ the resolution.
 
 `M8 — watcher, security, integration, and final build`
 
-Next concrete action: run the focused desktop watcher smoke against the active
+Next concrete action: implement and test D89 against captured raw featured-credit
+tags, including a deterministic reprojection of unchanged files in the
+rebuildable index. Then run the focused desktop watcher smoke against the active
 library: add, modify, and remove a disposable audio copy without restarting,
-then atomically replace one portable View or playlist file and confirm the open
-UI reloads. Automated M8 implementation, security, audit, icon, and host-release
-checks are complete.
+atomically replace one portable View or playlist file, and confirm the open UI
+reloads. The remaining M8 security, audit, icon, and host-release checks are
+complete.
 
 ## Verification
 
@@ -490,6 +492,20 @@ artwork loading, and bounded short-list staggering. Theme tokens and reduced
 motion remain mandatory; perpetual idle effects, virtualized geometry animation,
 and input or playback latency remain prohibited. No application code changed.
 
+2026-09-01 12:52 BRT — Lyrics presentation and featured-credit album plan
+Result: DOCUMENTED (implementation not started)
+Evidence: D86–D89 lock readable editable lyric states, zero horizontal lyric
+overflow, device-local Show/Hide Lyrics with temporary instrumental
+recomposition, and primary-credit album grouping that preserves full track
+display metadata. Inspection found that Paper currently omits `color.lyrics.*`
+overrides and therefore inherits the light-on-dark registry defaults; the
+scanner also currently passes the first complete track-artist string directly
+into per-file `album_key` generation when AlbumArtist is absent. The album
+identity correction and rebuildable-index reprojection are assigned to the open
+M8 gate with A05d coverage. Visual contrast/editor work belongs to P1, while
+wrapping, visibility, centering, and instrumental behavior belong to P6 and P8.
+No application code or theme data changed.
+
 Format for new entries:
 
 ```text
@@ -512,6 +528,7 @@ Evidence: <objective summary, relevant test/file/log>
 | 2026-08-30 | Voxio 0.2.3 retained behind `AudioEngine` | It compiled inside the D45 timebox and real Windows default-device tests passed all target codecs, controls, and gapless handoff | No Rodio fallback was activated; normal/future adapter-only events are filtered until assigned explicit domain semantics |
 | 2026-08-30 | The installation UUID is claimed atomically in local `basis/device.json` and mirrored in `basis/settings.json`; portable history replay runs after open/scan and event append | D32–D37 require one stable local writer identity and a disposable SQLite projection; the first manual smoke exposed concurrent development startups choosing different IDs without a no-clobber claim | Concurrent startups converge on one writer identity; each installation appends only its named JSONL file, and deleting the local index cannot remove favorites or play history |
 | 2026-08-31 | LRCLIB matching separates retrieval, semantic evaluation, and selection, with `high` and `review` outcomes | Literal album equality discarded synchronized results for semantically equivalent metadata, while blindly relaxing matching could select a remix/live/acoustic recording | D56 remains the automatic boundary; recording variants are rejected, release variants are ranked, uncertain synchronized results require confirmation, and plain lyrics remain the safe fallback |
+| 2026-09-01 | D86–D89 accepted for lyrics presentation and album identity | Paper inherits unsuitable dark lyric defaults, long synchronized lines expose horizontal overflow, instrumental tracks waste a lyric column, and full-string featured credits reach `album_key` as distinct artists | P1 corrects and previews lyric tokens; P6/P8 add wrapping, visibility, instrumental recomposition, and tests; M8 corrects featured-credit album identity and reprojects the disposable index without rewriting track display metadata |
 
 ## External blockers
 

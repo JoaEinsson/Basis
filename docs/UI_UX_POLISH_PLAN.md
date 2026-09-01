@@ -206,6 +206,8 @@ inconsistent elsewhere.
    640, 800, 1199, 1200, and 1600 px.
 2. Capture every route, menu, dialog, empty/loading/error state, queue state,
    and Now Playing lyric state.
+   Include Paper with active/past/upcoming synchronized lyrics, exceptionally
+   long lines, plain lyrics, hidden lyrics, and an instrumental document.
 3. Inventory visual literals, duplicated control CSS, unthemed browser-native
    elements, clipping, overflow, inconsistent alignment, and missing states.
 4. Record keyboard order and current behavior under reduced motion.
@@ -234,7 +236,11 @@ explicit “state not currently reachable” note.
 4. Keep custom themes sparse and migration-safe. New tokens receive hard
    defaults so old themes remain valid without rewriting.
 5. Run automated critical-contrast correction and manual contrast checks for
-   text, focus, selection, accent controls, progress, and lyrics.
+   text, focus, selection, accent controls, progress, and lyrics. Paper must
+   explicitly override the dark registry lyric defaults; validate the effective
+   active/past/upcoming/translation colors after inactive opacity is applied.
+6. Expose lyric colors, active scale, and inactive opacity as a coherent editor
+   group with live Paper/Nocturne previews and effective-contrast warnings.
 
 Gate: switching Paper, Nocturne, Chromatic, and a deliberately divergent test
 theme changes all visual values without changing component structure. No
@@ -347,7 +353,13 @@ Polish:
 - Now Playing artwork, metadata, Back context, loading/playback errors, and
   responsive split/stacked layouts;
 - synchronized, plain, unavailable, candidate-choice, manual-scroll, and
-  follow-mode lyric states.
+  follow-mode lyric states;
+- a keyboard-accessible Show/Hide Lyrics action whose artwork-only mode centers
+  the artwork and metadata instead of reserving an empty lyric column;
+- automatic artwork-only recomposition for an explicitly instrumental document
+  without overwriting the user's device-local manual visibility preference;
+- synchronized lines, plain text, translations, and candidate copy that wrap at
+  the lyric-column boundary and never create a horizontal scrollbar.
 
 Playback motion includes immediate transport-icon morphs/crossfades, coordinated
 artwork/title/metadata changes, a bounded artwork-derived ambient background
@@ -389,8 +401,12 @@ architecture.
 2. Run interaction tests for titlebar commands, keyboard menus/dialogs,
    navigation restoration, drag-and-drop, player controls, animation completion
    and interruption, deterministic fallbacks, and reduced motion.
+   Cover manual lyric visibility across track changes and the temporary
+   instrumental override followed by a non-instrumental track.
 3. Audit contrast, focus order, accessible names, live regions, target sizes,
    zoom, text overflow, localization-resistant sizing, and high-DPI artwork.
+   Measure effective Paper lyric contrast after opacity and verify long lyric
+   lines at all three responsive width bands without horizontal scrolling.
 4. Scroll large virtualized libraries and lyrics while playing audio; reject
    main-thread stalls, layout thrash, and animation-induced input latency.
    Measure representative route, shared-artwork, pane, drag, and track-change
@@ -414,7 +430,7 @@ portability, updater signing, or the Query/View Engine.
 | Actions | TrackActionMenu, bulk actions, menus/popovers | positioning, dismissal, keyboard, destructive distinction |
 | Playback | PlayerBar, transport, timeline, volume | immediate state and icon transition, track-change continuity, progress clarity, narrow layout, errors |
 | Queue | QueuePane | spring-like spatial entrance, current/upcoming state, reorder settlement, focus restoration |
-| Now Playing | artwork/metadata, lyrics, candidates, follow control | independent scrolling, artwork continuity, coordinated track change, lyric emphasis, recovery |
+| Now Playing | artwork/metadata, lyrics, candidates, follow and visibility controls | independent vertical scrolling, no horizontal lyric overflow, artwork-only/instrumental recomposition, artwork continuity, coordinated track change, readable theme-controlled lyric emphasis, recovery |
 | Playlists | index/detail, static editor, smart query, dialogs, picker | drag lift/insertion/settlement, order, missing tracks, validation, confirmation |
 | Settings | Settings, AppearanceEditor, UpdatePanel | grouping, previews, form states, concise copy, destructive actions |
 | Library setup | Onboarding/library empty state, folder selection, indexing | quiet hierarchy, progress, actionable failure |
@@ -445,6 +461,9 @@ failure, and long-content cases where applicable.
 | POL15 | Artwork maintains shared continuity across collection, detail, and Now Playing where geometry permits, with a deterministic crossfade fallback. |
 | POL16 | Transport, track-change, lyric, and drag/reorder choreography remains synchronized with immediate underlying actions and introduces no input or playback latency. |
 | POL17 | Staggering is bounded to short initial collections; virtualized, paginated, and continuously updated lists retain stable geometry and performance. |
+| POL18 | Paper explicitly resolves readable active, past, upcoming, and translation lyric states after opacity; the editor exposes those semantic tokens and their effective-contrast warnings. |
+| POL19 | Synchronized/plain/candidate lyric content wraps at every supported width and never exposes a horizontal scrollbar. |
+| POL20 | Show/Hide Lyrics is accessible and device-local; artwork/metadata center in artwork-only mode, an explicit instrumental result activates it temporarily, and the prior manual mode returns for the next non-instrumental track. |
 
 ## Implementation discipline
 

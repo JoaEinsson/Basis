@@ -364,6 +364,9 @@ Derive `album_key` as UUIDv5 using `library_id` and
 `normalized_album_artist + NUL + normalized_album + NUL + year_or_empty`.
 Different non-null years remain separate; contradictory metadata is separated
 rather than combined. See D15–D18 in `docs/DECISIONS.md` for missing-tag rules.
+The normalized album artist is the stable primary release credit, not a
+track-level featuring suffix. D89 defines the bounded identity-only fallback
+for malformed single-string credits; display metadata remains unchanged.
 
 ## FTS5
 
@@ -1363,6 +1366,13 @@ Display synchronized lyrics with:
 - smooth auto-scroll;
 - click a line to seek when timestamps exist;
 - manual timing offset control if cheap to add.
+
+Every lyric state remains readable in light and dark themes through semantic
+tokens, and lyric text wraps without horizontal scrolling. Now Playing exposes
+a Show/Hide Lyrics control that centers artwork/metadata when hidden. An
+explicitly instrumental document automatically uses that artwork-only
+composition without changing the user's device-local manual preference; missing
+or failed lyrics retain their normal recovery state. See D86–D88.
 
 Word-by-word/Lyricsfile support is optional for the first build; line-level sync is mandatory.
 

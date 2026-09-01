@@ -297,6 +297,10 @@ Deliverables:
 - empty/loading/error states and small/large window behavior;
 - responsive shell recomposition at the DESIGN_UX width bands, including
   navigation overflow, context-pane behavior, and stacked Now Playing;
+- M1 metadata-correctness regression fix under D89: inspect raw featured-credit
+  tags, derive one corroborated primary album credit without rewriting track
+  display metadata, and force the rebuildable index to reproject affected
+  unchanged files;
 - reviewed shortcuts, focus, reduced motion, and contrast;
 - payload limits, CSP, and capability audit;
 - complete suite, audits, and release build;
@@ -315,6 +319,9 @@ Final gate:
 - every `DESIGN_UX.md` acceptance scenario passes and repository/UI inspection
   finds no permanent navigation sidebar, hero/marketing composition, generic
   card wrapping, readiness banner, or permanent dashboard search field;
+- an album with ordinary and `feat.`/`ft.`/`featuring` track credits appears
+  once under its corroborated primary artist while every track retains its
+  original credit; ambiguous and differently dated releases remain separate;
 - `PROGRESS.md` contains the final result and any genuine limitations.
 
 ## Post-MVP UI/UX polish — planned, not started
