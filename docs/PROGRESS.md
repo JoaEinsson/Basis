@@ -463,6 +463,22 @@ canonical spec, design contract, executable plan, and agent reading order now
 cross-reference the accepted direction. No application code or built-in theme
 data changed during this planning step.
 
+2026-09-01 12:17 BRT — M8 metadata verifier runner correction
+Result: IMPLEMENTED (clean CI rerun pending)
+Evidence: the second release run built both platform artifacts and reached the
+final metadata job, but Ubuntu 22.04 could not locate the `minisign` APT package;
+no signature was rejected. The workflow now bootstraps the official Minisign
+0.12 Linux x86_64 archive through `scripts/install-minisign.sh`, pins the
+SHA-256 to `9a599b48ba6eb7b1e80f12f36b94ceca7c00b7a5173c95c3efc88d9822957e73`,
+and adds only that verified binary to the job path. Release validation rejects
+an unpinned installer or any return to `apt-get install minisign`. The detached
+AppImage and NSIS signature gate remains mandatory. The installer was then run
+end to end under Ubuntu WSL: its TLS download matched the pinned digest,
+reported Minisign 0.12, and successfully verified the actual 88,762,872-byte
+AppImage and 6,850,114-byte NSIS installer downloaded from the `v0.1.0` draft
+against the public key embedded in Basis. Temporary test artifacts were removed
+afterward.
+
 Format for new entries:
 
 ```text

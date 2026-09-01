@@ -169,6 +169,13 @@ installer, cryptographically verifies both detached signatures against the
 public key embedded in Basis, regenerates `latest.json` from those exact assets,
 and only then publishes the draft.
 
+Ubuntu 22.04 does not provide a reliable `minisign` package in the runner's APT
+sources. `scripts/install-minisign.sh` therefore downloads the official
+Minisign 0.12 x86_64 archive over TLS and verifies its pinned SHA-256 before
+installing the verifier into `RUNNER_TEMP`. Do not replace this with an
+unpinned latest-release lookup or remove artifact verification when a runner
+package is unavailable.
+
 Do not add `LD_PRELOAD`, blanket environment overrides, or copied host graphics
 libraries as a release workaround. Before the first stable Linux publication,
 run the release-candidate AppImage directly on Arch Linux with KDE/Wayland and

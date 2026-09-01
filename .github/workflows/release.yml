@@ -130,8 +130,10 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 22
-      - name: Install updater-signature verifier
-        run: sudo apt-get update && sudo apt-get install -y minisign
+      - name: Install pinned updater-signature verifier
+        run: |
+          bash scripts/install-minisign.sh "$RUNNER_TEMP/basis-tools"
+          echo "$RUNNER_TEMP/basis-tools" >> "$GITHUB_PATH"
       - name: Download final updater artifacts and signatures
         run: |
           mkdir release-assets

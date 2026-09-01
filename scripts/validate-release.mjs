@@ -13,6 +13,7 @@ const appImageValidator = await readFile(
   "utf8",
 );
 const appImageRepacker = await readFile("scripts/repack-appimage.sh", "utf8");
+const minisignInstaller = await readFile("scripts/install-minisign.sh", "utf8");
 const signatureVerifier = await readFile(
   "scripts/verify-updater-signatures.sh",
   "utf8",
@@ -123,6 +124,7 @@ for (const requiredWorkflowText of [
   "scripts/validate-appimage.sh",
   "scripts/repack-appimage.sh",
   "pnpm tauri signer sign",
+  "scripts/install-minisign.sh",
   "scripts/verify-updater-signatures.sh",
   "scripts/finalize-updater-manifest.mjs",
   "pnpm audit --prod",
@@ -149,8 +151,28 @@ if (
 ) {
   errors.push("AppImage repacking must use the pinned appimagetool release");
 }
-if (!signatureVerifier.includes("minisign -Vm")) {
+if (
+  !signatureVerifier.includes('minisign_command="${MINISIGN_BIN:-minisign}"') ||
+  !signatureVerifier.includes('-Vm "$artifact"')
+) {
   errors.push("final updater artifacts are not cryptographically verified");
+}
+if (
+  !minisignInstaller.includes(
+    "github.com/jedisct1/minisign/releases/download/${version}",
+  ) ||
+  !minisignInstaller.includes(
+    "9a599b48ba6eb7b1e80f12f36b94ceca7c00b7a5173c95c3efc88d9822957e73",
+  )
+) {
+  errors.push(
+    "Minisign installation must use the pinned official Linux archive",
+  );
+}
+if (/apt-get install[^\n]*minisign/.test(workflow)) {
+  errors.push(
+    "the Ubuntu 22.04 workflow cannot depend on an unavailable minisign package",
+  );
 }
 
 const tag =

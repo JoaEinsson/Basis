@@ -7,6 +7,11 @@ if [[ $# -gt 1 ]]; then
 fi
 
 asset_dir="$(realpath "${1:-.}")"
+minisign_command="${MINISIGN_BIN:-minisign}"
+if ! command -v "$minisign_command" >/dev/null 2>&1; then
+  echo "Minisign is unavailable; run scripts/install-minisign.sh first." >&2
+  exit 1
+fi
 mapfile -d '' appimages < <(
   find "$asset_dir" -maxdepth 1 -type f -name '*.AppImage' -print0
 )
@@ -33,7 +38,8 @@ for artifact in "${artifacts[@]}"; do
   fi
   decoded_signature="$work_dir/$(basename "$artifact").minisig"
   base64 --decode <"$signature" >"$decoded_signature"
-  minisign -Vm "$artifact" -p "$work_dir/updater.pub" -x "$decoded_signature"
+  "$minisign_command" -Vm "$artifact" -p "$work_dir/updater.pub" \
+    -x "$decoded_signature" -q
 done
 
 echo "Both updater artifacts match the public key embedded in Basis."
