@@ -37,6 +37,11 @@ This contract does not:
 - add structural scripting to themes;
 - change any portable, offline, release, or security rule.
 
+The accepted post-MVP extension is `UI_UX_POLISH_PLAN.md`. It specifies a
+unified custom Windows/Linux window/application toolbar, Signal Cyan Nocturne
+identity, shared interaction primitives, and system-wide motion without
+retroactively opening the M0-M8 gate or changing the ownership boundary below.
+
 ## Layout versus Theme Engine boundary
 
 This contract defines application structure, navigation, information hierarchy,

@@ -17,6 +17,7 @@ the definition of done is satisfied or a genuine external blocker exists.
 6. `docs/ACCEPTANCE.md`.
 7. `docs/PROGRESS.md`.
 8. `docs/RELEASE_AND_SIGNING.md` before M7.
+9. `docs/UI_UX_POLISH_PLAN.md` before any post-MVP interface polish.
 
 The specification is the canonical product source. `docs/DECISIONS.md` resolves
 its optional or ambiguous choices and records explicit product-owner overrides.
@@ -24,6 +25,8 @@ The remaining documents convert both into an execution order; they do not reduce
 requirements except where a later explicit decision says so.
 `docs/DESIGN_UX.md` is authoritative for application-shell composition,
 navigation, search presentation, Now Playing composition, and responsive UX.
+`docs/UI_UX_POLISH_PLAN.md` extends that contract only for the gated post-MVP
+polish program.
 
 ## Non-negotiable rules
 

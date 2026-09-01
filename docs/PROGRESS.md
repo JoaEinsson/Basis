@@ -451,6 +451,18 @@ YAML parsing, four updater-manifest regressions, manifest finalization,
 `release:validate`, ESLint, TypeScript, the 30-test frontend suite, Prettier, and
 `git diff --check` pass.
 
+2026-09-01 05:36 BRT — Post-MVP UI/UX polish plan
+Result: DOCUMENTED (implementation intentionally gated by M8 release evidence)
+Evidence: `docs/UI_UX_POLISH_PLAN.md` defines a baseline audit plus eight
+ordered polish passes, a complete component coverage matrix, motion and
+reduced-motion behavior, a
+unified custom Windows/Linux window/application toolbar, and packaged-platform
+acceptance. D82-D85 lock the gate, titlebar behavior, Signal Cyan Nocturne
+identity derived from the Basis icon, and Theme-Engine-owned motion. The
+canonical spec, design contract, executable plan, and agent reading order now
+cross-reference the accepted direction. No application code or built-in theme
+data changed during this planning step.
+
 Format for new entries:
 
 ```text

@@ -1,7 +1,7 @@
 # Locked product and engineering decisions
 
 Status: **D01–D69 accepted by the product owner on August 29, 2026; D70–D81
-accepted on August 30, 2026**.
+accepted on August 30, 2026; D82–D85 accepted on September 1, 2026**.
 
 These decisions remove implementation freedom where two reasonable choices
 would produce incompatible behavior. They override earlier optional/suggested
@@ -133,6 +133,10 @@ recorded here and in `PROGRESS.md`.
 | D79 | D04 remains unchanged: the MVP has one active library root. The Library empty-state action is singular (`Add folder`) and must not imply merged multi-root search or playback. |
 | D80 | Layout owns regions, navigation placement, content hierarchy, pane behavior, responsive recomposition, entity structure, and navigation state transitions. The Theme Engine exclusively owns colors, typography, radii, borders, elevation, shadows, blur/glow, bounded density, artwork treatment, state/selection/lyric/progress styling, and motion timing. Layout components consume semantic tokens and contain no Paper/Nocturne/Chromatic-specific values. Layout review forbids containers/elevation added solely to manufacture hierarchy; it does not prescribe flatness, radius size, shadow amount, glow amount, or another theme aesthetic. |
 | D81 | M2 is a headless data/contract milestone: AST, parameterized SQL, FTS, entity and relationship projections, built-in View definitions, and album/artist detail DTOs. It must not create a provisional shell or disposable presentation. M3a is the first complete interface milestone and owns the final top-toolbar shell, GenericView renderers, SearchView, album/artist pages, navigation restoration, responsive structure, and layout-token consumption. M3b owns Theme Engine values/editor/validation; M4 and M6 extend the same shell with transport/Now Playing and lyrics respectively. |
+| D82 | The post-MVP UI/UX program is defined by `docs/UI_UX_POLISH_PLAN.md`. Planning does not open M9 and implementation may not begin until the M0-M8 release gate and packaged Arch/KDE smoke test are green. The program adds no backend music feature. |
+| D83 | On Windows and Linux, the Basis app toolbar becomes one unified custom window/application toolbar with no duplicate native titlebar. It provides real Minimize, Maximize/Restore, and Close actions, an explicit safe drag region, double-click maximize/restore, actual maximized-state feedback, responsive navigation overflow, keyboard accessibility, and only the minimum Tauri window permissions. macOS is not an initial target. |
+| D84 | Nocturne's fixed accent identity changes from violet/indigo to the Signal Cyan family already present in the Basis icon (`#F2FFFC`, `#A5F4E6`, `#49D9C7`, `#20AFC8`, and `#5DE1D0`). The last-known-good dark fallback and Chromatic's no-artwork fallback align with that family. Exact semantic mappings require contrast validation. Paper and user themes remain visually independent, and no layout/feature component may contain brand-color literals or built-in-theme conditionals. |
+| D85 | The polish pass uses a tokenized, restrained motion language. Layout owns which transitions express a state change; the Theme Engine owns all visual motion values. Native CSS/React is the default implementation, nonessential perpetual motion is forbidden, virtualized geometry is not animated, and OS reduced-motion removes nonessential transforms, shimmer, smooth auto-scroll, and palette interpolation without hiding state. |
 
 ## Metadata normalization and optional online enrichment
 

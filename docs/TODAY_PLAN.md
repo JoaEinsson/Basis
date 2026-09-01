@@ -317,6 +317,15 @@ Final gate:
   card wrapping, readiness banner, or permanent dashboard search field;
 - `PROGRESS.md` contains the final result and any genuine limitations.
 
+## Post-MVP UI/UX polish — planned, not started
+
+After M8 and the packaged Arch/KDE release smoke test are green, execute
+`UI_UX_POLISH_PLAN.md` before treating isolated visual improvements as ad hoc
+work. This program owns the unified custom Windows/Linux titlebar, the Signal
+Cyan Nocturne identity, shared interaction primitives, system-wide motion, and
+the complete component polish matrix. It does not start M9 or add backend music
+features.
+
 ## M9 — only after the final gate
 
 Local “Start Radio” recommendations and word-by-word lyrics. Do not begin either

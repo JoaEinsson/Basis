@@ -709,7 +709,7 @@ Suggested format:
   "min_app_version": "0.1.0",
   "capabilities": [],
   "tokens": {
-    "color.accent.primary": "#8b7cff",
+    "color.accent.primary": "#49D9C7",
     "shape.radius.card": 12,
     "effects.backdropBlur": 18
   },
@@ -952,7 +952,7 @@ Example:
   --mv-color-bg-canvas: #0c0d10;
   --mv-color-bg-surface: #13151a;
   --mv-color-text-primary: #f4f5f7;
-  --mv-color-accent-primary: #8b7cff;
+  --mv-color-accent-primary: #49d9c7;
   --mv-shape-radius-surface: 12px;
   --mv-elevation-surface: 0 8px 24px rgb(0 0 0 / 18%);
   --mv-radius-card: 12px;
@@ -1063,7 +1063,7 @@ surface           #13151a-ish
 surfaceRaised     #1a1d24-ish
 text primary      soft near-white
 text secondary    cool gray
-accent            violet/indigo (~#8b7cff)
+accent            Basis Signal Cyan (~#49D9C7)
 radius            10–14px
 blur              subtle, not glass-everywhere
 shadow            restrained
@@ -1081,7 +1081,7 @@ Behavior:
 ```json
 {
   "accent_source": "artwork",
-  "fallback_accent": "#8b7cff",
+  "fallback_accent": "#49D9C7",
   "ambient_glow": true
 }
 ```
