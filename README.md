@@ -35,3 +35,11 @@ persistence.
 The target cut is the MVP described by M0–M8. M9 and the local-recommendation
 section are stretch work and must not consume time before the entire primary
 path works.
+
+## Release validation
+
+The stable signed-updater path is tag-driven. Run `pnpm run release:validate`
+and `pnpm run release:test` before creating a tag that exactly matches the app
+version. Maintainer secret setup, local signed-build instructions, the Windows
+SmartScreen disclosure, and the draft-to-public GitHub release flow are
+documented in [`docs/RELEASE_AND_SIGNING.md`](docs/RELEASE_AND_SIGNING.md).

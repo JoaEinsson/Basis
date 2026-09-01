@@ -33,10 +33,28 @@ import type {
   ViewDefinition,
   HistoryEvent,
   LyricsResolution,
+  UpdateCheckPermit,
+  UpdatePolicy,
 } from "./types";
 
 export function getAppHealth(): Promise<AppHealth> {
   return commands.appHealth();
+}
+
+export async function getUpdatePolicy(): Promise<UpdatePolicy> {
+  return unwrapResult(await commands.updaterPolicy());
+}
+
+export async function beginUpdateCheck(
+  manual: boolean,
+): Promise<UpdateCheckPermit> {
+  return unwrapResult(await commands.updaterBeginCheck(manual));
+}
+
+export async function setAutomaticUpdateChecks(
+  enabled: boolean,
+): Promise<UpdatePolicy> {
+  return unwrapResult(await commands.updaterSetAutomaticChecks(enabled));
 }
 
 export async function chooseLibraryRoot(): Promise<LibrarySummary | null> {

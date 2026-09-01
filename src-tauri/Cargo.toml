@@ -28,7 +28,9 @@ specta = { version = "2.0.0-rc.25", features = ["derive", "uuid"] }
 specta-typescript = "0.0.12"
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
+tauri-plugin-process = "2"
 tauri-plugin-single-instance = "2"
+tauri-plugin-updater = "=2.10.0"
 tauri-specta = { version = "2.0.0-rc.25", features = ["derive", "typescript"] }
 time = { version = "0.3", features = ["formatting", "parsing"] }
 tempfile = "3.27"
@@ -38,3 +40,4 @@ voxio = "=0.2.3"
 
 [dev-dependencies]
 jsonschema = { version = "0.18", default-features = false }
+minisign-verify = "0.2"

@@ -6,6 +6,9 @@ import * as __TAURI_EVENT from "@tauri-apps/api/event";
 /** Commands */
 export const commands = {
 	appHealth: () => __TAURI_INVOKE<AppHealth>("app_health"),
+	updaterPolicy: () => typedError<UpdatePolicy, string>(__TAURI_INVOKE("updater_policy")),
+	updaterBeginCheck: (manual: boolean) => typedError<UpdateCheckPermit, string>(__TAURI_INVOKE("updater_begin_check", { manual })),
+	updaterSetAutomaticChecks: (enabled: boolean) => typedError<UpdatePolicy, string>(__TAURI_INVOKE("updater_set_automatic_checks", { enabled })),
 	libraryChooseRoot: () => typedError<{
 	libraryId: string,
 	rootInstanceHash: string,
@@ -425,6 +428,17 @@ export type TrackHint = {
 	duration_ms: number | null,
 	disc_no: number | null,
 	track_no: number | null,
+};
+
+export type UpdateCheckPermit = {
+	allowed: boolean,
+	policy: UpdatePolicy,
+};
+
+export type UpdatePolicy = {
+	automaticChecksEnabled: boolean,
+	lastCheckAt: string | null,
+	automaticCheckDue: boolean,
 };
 
 export type ViewDefinition = {

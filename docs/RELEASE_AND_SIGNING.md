@@ -71,6 +71,24 @@ key-file contents, and release tokens:
 
 Add local key patterns to `.gitignore`, but do not rely on `.gitignore` alone.
 
+The production updater key pair was generated with Tauri CLI 2.10.1. Its
+public half is embedded in `src-tauri/tauri.conf.json`; its private half remains
+outside this repository on the release machine. Back up that private key in a
+secure offline location before the first public release. Losing it prevents
+existing installations from trusting future updates; rotating it requires a
+carefully staged update signed by the old key.
+
+Configure these GitHub repository secrets before pushing the first release tag:
+
+```text
+TAURI_SIGNING_PRIVATE_KEY           complete private-key file contents
+TAURI_SIGNING_PRIVATE_KEY_PASSWORD  password used when the key was generated
+```
+
+The current key was generated without a password, so the password secret may
+be absent/empty. Never paste either value into a workflow file, command-line
+argument, issue, release note, or CI log.
+
 ## Production flow
 
 1. CI triggers from a stable `v<semver>` tag consistent with
@@ -81,12 +99,14 @@ Add local key patterns to `.gitignore`, but do not rely on `.gitignore` alone.
    `.deb` may be published as a non-updater convenience artifact.
 5. The signer reads the private key from the secret store and signs each
    artifact.
-6. The workflow publishes artifacts, signatures, and `latest.json` to the same
-   `JoaEinsson/Basis` GitHub Release.
-7. Metadata references HTTPS only and includes the signature required by the
+6. Matrix jobs upload artifacts, signatures, and `latest.json` to the same
+   draft `JoaEinsson/Basis` GitHub Release.
+7. A final job downloads `latest.json`, requires both Windows and Linux signed
+   targets, and only then promotes the draft to a public stable release.
+8. Metadata references HTTPS only and includes the signature required by the
    plugin.
-8. A job/harness validates metadata shape and the presence of every target
-   before publishing or promoting the release.
+9. If any build or metadata validation fails, the release remains a recoverable
+   draft instead of becoming a partial public update.
 
 Never print the complete environment in a release job.
 
@@ -95,11 +115,47 @@ No paid Windows certificate secret is configured initially. If Authenticode is
 added later, it is a separate reviewed change and does not replace the Tauri
 updater key.
 
-## Controlled test without the production secret
+## Maintainer commands
 
-A disposable key pair dedicated to testing may be generated, with its private
-key kept outside the repository and artifacts. The test build points to a
-controlled HTTPS endpoint/stub and contains only the disposable public key.
+Before tagging, align the version in `package.json`, `src-tauri/Cargo.toml`, and
+`src-tauri/tauri.conf.json`, commit the change, then run:
+
+```powershell
+pnpm install --frozen-lockfile
+pnpm run release:validate
+pnpm run release:test
+pnpm run lint
+pnpm run typecheck
+pnpm run test
+cargo test --manifest-path src-tauri/Cargo.toml --all-targets
+```
+
+Create exactly the matching stable tag and push it:
+
+```powershell
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The tag is the only release trigger. `release:validate` rejects a tag whose
+version differs from the three project manifests. The workflow leaves the
+release as a draft until the cross-platform `latest.json` passes validation.
+
+For a local signed Windows packaging check, point Tauri at the private key
+outside the repository for that shell only, run `pnpm tauri:build:windows`, and
+remove the signing environment variables afterward. Do not copy the key into
+the workspace. Linux AppImage production packaging is performed by the clean
+Ubuntu workflow job.
+
+## Controlled signature test
+
+`fixtures/updater/latest.json`, its tiny payload, and detached signature are a
+non-secret controlled fixture signed by the same updater identity configured in
+the app. `src-tauri/tests/updater_signature.rs` decodes the manifest signature,
+accepts the original payload, and proves that a one-byte modification is
+rejected. The private key is not needed to run this regression and is not in
+the repository. `pnpm run release:test` separately validates manifest version,
+platform, HTTPS URL, and required-signature structure.
 
 Mandatory cases:
 

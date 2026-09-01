@@ -14,6 +14,7 @@ mod player;
 mod portable;
 mod theme_engine;
 
+#[cfg(debug_assertions)]
 use specta_typescript::Typescript;
 use tauri::Manager;
 use tauri_specta::{collect_commands, collect_events, Builder};
@@ -23,6 +24,9 @@ pub fn run() {
     let bindings = Builder::<tauri::Wry>::new()
         .commands(collect_commands![
             commands::app::app_health,
+            commands::app::updater_policy,
+            commands::app::updater_begin_check,
+            commands::app::updater_set_automatic_checks,
             commands::library::library_choose_root,
             commands::library::library_status,
             commands::library::artwork_thumbnail,
@@ -82,6 +86,8 @@ pub fn run() {
     tauri::Builder::default()
         .manage(app_state::AppState::default())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();

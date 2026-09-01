@@ -1,6 +1,7 @@
 import { ArrowDown, ArrowUp, Eye, EyeOff, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { AppearanceEditor } from "../components/settings/AppearanceEditor";
+import { UpdatePanel } from "../components/settings/UpdatePanel";
 import { useLibraryContext } from "../components/shell/LibraryContext";
 import { deleteView, saveView, setPinnedViews } from "../lib/tauri";
 import type { ViewDefinition } from "../lib/types";
@@ -95,6 +96,7 @@ export function Settings() {
         </div>
       </div>
       <AppearanceEditor libraryReady={library !== null} />
+      <UpdatePanel />
       <section
         className="settings-section"
         aria-labelledby="navigation-settings"

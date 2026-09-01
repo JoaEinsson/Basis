@@ -56,6 +56,8 @@ export type {
   ThemeTokenDescriptor,
   ThemeTokenKind,
   ThemeTokenValue,
+  UpdateCheckPermit,
+  UpdatePolicy,
   ViewDefinition,
   ViewDensity,
   ViewLayout,

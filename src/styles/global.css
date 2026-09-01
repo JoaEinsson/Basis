@@ -1548,6 +1548,44 @@ button.list-entity {
   margin-top: var(--mv-space-12);
 }
 
+.update-secondary,
+.update-available span {
+  color: var(--mv-color-text-secondary);
+  font-size: var(--mv-font-size-sm);
+}
+
+.update-available {
+  display: grid;
+  gap: var(--mv-space-4);
+  padding-block: var(--mv-space-4);
+  border-block: var(--mv-border-width) solid var(--mv-color-border);
+}
+
+.update-available > div:first-child {
+  display: grid;
+  gap: var(--mv-space-1);
+}
+
+.update-available > button {
+  justify-self: start;
+}
+
+.update-notes {
+  margin: 0;
+  color: var(--mv-color-text-secondary);
+  white-space: pre-wrap;
+}
+
+.update-progress {
+  display: grid;
+  gap: var(--mv-space-2);
+}
+
+.update-progress progress {
+  width: min(100%, 32rem);
+  accent-color: var(--mv-color-accent);
+}
+
 .settings-section-heading,
 .theme-editor-heading,
 .theme-editor-toolbar,

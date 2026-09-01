@@ -5,6 +5,8 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
+use specta::Type;
+use time::{format_description::well_known::Rfc3339, Duration, OffsetDateTime};
 use uuid::Uuid;
 
 use crate::portable::workspace::write_atomic_json;
@@ -14,6 +16,22 @@ const SETTINGS_FILE_LIMIT: u64 = 256 * 1024;
 const MAX_RECENT_ROOTS: usize = 10;
 const DEVICE_SCHEMA_VERSION: u32 = 1;
 const DEVICE_FILE_LIMIT: u64 = 4 * 1024;
+const UPDATE_CHECK_INTERVAL: Duration = Duration::hours(24);
+
+#[derive(Debug, Clone, Deserialize, Serialize, Type, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdatePolicy {
+    pub automatic_checks_enabled: bool,
+    pub last_check_at: Option<String>,
+    pub automatic_check_due: bool,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, Type, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateCheckPermit {
+    pub allowed: bool,
+    pub policy: UpdatePolicy,
+}
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 struct LocalSettings {
@@ -21,6 +39,10 @@ struct LocalSettings {
     recent_roots: Vec<String>,
     #[serde(default)]
     device_id: Option<Uuid>,
+    #[serde(default = "automatic_checks_default")]
+    automatic_update_checks: bool,
+    #[serde(default)]
+    last_update_check: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -127,6 +149,64 @@ pub fn recent_library_roots(app_data_dir: &Path) -> Result<Vec<PathBuf>, String>
         .collect())
 }
 
+pub fn update_policy(app_data_dir: &Path) -> Result<UpdatePolicy, String> {
+    policy_from_settings(&read_settings(app_data_dir)?, OffsetDateTime::now_utc())
+}
+
+pub fn set_automatic_update_checks(
+    app_data_dir: &Path,
+    enabled: bool,
+) -> Result<UpdatePolicy, String> {
+    let mut settings = read_settings(app_data_dir)?;
+    settings.automatic_update_checks = enabled;
+    write_atomic_json(&settings_path(app_data_dir), &settings)?;
+    policy_from_settings(&settings, OffsetDateTime::now_utc())
+}
+
+pub fn begin_update_check(app_data_dir: &Path, manual: bool) -> Result<UpdateCheckPermit, String> {
+    let mut settings = read_settings(app_data_dir)?;
+    let now = OffsetDateTime::now_utc();
+    let current = policy_from_settings(&settings, now)?;
+    let allowed = manual || (current.automatic_checks_enabled && current.automatic_check_due);
+    if allowed {
+        settings.last_update_check = Some(
+            now.format(&Rfc3339)
+                .map_err(|error| format!("Could not format update check time: {error}"))?,
+        );
+        write_atomic_json(&settings_path(app_data_dir), &settings)?;
+    }
+    Ok(UpdateCheckPermit {
+        allowed,
+        policy: policy_from_settings(&settings, now)?,
+    })
+}
+
+fn policy_from_settings(
+    settings: &LocalSettings,
+    now: OffsetDateTime,
+) -> Result<UpdatePolicy, String> {
+    let last = settings
+        .last_update_check
+        .as_deref()
+        .map(|value| {
+            OffsetDateTime::parse(value, &Rfc3339)
+                .map_err(|error| format!("Local update check time is invalid: {error}"))
+        })
+        .transpose()?;
+    let automatic_check_due = last
+        .map(|last| now - last >= UPDATE_CHECK_INTERVAL)
+        .unwrap_or(true);
+    Ok(UpdatePolicy {
+        automatic_checks_enabled: settings.automatic_update_checks,
+        last_check_at: settings.last_update_check.clone(),
+        automatic_check_due,
+    })
+}
+
+const fn automatic_checks_default() -> bool {
+    true
+}
+
 fn read_settings(app_data_dir: &Path) -> Result<LocalSettings, String> {
     let path = settings_path(app_data_dir);
     if !path.exists() {
@@ -134,6 +214,8 @@ fn read_settings(app_data_dir: &Path) -> Result<LocalSettings, String> {
             schema_version: SETTINGS_SCHEMA_VERSION,
             recent_roots: Vec::new(),
             device_id: None,
+            automatic_update_checks: automatic_checks_default(),
+            last_update_check: None,
         });
     }
     let metadata = fs::metadata(&path)
@@ -173,7 +255,10 @@ mod tests {
         thread,
     };
 
-    use super::{device_id, recent_library_roots, remember_library_root, MAX_RECENT_ROOTS};
+    use super::{
+        begin_update_check, device_id, recent_library_roots, remember_library_root,
+        set_automatic_update_checks, update_policy, MAX_RECENT_ROOTS,
+    };
 
     #[test]
     fn recent_roots_are_local_ordered_bounded_and_atomic() {
@@ -216,5 +301,25 @@ mod tests {
         assert_eq!(device_id(&app_data).unwrap(), identities[0]);
         assert!(app_data.join("basis/device.json").is_file());
         fs::remove_dir_all(app_data.as_ref()).unwrap();
+    }
+
+    #[test]
+    fn automatic_update_checks_are_local_bounded_and_manual_checks_bypass_the_interval() {
+        let app_data = std::env::temp_dir().join(format!("basis-updater-{}", uuid::Uuid::new_v4()));
+        let initial = update_policy(&app_data).unwrap();
+        assert!(initial.automatic_checks_enabled);
+        assert!(initial.automatic_check_due);
+
+        let first = begin_update_check(&app_data, false).unwrap();
+        assert!(first.allowed);
+        assert!(!first.policy.automatic_check_due);
+        assert!(!begin_update_check(&app_data, false).unwrap().allowed);
+        assert!(begin_update_check(&app_data, true).unwrap().allowed);
+
+        let disabled = set_automatic_update_checks(&app_data, false).unwrap();
+        assert!(!disabled.automatic_checks_enabled);
+        assert!(!begin_update_check(&app_data, false).unwrap().allowed);
+        assert!(begin_update_check(&app_data, true).unwrap().allowed);
+        fs::remove_dir_all(app_data).unwrap();
     }
 }

@@ -13,20 +13,19 @@ the resolution.
 - [x] M3b — Theme Engine, built-ins, and portable editor
 - [x] M4 — playback and queue
 - [x] M5 — playlists, events, and Home
-- [ ] M6 — LRC/LRCLIB and offline reuse
+- [x] M6 — LRC/LRCLIB and offline reuse
 - [ ] M7 — signed updater and release path
 - [ ] M8 — watcher, security, integration, and final build
 
 ## Current gate
 
-`M6 — robust LRCLIB resolver green; focused desktop retest pending`
+`M7 — signed updater and release path`
 
-Next concrete action: retest a track for which `/api/get` previously selected
-plain lyrics despite a safe synced search result. Confirm that the synchronized
-recording is selected when identity is unambiguous, that uncertain alternatives
-are explained without hiding the plain fallback, and that wide-layout
-auto-follow scrolls only the lyrics column. Keep M6 open until those focused
-desktop observations pass.
+Next concrete action: run the focused desktop updater smoke in Settings while
+audio is playing: manual endpoint failure must remain non-fatal, the automatic
+toggle must persist across restart, and no download/install may begin without
+the confirmation dialog. The signed host build, signature verification, policy,
+UI, and cross-platform release workflow already have automated evidence.
 
 ## Verification
 
@@ -40,10 +39,10 @@ desktop observations pass.
 - [x] cargo tests
 - [ ] cargo audit
 - [ ] pnpm production audit
-- [ ] Tauri release build
+- [x] Tauri release build
 - [ ] end-to-end smoke test
 - [ ] copy-to-another-root + DB-rebuild smoke test
-- [ ] valid updater and invalid-signature tests
+- [x] valid updater and invalid-signature tests
 
 ## Latest verification
 
@@ -342,6 +341,36 @@ production; one real failure shape is retained only as a regression fixture.
 `cargo test --lib` passes 50 tests with 2 hardware tests ignored, including six
 matcher regressions; strict Clippy and rustfmt pass. All 24 frontend tests,
 ESLint, TypeScript, Prettier, and the production build pass.
+
+2026-08-31 22:07 BRT — M6 focused desktop acceptance
+Result: PASS
+Evidence: the user confirmed that the previously failing LRCLIB cases now
+resolve correctly, synchronized lyrics and their fallback behavior work, the
+wide Now Playing artwork/lyrics panes scroll independently, and the complete M6
+experience is stable enough for the MVP. M6 is closed and work advances to M7.
+
+2026-08-31 22:50 BRT — M7 signed updater automated gate and host packaging
+Result: PASS (focused desktop Settings/playback smoke pending)
+Evidence: the official updater/process plugins use matched 2.10/2.3 frontend
+and Rust lines, the production configuration embeds the real public key and
+locked HTTPS GitHub Releases endpoint, and main-window capabilities permit only
+the updater plus process restart. Device-local policy defaults to non-blocking
+startup checks at most once per 24 hours while manual checks bypass the
+interval. Settings exposes signed-channel status, automatic-check preference,
+release metadata, explicit confirmation, download progress, install, error,
+and relaunch states. A checked-in manifest/payload/signature fixture is accepted
+by the configured public key and a one-byte modification is rejected; manifest
+tests also reject missing signatures, HTTP URLs, missing platforms, prerelease
+versions, and version drift. A real release-mode Windows build produced the
+6.8 MB NSIS installer and its 416-byte updater signature. The GitHub workflow
+builds NSIS and AppImage from frozen lockfiles, keeps the release in draft,
+validates both signed targets, and only then publishes it with the required
+SmartScreen/Authenticode disclosure. Evidence: `pnpm run release:validate`, 3
+Node release tests, 28 frontend tests, 52 effective Rust tests including the
+signature integration test (2 hardware tests ignored after M4 evidence),
+strict Clippy, ESLint, TypeScript, Prettier, production Vite build, rustfmt, and
+`git diff --check` pass. Repository search finds no private-key marker or
+developer-specific absolute path outside ignored build/dependency output.
 
 Format for new entries:
 

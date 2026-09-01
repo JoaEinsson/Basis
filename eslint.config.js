@@ -8,6 +8,7 @@ export default tseslint.config(
       "dist",
       "node_modules",
       "src-tauri/target",
+      "src-tauri/target-*",
       "basis-scaffold",
       "src/lib/bindings.ts",
     ],
@@ -23,7 +24,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["vite.config.ts"],
+    files: ["vite.config.ts", "scripts/**/*.mjs"],
     languageOptions: {
       globals: {
         ...globals.node,
