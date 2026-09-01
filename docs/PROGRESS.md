@@ -506,6 +506,16 @@ M8 gate with A05d coverage. Visual contrast/editor work belongs to P1, while
 wrapping, visibility, centering, and instrumental behavior belong to P6 and P8.
 No application code or theme data changed.
 
+2026-09-01 15:07 BRT — Linux native folder-picker deadlock correction
+Result: PASS (Arch/KDE packaged-app recheck pending)
+Evidence: `library_choose_root` is now asynchronous and waits for the native
+dialog callback on Tauri's blocking executor instead of calling
+`std::sync::mpsc::Receiver::recv()` on the command thread. This leaves the main
+GTK/WebKit event loop free to open and operate Add/Change music folder dialogs.
+`cargo fmt --check`, `cargo check --all-features`, all 56 effective Rust tests
+(55 unit plus updater-signature integration; 2 hardware smokes ignored), strict
+Clippy, and `git diff --check` pass.
+
 Format for new entries:
 
 ```text

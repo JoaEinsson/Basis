@@ -30,12 +30,14 @@ pub struct LibraryScanEvent {
 
 #[tauri::command]
 #[specta::specta]
-pub fn library_choose_root(
+pub async fn library_choose_root(
     app: AppHandle,
     state: State<'_, AppState>,
     player: State<'_, Arc<PlayerService>>,
 ) -> Result<Option<LibrarySummary>, String> {
-    let Some(root) = choose_folder(&app)? else {
+    let state = state.inner().clone();
+    let player = Arc::clone(player.inner());
+    let Some(root) = choose_folder(&app).await? else {
         return Ok(None);
     };
     let app_data_dir = app
@@ -61,7 +63,7 @@ pub fn library_choose_root(
         .ok_or_else(|| "Basis could not retain the selected library".to_owned())?
         .summary;
 
-    start_scan(app, state.inner().clone(), generation);
+    start_scan(app, state, generation);
     Ok(Some(scanning_summary))
 }
 
@@ -91,7 +93,7 @@ pub fn artwork_thumbnail(
     })
 }
 
-fn choose_folder(app: &AppHandle) -> Result<Option<PathBuf>, String> {
+async fn choose_folder(app: &AppHandle) -> Result<Option<PathBuf>, String> {
     let (sender, receiver) = mpsc::sync_channel(1);
     app.dialog()
         .file()
@@ -99,8 +101,9 @@ fn choose_folder(app: &AppHandle) -> Result<Option<PathBuf>, String> {
         .pick_folder(move |selected| {
             let _ = sender.send(selected);
         });
-    let selected = receiver
-        .recv()
+    let selected = tauri::async_runtime::spawn_blocking(move || receiver.recv())
+        .await
+        .map_err(|error| format!("The native folder picker worker failed: {error}"))?
         .map_err(|_| "The native folder picker closed unexpectedly".to_owned())?;
     selected
         .map(PathBuf::try_from)
