@@ -39,8 +39,9 @@ This contract does not:
 
 The accepted post-MVP extension is `UI_UX_POLISH_PLAN.md`. It specifies a
 unified custom Windows/Linux window/application toolbar, Signal Cyan Nocturne
-identity, shared interaction primitives, and system-wide motion without
-retroactively opening the M0-M8 gate or changing the ownership boundary below.
+identity, shared interaction primitives, and an expressive but controlled
+system-wide motion language without retroactively opening the M0-M8 gate or
+changing the ownership boundary below.
 
 ## Layout versus Theme Engine boundary
 

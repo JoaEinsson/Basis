@@ -322,9 +322,9 @@ Final gate:
 After M8 and the packaged Arch/KDE release smoke test are green, execute
 `UI_UX_POLISH_PLAN.md` before treating isolated visual improvements as ad hoc
 work. This program owns the unified custom Windows/Linux titlebar, the Signal
-Cyan Nocturne identity, shared interaction primitives, system-wide motion, and
-the complete component polish matrix. It does not start M9 or add backend music
-features.
+Cyan Nocturne identity, shared interaction primitives, expressive and controlled
+system-wide motion, and the complete component polish matrix. It does not start
+M9 or add backend music features.
 
 ## M9 — only after the final gate
 

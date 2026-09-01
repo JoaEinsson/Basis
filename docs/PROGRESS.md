@@ -479,6 +479,17 @@ AppImage and 6,850,114-byte NSIS installer downloaded from the `v0.1.0` draft
 against the public key embedded in Basis. Temporary test artifacts were removed
 afterward.
 
+2026-09-01 12:28 BRT — Post-MVP motion direction revision
+Result: DOCUMENTED (implementation remains gated by M8 release evidence)
+Evidence: D85 and `docs/UI_UX_POLISH_PLAN.md` now define expressive, controlled
+motion rather than a uniformly restrained pass. The accepted vocabulary covers
+directional navigation, shared artwork continuity with deterministic fallback,
+spring-like overlays and panes, moving selection indicators, transport-state
+transitions, coordinated track changes, active lyrics, drag/reorder settlement,
+artwork loading, and bounded short-list staggering. Theme tokens and reduced
+motion remain mandatory; perpetual idle effects, virtualized geometry animation,
+and input or playback latency remain prohibited. No application code changed.
+
 Format for new entries:
 
 ```text

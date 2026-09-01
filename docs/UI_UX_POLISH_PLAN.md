@@ -33,13 +33,15 @@ of individually completed screens. The pass is successful when:
   actions and without a duplicate native title strip;
 - every interactive component has coherent rest, hover, focus, pressed,
   selected, disabled, loading, empty, and error behavior where applicable;
-- motion communicates state and spatial relationships without delaying input,
-  distracting from artwork, or destabilizing virtualized lists;
+- motion gives navigation, playback, artwork, lyrics, and direct manipulation a
+  recognizable modern character without delaying input or destabilizing
+  virtualized lists;
 - the interface remains fully data-driven and substantially restylable by a
   user theme.
 
-The desired character is calm, precise, contemporary, and music-led. It is not
-a dashboard, neon sci-fi skin, glass-everywhere treatment, or animation demo.
+The desired character is confident, fluid, contemporary, and music-led. It is
+expressive while the user interacts and calm at rest. It is not a dashboard,
+neon sci-fi skin, glass-everywhere treatment, or animation demo.
 
 ## Locked direction
 
@@ -98,7 +100,7 @@ rim cyan           #5DE1D0
 ```
 
 Nocturne and the last-known-good dark startup theme use this family for accent,
-focus, selection, active playback, progress, and restrained ambient treatment.
+focus, selection, active playback, progress, and bounded ambient treatment.
 The first implementation target is:
 
 ```text
@@ -122,49 +124,74 @@ literal and no `Nocturne` conditional. The icon remains a trusted brand asset
 and is not recolored by arbitrary theme data unless the adaptive mark is used
 in a semantic icon role.
 
-### Motion language
+### Expressive and controlled motion language
+
+Motion is not limited to almost-invisible fades. It should make navigation
+direction, entity continuity, playback changes, selection, and direct
+manipulation legible and memorable. The interface remains still when nothing is
+happening; expression belongs to meaningful state changes.
 
 Layout owns which state transition occurs. The Theme Engine owns its visual
-treatment, duration, easing, distance, scale, opacity, and reduced-motion
-behavior. The registry must be extended before components invent motion values.
+treatment, duration, easing, distance, scale, opacity, spring character,
+stagger, and reduced-motion behavior. The registry must be extended before
+components invent motion values.
 
-Use native CSS transitions/animations and React state for this pass. Do not add
-a general animation framework or a third-party design system. Add a narrowly
-scoped headless dependency only if an audited focus/positioning requirement
-cannot be met reliably with the current platform.
+Use native CSS transitions/animations and React state first. Do not adopt a
+third-party design system. A focused, modest, cross-platform motion dependency
+is permitted only if the P0 audit demonstrates that native primitives cannot
+deliver reliable shared-element continuity or spring choreography across the
+supported WebViews. The dependency must degrade deterministically and must not
+own application state, layout semantics, or theme values.
 
 Motion principles:
 
 - input feedback is immediate;
 - animate compositor-friendly `opacity` and `transform` when possible;
+- forward, backward, reveal, dismiss, expand, and collapse transitions preserve
+  spatial direction rather than using the same generic fade;
+- artwork may provide shared visual continuity between a collection, detail,
+  and Now Playing when source and destination geometry are reliable;
+- spring-like or physics-inspired easing may give panels, menus, dialogs,
+  controls, and reordered items a responsive landing without theatrical bounce;
+- bounded staggering is allowed for a newly revealed short collection, never a
+  virtualized or continuously scrolling result set;
 - do not animate virtualized row geometry, application resize, playback time
   updates, or large layout reflows;
 - no perpetual glow, floating artwork, bouncing controls, or decorative idle
   motion;
-- route motion is subtle enough that repeated Back/Forward remains fast;
+- route motion is expressive enough to communicate direction but short enough
+  that repeated Back/Forward remains fast;
+- transport feedback never delays play, pause, seek, next, or previous actions;
 - loading motion never suggests progress that is not occurring;
+- advanced transitions are feature-detected and fall back to a tokenized
+  crossfade or immediate state change without breaking navigation;
 - `prefers-reduced-motion: reduce` removes nonessential transforms, shimmer,
-  smooth auto-scroll, and accent interpolation while preserving visible state
-  changes.
+  smooth auto-scroll, staggering, shared-element travel, and accent
+  interpolation while preserving visible state changes.
 
 The default motion vocabulary is:
 
 | Interaction | Normal treatment | Reduced-motion treatment |
 |---|---|---|
-| Button press | small tokenized press response | color/state change only |
-| Menu or tooltip | short fade plus subtle origin motion | immediate visibility |
-| Dialog | overlay fade and restrained content entrance | fade or immediate |
-| Context/queue pane | directional reveal tied to its edge | immediate reveal |
-| Main-canvas navigation | restrained crossfade; no long page slide | immediate swap |
-| Album/artwork hover | bounded emphasis without layout movement | state color/focus only |
+| Button or titlebar control press | immediate tokenized compression/release response | color/state change only |
+| Menu, tooltip, or popover | origin-aware fade, scale, and short translation | immediate visibility |
+| Dialog | scrim fade plus spring-like content arrival and exit | fade or immediate |
+| Context/queue pane | spring-like directional reveal tied to its edge | immediate reveal |
+| Forward/back main-canvas navigation | short directional transition plus content crossfade | immediate swap |
+| Artwork between grid/detail/Now Playing | shared-element transform when geometry is reliable; crossfade fallback | immediate replacement |
+| Search activation | search field expands into the canvas state and collapses back to its origin | immediate state swap |
+| Active View or representation | selection indicator glides between valid targets | immediate indicator placement |
+| Album/artwork hover | bounded lift, artwork zoom, and action reveal without layout movement | state color/focus only |
 | Track selection | fast semantic highlight | immediate highlight |
-| Playlist reordering | live insertion marker and settled-row transition | insertion marker only |
-| Track change | artwork/copy crossfade without moving the canvas | immediate replacement |
-| Play/pause/repeat state | icon/state transition | immediate icon replacement |
+| Playlist or queue reordering | dragged-item lift, live insertion target, and neighboring-row settlement | insertion marker only |
+| Track change | coordinated artwork, title, metadata, and optional ambient-accent transition without moving the canvas | immediate replacement |
+| Play/pause/repeat/shuffle state | icon morph or crossfade with immediate semantic state | immediate icon replacement |
 | Lyrics follow | tokenized smooth centering | immediate positioning |
-| Active lyric | tokenized color/weight/scale emphasis | color/weight only |
+| Active lyric | tokenized position, color, weight, opacity, and scale transition | color/weight only |
 | Theme/Chromatic accent | bounded palette interpolation | immediate palette update |
-| Skeleton | restrained pulse only while genuinely loading | static placeholder |
+| Short-list entrance | small bounded stagger tied to one reveal; never virtualized data | immediate collection |
+| Artwork loading | blur-up or opacity reveal from a stable placeholder | immediate image replacement |
+| Skeleton | quiet pulse only while genuinely loading | static placeholder |
 
 ## Execution order
 
@@ -182,7 +209,12 @@ inconsistent elsewhere.
 3. Inventory visual literals, duplicated control CSS, unthemed browser-native
    elements, clipping, overflow, inconsistent alignment, and missing states.
 4. Record keyboard order and current behavior under reduced motion.
-5. Define a short before/after issue list; screenshots are evidence, not a new
+5. Prototype directional route, shared artwork, spring-like pane, track-change,
+   lyric, and reorder motion in the packaged Windows and Linux WebViews. Record
+   frame stability, interruption behavior, and fallbacks; decide from this
+   evidence whether native CSS/React is sufficient or a focused motion runtime
+   is justified.
+6. Define a short before/after issue list; screenshots are evidence, not a new
    visual specification.
 
 Gate: every component in the coverage matrix below has a baseline or an
@@ -194,8 +226,9 @@ explicit “state not currently reachable” note.
    feature styles. Add missing semantic roles for titlebar/window controls,
    player surfaces and progress, hover/pressed states, overlays, menus,
    tooltips, drag insertion, lyrics, and motion.
-2. Add missing `slow` and emphasized/exit motion primitives plus any bounded
-   component motion overrides proven necessary by the audit.
+2. Add missing emphasized/exit, spring-like, directional-route, shared-artwork,
+   drag-settlement, stagger, scale, and distance motion primitives plus any
+   bounded component overrides proven necessary by the audit.
 3. Change Nocturne and the last-known-good startup values from violet to Signal
    Cyan; update Chromatic's fixed fallback to the same identity family.
 4. Keep custom themes sparse and migration-safe. New tokens receive hard
@@ -215,6 +248,8 @@ feature CSS contains brand-color literals.
    remove duplicate native decorations only after controls work in development.
 3. Add semantic window-control icons, tooltips, accessible names, hover/focus/
    pressed states, the Close danger state, and maximized/restored state sync.
+   Control feedback uses the same immediate compression/release language as
+   other icon buttons without delaying the native window action.
 4. Protect every interactive region from accidental window dragging and keep a
    usable drag target at all supported widths.
 5. Add only the required Tauri window permissions.
@@ -241,6 +276,10 @@ primitives without adopting another design system:
 - artwork frame/fallback and entity-row interaction states;
 - drag handle, drag preview, insertion marker, and drop target.
 
+These primitives also own origin-aware entrances, spring-like settlement,
+moving selection indicators, and icon morph/crossfade behavior so route
+components do not invent independent choreography.
+
 Gate: each primitive has keyboard behavior, visible focus, accessible naming,
 theme-token styling, reduced-motion behavior, and state tests. Browser default
 menus or visibly unrelated form styling do not leak into the product.
@@ -255,7 +294,11 @@ Polish:
   emphasis;
 - SearchView grouped results, typing/loading/no-results/parse-error states;
 - QueuePane entrance, focus, empty/error states, and canvas preservation;
-- route transitions and exact scroll/focus restoration.
+- directional route transitions and exact scroll/focus restoration;
+- search expansion/collapse continuity from the toolbar into SearchView;
+- a moving active indicator across pinned Views and representation controls;
+- CommandPalette and overlay entrances that feel responsive rather than merely
+  appearing.
 
 Gate: the shell remains compact at every width, no permanent sidebar or
 dashboard field returns, overlays layer correctly above virtualized content,
@@ -274,6 +317,13 @@ Polish every representation:
 - album and artist detail hierarchy, metadata, actions, and partial-data states;
 - folder and genre navigation, expansion, breadcrumbs, and empty states;
 - multiselect and bulk-action feedback.
+
+Album and artist cards receive bounded hover lift, artwork zoom, and action
+reveal. Artwork uses blur-up or opacity loading from a stable placeholder. When
+geometry is reliable, artwork maintains shared-element continuity from a grid
+or list into detail and from detail into Now Playing; the deterministic fallback
+is a coordinated crossfade. A short initial result set may use bounded stagger,
+but virtualized, paginated, or continuously updated results may not.
 
 Grid, list, and table must be meaningfully distinct. Density must visibly and
 consistently affect allowed spacing/row-size tokens. Large libraries must not
@@ -298,6 +348,12 @@ Polish:
   responsive split/stacked layouts;
 - synchronized, plain, unavailable, candidate-choice, manual-scroll, and
   follow-mode lyric states.
+
+Playback motion includes immediate transport-icon morphs/crossfades, coordinated
+artwork/title/metadata changes, a bounded artwork-derived ambient background
+transition where the active theme enables it, active-lyric position/weight/
+opacity/scale emphasis, and full drag/reorder lift, insertion, and settlement
+feedback. None of these effects may delay the underlying audio or queue action.
 
 Artwork/metadata and lyrics must be independent layout and scroll containers.
 Lyrics length must never vertically center or displace the artwork column, and
@@ -331,11 +387,14 @@ architecture.
 1. Run deterministic visual regression for stable component states in Paper and
    Nocturne; use a fixed accent fixture for Chromatic.
 2. Run interaction tests for titlebar commands, keyboard menus/dialogs,
-   navigation restoration, drag-and-drop, player controls, and reduced motion.
+   navigation restoration, drag-and-drop, player controls, animation completion
+   and interruption, deterministic fallbacks, and reduced motion.
 3. Audit contrast, focus order, accessible names, live regions, target sizes,
    zoom, text overflow, localization-resistant sizing, and high-DPI artwork.
 4. Scroll large virtualized libraries and lyrics while playing audio; reject
    main-thread stalls, layout thrash, and animation-induced input latency.
+   Measure representative route, shared-artwork, pane, drag, and track-change
+   timelines; reject visible jank at supported packaged-platform scale factors.
 5. Repeat manual smoke tests on Windows 10/11 and Arch KDE Wayland using the
    packaged builds, not only Vite/WebView development.
 6. Update screenshots and release notes only after the behavior is verified.
@@ -347,16 +406,16 @@ portability, updater signing, or the Query/View Engine.
 
 | Area | Components/surfaces | Mandatory polish focus |
 |---|---|---|
-| Window and shell | WindowChrome, AppShell, app toolbar, history, pinned Views, overflow | native behavior, drag safety, hierarchy, responsive space, focus |
-| Navigation/search | SearchView, CommandPalette, route transitions | keyboard, grouped hierarchy, overlays, restoration, empty/error |
-| Library views | Home, GenericView, Grid/List/Table, filters, columns | density, meaningful representations, virtualization, progressive states |
-| Music entities | AlbumGrid, ArtistGrid, TrackList, ArtworkPlaceholder | artwork rhythm, metadata hierarchy, selection/playing, truncation |
+| Window and shell | WindowChrome, AppShell, app toolbar, history, pinned Views, overflow | native behavior, drag safety, hierarchy, responsive space, focus, immediate control motion |
+| Navigation/search | SearchView, CommandPalette, route transitions | keyboard, grouped hierarchy, overlays, restoration, directional and expansion motion, empty/error |
+| Library views | Home, GenericView, Grid/List/Table, filters, columns | density, meaningful representations, moving indicators, bounded entrances, virtualization, progressive states |
+| Music entities | AlbumGrid, ArtistGrid, TrackList, ArtworkPlaceholder | artwork rhythm and continuity, hover/loading motion, metadata hierarchy, selection/playing, truncation |
 | Details/facets | AlbumDetail, ArtistDetail, Folders, Genres | page hierarchy, navigation, partial metadata, actions |
 | Actions | TrackActionMenu, bulk actions, menus/popovers | positioning, dismissal, keyboard, destructive distinction |
-| Playback | PlayerBar, transport, timeline, volume | immediate state, progress clarity, narrow layout, errors |
-| Queue | QueuePane | spatial entrance, current/upcoming state, reorder, focus restoration |
-| Now Playing | artwork/metadata, lyrics, candidates, follow control | independent scrolling, track change, readable emphasis, recovery |
-| Playlists | index/detail, static editor, smart query, dialogs, picker | drag/drop, order, missing tracks, validation, confirmation |
+| Playback | PlayerBar, transport, timeline, volume | immediate state and icon transition, track-change continuity, progress clarity, narrow layout, errors |
+| Queue | QueuePane | spring-like spatial entrance, current/upcoming state, reorder settlement, focus restoration |
+| Now Playing | artwork/metadata, lyrics, candidates, follow control | independent scrolling, artwork continuity, coordinated track change, lyric emphasis, recovery |
+| Playlists | index/detail, static editor, smart query, dialogs, picker | drag lift/insertion/settlement, order, missing tracks, validation, confirmation |
 | Settings | Settings, AppearanceEditor, UpdatePanel | grouping, previews, form states, concise copy, destructive actions |
 | Library setup | Onboarding/library empty state, folder selection, indexing | quiet hierarchy, progress, actionable failure |
 | System feedback | error boundary, route error, inline status, skeletons | local failure containment, accessible announcements, consistency |
@@ -375,13 +434,17 @@ failure, and long-content cases where applicable.
 | POL04 | Source inspection finds no Signal Cyan literal or built-in-theme branch in layout/feature components. |
 | POL05 | Paper, Nocturne, Chromatic, and a divergent custom theme preserve identical information architecture and window-control usability. |
 | POL06 | Every component in the coverage matrix has applicable interaction and failure states. |
-| POL07 | All motion uses registered semantic tokens and reduced motion removes nonessential animation. |
+| POL07 | Motion is expressive during meaningful state changes, calm at rest, uses registered semantic tokens, and has a complete reduced-motion treatment. |
 | POL08 | Grid/List/Table and Compact/Comfortable/Spacious are visually and behaviorally distinct where supported. |
 | POL09 | Menus, dialogs, tooltips, and context panes position and dismiss correctly above virtualized/scrolled content. |
 | POL10 | Playlist and queue drag-and-drop show a live insertion target, preserve order, and have keyboard alternatives. |
 | POL11 | Now Playing artwork and lyrics use independent wide-layout scroll containers and stable narrow recomposition. |
 | POL12 | No polish change introduces a permanent sidebar, dashboard composition, generic cards, or nonessential chrome. |
 | POL13 | Automated visual/interaction/contrast checks and packaged Windows/Arch manual smoke tests pass. |
+| POL14 | Forward/back routes, search, panes, and active indicators communicate spatial direction without delaying navigation. |
+| POL15 | Artwork maintains shared continuity across collection, detail, and Now Playing where geometry permits, with a deterministic crossfade fallback. |
+| POL16 | Transport, track-change, lyric, and drag/reorder choreography remains synchronized with immediate underlying actions and introduces no input or playback latency. |
+| POL17 | Staggering is bounded to short initial collections; virtualized, paginated, and continuously updated lists retain stable geometry and performance. |
 
 ## Implementation discipline
 
