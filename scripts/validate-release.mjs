@@ -5,6 +5,7 @@ const tauri = JSON.parse(await readFile("src-tauri/tauri.conf.json", "utf8"));
 const capabilities = JSON.parse(
   await readFile("src-tauri/capabilities/default.json", "utf8"),
 );
+const license = await readFile("LICENSE", "utf8");
 const cargo = await readFile("src-tauri/Cargo.toml", "utf8");
 const cargoLock = await readFile("src-tauri/Cargo.lock", "utf8");
 const workflow = await readFile(".github/workflows/release.yml", "utf8");
@@ -33,6 +34,24 @@ if (tauri.identifier !== "io.github.joaeinsson.basis") {
 }
 if (tauri.bundle?.createUpdaterArtifacts !== true) {
   errors.push("bundle.createUpdaterArtifacts must be true");
+}
+if (
+  packageJson.license !== "Apache-2.0" ||
+  !/^license\s*=\s*"Apache-2.0"$/m.test(cargo) ||
+  tauri.bundle?.license !== "Apache-2.0" ||
+  tauri.bundle?.licenseFile !== "../LICENSE"
+) {
+  errors.push(
+    "Node, Rust, and Tauri bundle metadata must apply the Apache-2.0 license",
+  );
+}
+if (
+  !/Apache License\r?\n\s+Version 2\.0/.test(license) ||
+  !license.includes(
+    "TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION",
+  )
+) {
+  errors.push("the root LICENSE file is not the Apache License 2.0 text");
 }
 const productionCsp = tauri.app?.security?.csp;
 if (

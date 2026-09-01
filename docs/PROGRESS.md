@@ -533,6 +533,18 @@ copy/rebuild, and updater evidence, this closes the final MVP gate. Per the
 product-owner scope decision, D89 remains an accepted post-MVP P5 correction and
 is not a condition of M8 closure.
 
+2026-09-01 15:46 BRT — Public README and Apache-2.0 licensing
+Result: PASS
+Evidence: the repository README now documents verified product capabilities,
+installation, first indexing, portability, privacy, shortcuts, development,
+release behavior, architecture references, scope, and contribution guidance.
+The official Apache License 2.0 text is present at the repository root, and both
+Node and Rust package metadata declare the `Apache-2.0` SPDX identifier. Tauri
+bundle metadata includes that license file, and release validation prevents the
+package manifests or bundles from dropping it. Prettier, local README-link
+validation, Cargo metadata parsing, release validation, and `git diff --check`
+pass.
+
 Format for new entries:
 
 ```text
