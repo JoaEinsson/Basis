@@ -11,6 +11,7 @@ import { useState } from "react";
 import { AppearanceEditor } from "../components/settings/AppearanceEditor";
 import { UpdatePanel } from "../components/settings/UpdatePanel";
 import { useLibraryContext } from "../components/shell/LibraryContext";
+import { Button, Dialog, DialogActions } from "../components/ui";
 import { deleteView, saveView, setPinnedViews } from "../lib/tauri";
 import type { ViewDefinition } from "../lib/types";
 
@@ -238,32 +239,28 @@ export function Settings() {
         />
       )}
       {deleting && (
-        <div className="dialog-backdrop">
-          <section
-            className="small-dialog"
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="delete-view-title"
-          >
-            <h2 id="delete-view-title">Delete “{deleting.name}”?</h2>
-            <p>
-              This removes the custom View file. It does not change or delete
-              music.
-            </p>
-            <div className="dialog-actions">
-              <button type="button" onClick={() => setDeleting(null)}>
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void confirmDelete()}
-              >
-                Delete View
-              </button>
-            </div>
-          </section>
-        </div>
+        <Dialog
+          className="small-dialog"
+          ariaLabelledBy="delete-view-title"
+          dismissible={!busy}
+          onClose={() => setDeleting(null)}
+        >
+          <h2 id="delete-view-title">Delete “{deleting.name}”?</h2>
+          <p>
+            This removes the custom View file. It does not change or delete
+            music.
+          </p>
+          <DialogActions>
+            <Button onClick={() => setDeleting(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={busy}
+              onClick={() => void confirmDelete()}
+            >
+              Delete View
+            </Button>
+          </DialogActions>
+        </Dialog>
       )}
     </section>
   );
@@ -284,9 +281,14 @@ function NameDialog({
 }) {
   const [name, setName] = useState(initialName);
   return (
-    <div className="dialog-backdrop">
+    <Dialog
+      className="small-dialog"
+      ariaLabel={title}
+      dismissible={!busy}
+      onClose={onCancel}
+    >
       <form
-        className="small-dialog"
+        className="ui-dialog-form"
         onSubmit={(event) => {
           event.preventDefault();
           if (name.trim()) onSave(name.trim());
@@ -301,15 +303,15 @@ function NameDialog({
             onChange={(event) => setName(event.target.value)}
           />
         </label>
-        <div className="dialog-actions">
+        <DialogActions>
           <button type="button" onClick={onCancel}>
             Cancel
           </button>
           <button type="submit" disabled={busy || !name.trim()}>
             Save
           </button>
-        </div>
+        </DialogActions>
       </form>
-    </div>
+    </Dialog>
   );
 }

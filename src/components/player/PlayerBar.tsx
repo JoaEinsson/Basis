@@ -9,6 +9,7 @@ import {
   SkipForward,
   Volume2,
 } from "lucide-react";
+import { RangeInput } from "../ui";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { displayTrackTitle, formatDuration } from "../library/format";
@@ -115,9 +116,8 @@ export function PlayerBar() {
         </div>
         <div className="player-timeline">
           <span>{formatDuration(position)}</span>
-          <input
+          <RangeInput
             aria-label="Playback position"
-            type="range"
             min="0"
             max={Math.max(duration, 1)}
             step="250"
@@ -135,9 +135,8 @@ export function PlayerBar() {
         <label className="volume-control">
           <Volume2 aria-hidden="true" size={18} />
           <span className="sr-only">Volume</span>
-          <input
+          <RangeInput
             aria-label="Volume"
-            type="range"
             min="0"
             max="100"
             value={snapshot.volume}

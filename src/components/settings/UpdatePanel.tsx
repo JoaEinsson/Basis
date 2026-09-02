@@ -2,6 +2,7 @@ import { Download, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getAppHealth } from "../../lib/tauri";
 import { useUpdater } from "./UpdateProvider";
+import { Button, Dialog, DialogActions, Progress, Toggle } from "../ui";
 
 export function UpdatePanel() {
   const updater = useUpdater();
@@ -41,20 +42,19 @@ export function UpdatePanel() {
         </button>
       </div>
 
-      <label className="system-theme-toggle">
-        <input
-          type="checkbox"
-          checked={updater.policy?.automaticChecksEnabled ?? true}
-          disabled={!updater.policy || busy}
-          onChange={(event) =>
-            void updater.setAutomaticChecks(event.target.checked)
-          }
-        />
+      <Toggle
+        className="system-theme-toggle"
+        checked={updater.policy?.automaticChecksEnabled ?? true}
+        disabled={!updater.policy || busy}
+        onChange={(event) =>
+          void updater.setAutomaticChecks(event.target.checked)
+        }
+      >
         <span>
           <span>Check automatically</span>
           <small>At startup, at most once every 24 hours.</small>
         </span>
-      </label>
+      </Toggle>
 
       {updater.policy?.lastCheckAt && (
         <p className="update-secondary">
@@ -89,7 +89,11 @@ export function UpdatePanel() {
           )}
           {updater.status === "downloading" && (
             <div className="update-progress" role="status">
-              <progress value={progress ?? undefined} max={1} />
+              <Progress
+                label="Downloading signed update"
+                value={progress ?? undefined}
+                max={1}
+              />
               <span>
                 {progress === null
                   ? "Downloading signed update…"
@@ -109,36 +113,31 @@ export function UpdatePanel() {
       )}
 
       {confirming && updater.available && (
-        <div className="dialog-backdrop">
-          <section
-            className="small-dialog"
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="install-update-title"
-          >
-            <h2 id="install-update-title">
-              Install Basis {updater.available.version}?
-            </h2>
-            <p>
-              Basis will download the signed artifact, verify it, install it,
-              and relaunch. Playback will stop when installation begins.
-            </p>
-            <div className="dialog-actions">
-              <button type="button" onClick={() => setConfirming(false)}>
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setConfirming(false);
-                  void updater.installAvailable();
-                }}
-              >
-                Install and relaunch
-              </button>
-            </div>
-          </section>
-        </div>
+        <Dialog
+          className="small-dialog"
+          ariaLabelledBy="install-update-title"
+          onClose={() => setConfirming(false)}
+        >
+          <h2 id="install-update-title">
+            Install Basis {updater.available.version}?
+          </h2>
+          <p>
+            Basis will download the signed artifact, verify it, install it, and
+            relaunch. Playback will stop when installation begins.
+          </p>
+          <DialogActions>
+            <Button onClick={() => setConfirming(false)}>Cancel</Button>
+            <Button
+              variant="primary"
+              onClick={() => {
+                setConfirming(false);
+                void updater.installAvailable();
+              }}
+            >
+              Install and relaunch
+            </Button>
+          </DialogActions>
+        </Dialog>
       )}
     </section>
   );

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { createPlaylist, listPlaylists, updatePlaylist } from "../../lib/tauri";
 import type { Playlist, StaticPlaylistItem, TrackDto } from "../../lib/types";
+import { Dialog, DialogActions } from "../ui";
 
 type PlaylistPickerProps = {
   tracks: TrackDto[];
@@ -85,69 +86,67 @@ export function PlaylistPicker({ tracks, onClose }: PlaylistPickerProps) {
     (playlist) => playlist.type === "static",
   );
   return (
-    <div className="dialog-backdrop" role="presentation">
-      <section
-        className="small-dialog playlist-picker"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="playlist-picker-title"
-      >
-        <h2 id="playlist-picker-title">
-          Add {tracks.length === 1 ? "track" : `${tracks.length} tracks`} to
-          playlist
-        </h2>
-        {loading ? (
-          <p className="loading-state">Loading playlists…</p>
-        ) : (
-          <div className="playlist-picker-list">
-            {staticPlaylists.map((playlist) => (
-              <button
-                type="button"
-                key={playlist.id}
-                disabled={saving}
-                onClick={() => void addTo(playlist)}
-              >
-                <span>{playlist.name}</span>
-                <small>{playlist.items.length} tracks</small>
-              </button>
-            ))}
-            {staticPlaylists.length === 0 && (
-              <p>No static playlists yet. Create the first one below.</p>
-            )}
-          </div>
-        )}
-        <form
-          className="playlist-create-inline"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void createStatic();
-          }}
-        >
-          <label>
-            New static playlist
-            <input
-              value={name}
-              maxLength={512}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="Playlist name"
-            />
-          </label>
-          <button type="submit" disabled={saving || !name.trim()}>
-            Create and add
-          </button>
-        </form>
-        {error && (
-          <p className="inline-error" role="alert">
-            {error}
-          </p>
-        )}
-        <div className="dialog-actions">
-          <button type="button" disabled={saving} onClick={onClose}>
-            Cancel
-          </button>
+    <Dialog
+      className="small-dialog playlist-picker"
+      ariaLabelledBy="playlist-picker-title"
+      dismissible={!saving}
+      onClose={onClose}
+    >
+      <h2 id="playlist-picker-title">
+        Add {tracks.length === 1 ? "track" : `${tracks.length} tracks`} to
+        playlist
+      </h2>
+      {loading ? (
+        <p className="loading-state">Loading playlists…</p>
+      ) : (
+        <div className="playlist-picker-list">
+          {staticPlaylists.map((playlist) => (
+            <button
+              type="button"
+              key={playlist.id}
+              disabled={saving}
+              onClick={() => void addTo(playlist)}
+            >
+              <span>{playlist.name}</span>
+              <small>{playlist.items.length} tracks</small>
+            </button>
+          ))}
+          {staticPlaylists.length === 0 && (
+            <p>No static playlists yet. Create the first one below.</p>
+          )}
         </div>
-      </section>
-    </div>
+      )}
+      <form
+        className="playlist-create-inline"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void createStatic();
+        }}
+      >
+        <label>
+          New static playlist
+          <input
+            value={name}
+            maxLength={512}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="Playlist name"
+          />
+        </label>
+        <button type="submit" disabled={saving || !name.trim()}>
+          Create and add
+        </button>
+      </form>
+      {error && (
+        <p className="inline-error" role="alert">
+          {error}
+        </p>
+      )}
+      <DialogActions>
+        <button type="button" disabled={saving} onClick={onClose}>
+          Cancel
+        </button>
+      </DialogActions>
+    </Dialog>
   );
 }
 

@@ -614,6 +614,30 @@ frontend tests, ESLint, Prettier, TypeScript/Vite production build,
 Windows snap/scale and Arch KDE/Wayland packaged behavior remain manual gate
 evidence and P2 is not closed until those checks are observed.
 
+2026-09-02 09:33 BRT — P2 Windows desktop acceptance
+Result: PASS (Arch/KDE packaged acceptance pending)
+Evidence: the product owner exercised the completed custom chrome in the
+desktop app and reported all tested behavior working before explicitly
+authorizing P3. This closes the Windows acceptance for the tested environment;
+the broader Arch KDE/Wayland and scale matrix remains recorded as P0/P2 exit
+evidence rather than being inferred from the Windows result.
+
+2026-09-02 10:04 BRT — P3 shared interaction primitives
+Result: PASS
+Evidence: `src/components/ui/` now owns themed buttons, icon controls,
+tooltips, icon swaps, menus, popovers, dialogs/scrims, text/search/select/range
+inputs, checkbox/toggle controls, tabs/segmented controls, chips/badges,
+feedback states, artwork/entity states, and drag/drop states. Core consumers
+now use these primitives in window chrome, track context actions, View controls,
+theme settings, updates, playlists, artwork, and the player. Dialog focus is
+trapped and restored despite native `autoFocus`; menus and selection controls
+provide arrow/Home/End/Escape behavior; semantic tokens own treatment and the
+global reduced-motion contract disables their choreography. Browser/WebView
+fixtures verified Paper and Nocturne, context-menu keyboard traversal, the
+Columns popover, dialog focus restoration, zero horizontal overflow at 640 px,
+and no console warnings/errors. `pnpm lint`, `pnpm typecheck`, all 49 frontend
+tests, `pnpm build`, `pnpm format:check`, and `git diff --check` pass.
+
 Format for new entries:
 
 ```text

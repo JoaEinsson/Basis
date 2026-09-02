@@ -9,6 +9,7 @@ import {
   PlaylistPicker,
 } from "../components/playlists/PlaylistPicker";
 import { usePlayer } from "../components/player/PlayerContext";
+import { Dialog, DialogActions, DragHandle, EntityRow } from "../components/ui";
 import {
   createPlaylist,
   listPlaylists,
@@ -179,10 +180,14 @@ function CreatePlaylistDialog({
   }
 
   return (
-    <div className="dialog-backdrop">
+    <Dialog
+      className="small-dialog"
+      ariaLabelledBy="new-playlist-title"
+      dismissible={!saving}
+      onClose={onClose}
+    >
       <form
-        className="small-dialog"
-        aria-labelledby="new-playlist-title"
+        className="ui-dialog-form"
         onSubmit={(event) => {
           event.preventDefault();
           void save();
@@ -224,16 +229,16 @@ function CreatePlaylistDialog({
             {error}
           </p>
         )}
-        <div className="dialog-actions">
+        <DialogActions>
           <button type="button" onClick={onClose} disabled={saving}>
             Cancel
           </button>
           <button type="submit" disabled={saving || !name.trim()}>
             {saving ? "Creating…" : "Create"}
           </button>
-        </div>
+        </DialogActions>
       </form>
-    </div>
+    </Dialog>
   );
 }
 
@@ -517,7 +522,7 @@ export function StaticPlaylistEditor({
             const resolvedItem = resolved.items[row.index];
             const presentation = staticPlaylistItemPresentation(resolvedItem);
             return (
-              <div
+              <EntityRow
                 className="playlist-track-row"
                 key={`${resolvedItem.item.path}:${row.index}`}
                 onDragOver={(event) => {
@@ -546,8 +551,7 @@ export function StaticPlaylistEditor({
                   transform: `translateY(${row.start}px)`,
                 }}
               >
-                <button
-                  type="button"
+                <DragHandle
                   className="playlist-drag-handle"
                   draggable={!saving}
                   aria-label={`Drag ${presentation.title} to reorder`}
@@ -569,7 +573,7 @@ export function StaticPlaylistEditor({
                   }}
                 >
                   <GripVertical aria-hidden="true" size={16} />
-                </button>
+                </DragHandle>
                 <button
                   type="button"
                   className="playlist-track-main"
@@ -636,7 +640,7 @@ export function StaticPlaylistEditor({
                 >
                   <Trash2 aria-hidden="true" size={15} />
                 </button>
-              </div>
+              </EntityRow>
             );
           })}
         </div>

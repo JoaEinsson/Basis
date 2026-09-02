@@ -34,6 +34,18 @@ import { TrackActionMenu } from "../components/library/TrackActionMenu";
 import { TrackList } from "../components/library/TrackList";
 import { PlaylistPicker } from "../components/playlists/PlaylistPicker";
 import {
+  Button,
+  Checkbox,
+  Dialog,
+  DialogActions,
+  FilterChip,
+  Popover,
+  RangeInput,
+  SegmentedControl,
+  SelectInput,
+  TextInput,
+} from "../components/ui";
+import {
   duplicateView,
   executeLibraryQuery,
   parseLibraryQuery,
@@ -387,50 +399,53 @@ export function GenericView() {
           {hasMore ? "+" : ""} results
         </span>
         {activeFilter && (
-          <button
+          <FilterChip
             className="filter-chip"
-            type="button"
+            active
             onClick={() => {
               updateEntry({ query: view.query });
               setActiveFilter(null);
             }}
           >
             {activeFilter} <X aria-hidden="true" size={14} />
-          </button>
+          </FilterChip>
         )}
-        <details className="control-popover">
-          <summary>
-            <Plus aria-hidden="true" size={15} /> Add filter
-          </summary>
-          <div className="menu-popover filter-builder">
-            <label>
-              Field
-              <select
-                value={filterField}
-                onChange={(event) =>
-                  setFilterField(event.target.value as QueryField)
-                }
-              >
-                {FILTER_FIELDS.map((field) => (
-                  <option key={field}>{field}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Value
-              <input
-                value={filterValue}
-                onChange={(event) => setFilterValue(event.target.value)}
-              />
-            </label>
-            <button type="button" onClick={() => void applyFilter()}>
-              Apply
-            </button>
-          </div>
-        </details>
+        <Popover
+          ariaLabel="Add filter"
+          className="filter-builder"
+          trigger={
+            <Button>
+              <Plus aria-hidden="true" size={15} /> Add filter
+            </Button>
+          }
+        >
+          <label>
+            Field
+            <SelectInput
+              value={filterField}
+              onChange={(event) =>
+                setFilterField(event.target.value as QueryField)
+              }
+            >
+              {FILTER_FIELDS.map((field) => (
+                <option key={field}>{field}</option>
+              ))}
+            </SelectInput>
+          </label>
+          <label>
+            Value
+            <TextInput
+              value={filterValue}
+              onChange={(event) => setFilterValue(event.target.value)}
+            />
+          </label>
+          <button type="button" onClick={() => void applyFilter()}>
+            Apply
+          </button>
+        </Popover>
         <label className="compact-control">
           Sort
-          <select
+          <SelectInput
             value={entry.sort[0]?.field ?? "title"}
             onChange={(event) =>
               updateEntry({
@@ -441,11 +456,11 @@ export function GenericView() {
             {sortFieldsFor(view.entity).map((field) => (
               <option key={field}>{field}</option>
             ))}
-          </select>
+          </SelectInput>
         </label>
         <label className="compact-control">
           Group
-          <select
+          <SelectInput
             value={entry.groupBy[0] ?? ""}
             onChange={(event) =>
               updateEntry({
@@ -459,11 +474,11 @@ export function GenericView() {
             {sortFieldsFor(view.entity).map((field) => (
               <option key={field}>{field}</option>
             ))}
-          </select>
+          </SelectInput>
         </label>
         <label className="compact-control">
           Density
-          <select
+          <SelectInput
             value={entry.density}
             onChange={(event) =>
               updateEntry({
@@ -474,13 +489,12 @@ export function GenericView() {
             <option value="compact">Compact</option>
             <option value="comfortable">Comfortable</option>
             <option value="spacious">Spacious</option>
-          </select>
+          </SelectInput>
         </label>
         {entry.layout === "grid" && (
           <label className="cover-size-control">
             Cover size
-            <input
-              type="range"
+            <RangeInput
               min="128"
               max="280"
               value={entry.coverSize ?? 192}
@@ -491,54 +505,53 @@ export function GenericView() {
           </label>
         )}
         {view.entity === "track" && (
-          <details className="control-popover">
-            <summary>
-              <Columns3 aria-hidden="true" size={15} /> Columns
-            </summary>
-            <div className="menu-popover column-picker">
-              {VISIBLE_TRACK_FIELDS.map((field) => (
-                <label key={field}>
-                  <input
-                    type="checkbox"
-                    checked={entry.visibleFields.includes(field)}
-                    onChange={() =>
-                      updateEntry({
-                        visibleFields: toggleField(entry.visibleFields, field),
-                      })
-                    }
-                  />
-                  {field}
-                </label>
-              ))}
-            </div>
-          </details>
+          <Popover
+            ariaLabel="Track columns"
+            className="column-picker"
+            trigger={
+              <Button>
+                <Columns3 aria-hidden="true" size={15} /> Columns
+              </Button>
+            }
+          >
+            {VISIBLE_TRACK_FIELDS.map((field) => (
+              <Checkbox
+                key={field}
+                checked={entry.visibleFields.includes(field)}
+                onChange={() =>
+                  updateEntry({
+                    visibleFields: toggleField(entry.visibleFields, field),
+                  })
+                }
+              >
+                {field}
+              </Checkbox>
+            ))}
+          </Popover>
         )}
-        <div className="segmented-control" aria-label="Representation">
-          <button
-            type="button"
-            aria-label="Grid"
-            data-active={entry.layout === "grid" || undefined}
-            onClick={() => updateEntry({ layout: "grid" })}
-          >
-            <Grid2X2 aria-hidden="true" size={16} />
-          </button>
-          <button
-            type="button"
-            aria-label="List"
-            data-active={entry.layout === "list" || undefined}
-            onClick={() => updateEntry({ layout: "list" })}
-          >
-            <List aria-hidden="true" size={16} />
-          </button>
-          <button
-            type="button"
-            aria-label="Table"
-            data-active={entry.layout === "table" || undefined}
-            onClick={() => updateEntry({ layout: "table" })}
-          >
-            <TableProperties aria-hidden="true" size={16} />
-          </button>
-        </div>
+        <SegmentedControl
+          ariaLabel="Representation"
+          className="segmented-control"
+          value={entry.layout}
+          onChange={(layout) => updateEntry({ layout })}
+          options={[
+            {
+              label: "Grid",
+              value: "grid",
+              content: <Grid2X2 aria-hidden="true" size={16} />,
+            },
+            {
+              label: "List",
+              value: "list",
+              content: <List aria-hidden="true" size={16} />,
+            },
+            {
+              label: "Table",
+              value: "table",
+              content: <TableProperties aria-hidden="true" size={16} />,
+            },
+          ]}
+        />
       </div>
 
       {error && (
@@ -577,9 +590,15 @@ export function GenericView() {
       )}
 
       {saveName !== null && (
-        <div className="dialog-backdrop">
+        <Dialog
+          className="small-dialog"
+          ariaLabel={
+            view.id.startsWith("builtin:") ? "Save a custom View" : "Save View"
+          }
+          onClose={() => setSaveName(null)}
+        >
           <form
-            className="small-dialog"
+            className="ui-dialog-form"
             onSubmit={(event) => {
               event.preventDefault();
               void persistCurrentView(saveName);
@@ -598,14 +617,14 @@ export function GenericView() {
                 onChange={(event) => setSaveName(event.target.value)}
               />
             </label>
-            <div className="dialog-actions">
+            <DialogActions>
               <button type="button" onClick={() => setSaveName(null)}>
                 Cancel
               </button>
               <button type="submit">Save</button>
-            </div>
+            </DialogActions>
           </form>
-        </div>
+        </Dialog>
       )}
     </section>
   );

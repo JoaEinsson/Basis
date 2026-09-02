@@ -1,3 +1,7 @@
+import { useEffect, useState } from "react";
+import { getArtworkThumbnail } from "../../lib/tauri";
+import { ArtworkFrame } from "../ui";
+
 type ArtworkPlaceholderProps = {
   title: string;
   artworkKey?: string | null;
@@ -34,10 +38,10 @@ export function ArtworkPlaceholder({
   }, [artworkKey]);
 
   return (
-    <div
+    <ArtworkFrame
       className={`artwork-placeholder ${className}`.trim()}
       data-artwork-key={artworkKey ?? undefined}
-      data-has-artwork={source ? true : undefined}
+      hasArtwork={Boolean(source)}
       style={
         {
           "--mv-artwork-seed-angle": `${seedAngle(seed ?? artworkKey ?? title)}deg`,
@@ -46,7 +50,7 @@ export function ArtworkPlaceholder({
       aria-hidden="true"
     >
       {source ? <img alt="" src={source} /> : <span>{letters || "B"}</span>}
-    </div>
+    </ArtworkFrame>
   );
 }
 
@@ -68,5 +72,3 @@ function seedAngle(seed: string) {
   }
   return Math.abs(hash) % 360;
 }
-import { useEffect, useState } from "react";
-import { getArtworkThumbnail } from "../../lib/tauri";

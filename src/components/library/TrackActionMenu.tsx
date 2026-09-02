@@ -1,5 +1,5 @@
-import { useEffect } from "react";
 import type { TrackDto } from "../../lib/types";
+import { MenuItem, MenuSurface } from "../ui";
 
 export type TrackActionMenuPosition = {
   x: number;
@@ -31,94 +31,55 @@ export function TrackActionMenu({
   onSelectOnly,
   onClearSelection,
 }: TrackActionMenuProps) {
-  useEffect(() => {
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("pointerdown", onClose);
-    window.addEventListener("keydown", closeOnEscape);
-    return () => {
-      window.removeEventListener("pointerdown", onClose);
-      window.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [onClose]);
-
   function action(callback: () => void) {
     callback();
     onClose();
   }
 
   return (
-    <div
+    <MenuSurface
       className="track-context-menu"
-      role="menu"
-      aria-label="Track selection actions"
-      style={{ left: position.x, top: position.y }}
-      onPointerDown={(event) => event.stopPropagation()}
+      ariaLabel="Track selection actions"
+      position={position}
+      onClose={onClose}
     >
       {onPlayTrack && (
-        <button
-          role="menuitem"
-          type="button"
-          onClick={() => action(() => onPlayTrack(track))}
-        >
+        <MenuItem onClick={() => action(() => onPlayTrack(track))}>
           Play now
-        </button>
+        </MenuItem>
       )}
       {onPlayNext && (
-        <button
-          role="menuitem"
-          type="button"
-          onClick={() => action(() => onPlayNext(track))}
-        >
+        <MenuItem onClick={() => action(() => onPlayNext(track))}>
           Play next
-        </button>
+        </MenuItem>
       )}
       {onAddToQueue && (
-        <button
-          role="menuitem"
-          type="button"
-          onClick={() => action(() => onAddToQueue(track))}
-        >
+        <MenuItem onClick={() => action(() => onAddToQueue(track))}>
           Add to queue
-        </button>
+        </MenuItem>
       )}
       {onAddToPlaylist && (
-        <button
-          role="menuitem"
-          type="button"
-          onClick={() => action(() => onAddToPlaylist(track))}
-        >
+        <MenuItem onClick={() => action(() => onAddToPlaylist(track))}>
           Add to playlist
-        </button>
+        </MenuItem>
       )}
       {onFavorite && (
-        <button
-          role="menuitem"
-          type="button"
+        <MenuItem
           onClick={() => action(() => onFavorite(track, !track.favorite))}
         >
           {track.favorite ? "Remove from Favorites" : "Add to Favorites"}
-        </button>
+        </MenuItem>
       )}
       {onSelectOnly && (
-        <button
-          role="menuitem"
-          type="button"
-          onClick={() => action(() => onSelectOnly(track))}
-        >
+        <MenuItem onClick={() => action(() => onSelectOnly(track))}>
           Select only this track
-        </button>
+        </MenuItem>
       )}
       {onClearSelection && (
-        <button
-          role="menuitem"
-          type="button"
-          onClick={() => action(onClearSelection)}
-        >
+        <MenuItem onClick={() => action(onClearSelection)}>
           Clear selection
-        </button>
+        </MenuItem>
       )}
-    </div>
+    </MenuSurface>
   );
 }

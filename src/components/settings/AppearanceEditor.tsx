@@ -29,6 +29,14 @@ import type {
   ThemeTokenValue,
 } from "../../lib/types";
 import { useTheme } from "../../theme/ThemeProvider";
+import {
+  Checkbox,
+  Dialog,
+  DialogActions,
+  RangeInput,
+  SegmentedControl,
+  Toggle,
+} from "../ui";
 
 const BASIC_TOKENS = new Set([
   "color.background.canvas",
@@ -275,22 +283,21 @@ export function AppearanceEditor({ libraryReady }: { libraryReady: boolean }) {
         </p>
       ))}
 
-      <label className="system-theme-toggle">
-        <input
-          type="checkbox"
-          checked={theme.selection?.followSystemAppearance ?? false}
-          disabled={!libraryReady || busy || !theme.selection}
-          onChange={(event) =>
-            void perform(() => theme.setFollowSystem(event.target.checked))
-          }
-        />
+      <Toggle
+        className="system-theme-toggle"
+        checked={theme.selection?.followSystemAppearance ?? false}
+        disabled={!libraryReady || busy || !theme.selection}
+        onChange={(event) =>
+          void perform(() => theme.setFollowSystem(event.target.checked))
+        }
+      >
         <span>
           <strong>Follow system appearance</strong>
           <small>
             Use the saved light or dark Theme when the operating system changes.
           </small>
         </span>
-      </label>
+      </Toggle>
 
       <div className="theme-card-grid" aria-label="Available Themes">
         {theme.catalog?.themes.map((item) => {
@@ -393,22 +400,16 @@ export function AppearanceEditor({ libraryReady }: { libraryReady: boolean }) {
           </div>
 
           <div className="theme-editor-toolbar">
-            <div className="segmented-control" aria-label="Editor mode">
-              <button
-                type="button"
-                data-active={mode === "basic" || undefined}
-                onClick={() => setMode("basic")}
-              >
-                Basic
-              </button>
-              <button
-                type="button"
-                data-active={mode === "advanced" || undefined}
-                onClick={() => setMode("advanced")}
-              >
-                Advanced
-              </button>
-            </div>
+            <SegmentedControl
+              ariaLabel="Editor mode"
+              className="segmented-control"
+              value={mode}
+              onChange={setMode}
+              options={[
+                { label: "Basic", value: "basic" },
+                { label: "Advanced", value: "advanced" },
+              ]}
+            />
             {mode === "advanced" && (
               <label className="theme-token-search">
                 <Search aria-hidden="true" size={16} />
@@ -548,9 +549,8 @@ function ThemeTokenControl({
           )}
         {descriptor.kind === "number" && typeof value === "number" ? (
           <>
-            <input
+            <RangeInput
               id={id}
-              type="range"
               min={descriptor.minimum ?? undefined}
               max={descriptor.maximum ?? undefined}
               step={numberStep(descriptor)}
@@ -572,12 +572,13 @@ function ThemeTokenControl({
             />
           </>
         ) : descriptor.kind === "boolean" ? (
-          <input
+          <Checkbox
             id={id}
-            type="checkbox"
             checked={value === true}
             onChange={(event) => onChange(event.target.checked)}
-          />
+          >
+            Enabled
+          </Checkbox>
         ) : (
           <input
             id={id}
@@ -613,9 +614,14 @@ function NameDialog({
 }) {
   const [name, setName] = useState(initialName);
   return (
-    <div className="dialog-backdrop">
+    <Dialog
+      className="small-dialog"
+      ariaLabel={title}
+      dismissible={!busy}
+      onClose={onCancel}
+    >
       <form
-        className="small-dialog"
+        className="ui-dialog-form"
         onSubmit={(event) => {
           event.preventDefault();
           if (name.trim()) onSave(name.trim());
@@ -630,16 +636,16 @@ function NameDialog({
             onChange={(event) => setName(event.target.value)}
           />
         </label>
-        <div className="dialog-actions">
+        <DialogActions>
           <button type="button" onClick={onCancel}>
             Cancel
           </button>
           <button type="submit" disabled={busy || !name.trim()}>
             Create Theme
           </button>
-        </div>
+        </DialogActions>
       </form>
-    </div>
+    </Dialog>
   );
 }
 
@@ -665,53 +671,50 @@ function JsonDialog({
   onPrimary: () => void;
 }) {
   return (
-    <div className="dialog-backdrop">
-      <section
-        className="small-dialog json-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-      >
-        <h2>{title}</h2>
-        <label className="file-input-action">
-          <FileUp aria-hidden="true" size={16} /> Choose JSON file
-          <input
-            type="file"
-            accept="application/json,.json"
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) void file.text().then(onChange);
-            }}
-          />
-        </label>
-        <textarea
-          autoFocus
-          spellCheck={false}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
+    <Dialog
+      className="small-dialog json-dialog"
+      ariaLabel={title}
+      dismissible={!busy}
+      onClose={onCancel}
+    >
+      <h2>{title}</h2>
+      <label className="file-input-action">
+        <FileUp aria-hidden="true" size={16} /> Choose JSON file
+        <input
+          type="file"
+          accept="application/json,.json"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) void file.text().then(onChange);
+          }}
         />
-        <label className="import-replace-option">
-          <input
-            type="checkbox"
-            checked={replace}
-            onChange={(event) => onReplace(event.target.checked)}
-          />
-          Replace a custom Theme when its ID already exists
-        </label>
-        <div className="dialog-actions">
-          <button type="button" onClick={onCancel}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            disabled={busy || !value.trim()}
-            onClick={onPrimary}
-          >
-            {primaryLabel}
-          </button>
-        </div>
-      </section>
-    </div>
+      </label>
+      <textarea
+        autoFocus
+        spellCheck={false}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+      <Checkbox
+        className="import-replace-option"
+        checked={replace}
+        onChange={(event) => onReplace(event.target.checked)}
+      >
+        Replace a custom Theme when its ID already exists
+      </Checkbox>
+      <DialogActions>
+        <button type="button" onClick={onCancel}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          disabled={busy || !value.trim()}
+          onClick={onPrimary}
+        >
+          {primaryLabel}
+        </button>
+      </DialogActions>
+    </Dialog>
   );
 }
 
@@ -733,31 +736,28 @@ function ExportDialog({
     URL.revokeObjectURL(url);
   }
   return (
-    <div className="dialog-backdrop">
-      <section
-        className="small-dialog json-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-label={`Export ${exported.name}`}
-      >
-        <h2>Export {exported.name}</h2>
-        <textarea readOnly spellCheck={false} value={exported.source} />
-        <div className="dialog-actions">
-          <button
-            type="button"
-            onClick={() => void navigator.clipboard.writeText(exported.source)}
-          >
-            <Copy aria-hidden="true" size={15} /> Copy
-          </button>
-          <button type="button" onClick={download}>
-            <Download aria-hidden="true" size={15} /> Download JSON
-          </button>
-          <button type="button" onClick={onClose}>
-            Close
-          </button>
-        </div>
-      </section>
-    </div>
+    <Dialog
+      className="small-dialog json-dialog"
+      ariaLabel={`Export ${exported.name}`}
+      onClose={onClose}
+    >
+      <h2>Export {exported.name}</h2>
+      <textarea readOnly spellCheck={false} value={exported.source} />
+      <DialogActions>
+        <button
+          type="button"
+          onClick={() => void navigator.clipboard.writeText(exported.source)}
+        >
+          <Copy aria-hidden="true" size={15} /> Copy
+        </button>
+        <button type="button" onClick={download}>
+          <Download aria-hidden="true" size={15} /> Download JSON
+        </button>
+        <button type="button" onClick={onClose}>
+          Close
+        </button>
+      </DialogActions>
+    </Dialog>
   );
 }
 

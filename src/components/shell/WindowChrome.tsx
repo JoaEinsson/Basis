@@ -1,6 +1,7 @@
 import { Copy, Minus, Square, X } from "lucide-react";
 import type { MouseEvent, ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
+import { IconButton, IconSwap, Tooltip } from "../ui";
 import { currentWindowAdapter, type WindowAdapter } from "./windowAdapter";
 
 interface WindowChromeProps {
@@ -84,39 +85,46 @@ export function WindowChrome({
         role="group"
         aria-label="Window controls"
       >
-        <button
-          className="window-control"
-          type="button"
-          aria-label="Minimize"
-          data-tooltip="Minimize"
-          onClick={() => void runWindowAction(() => windowAdapter.minimize())}
-        >
-          <Minus aria-hidden="true" size={17} strokeWidth={1.8} />
-        </button>
-        <button
-          className="window-control"
-          type="button"
-          aria-label={maximized ? "Restore" : "Maximize"}
-          data-tooltip={maximized ? "Restore" : "Maximize"}
-          onClick={() =>
-            void runWindowAction(() => windowAdapter.toggleMaximize(), true)
-          }
-        >
-          {maximized ? (
-            <Copy aria-hidden="true" size={14} strokeWidth={1.8} />
-          ) : (
-            <Square aria-hidden="true" size={13} strokeWidth={1.8} />
-          )}
-        </button>
-        <button
-          className="window-control window-control-close"
-          type="button"
-          aria-label="Close"
-          data-tooltip="Close"
-          onClick={() => void runWindowAction(() => windowAdapter.close())}
-        >
-          <X aria-hidden="true" size={18} strokeWidth={1.8} />
-        </button>
+        <Tooltip label="Minimize">
+          <IconButton
+            className="window-control"
+            aria-label="Minimize"
+            variant="text"
+            onClick={() => void runWindowAction(() => windowAdapter.minimize())}
+          >
+            <Minus aria-hidden="true" size={17} strokeWidth={1.8} />
+          </IconButton>
+        </Tooltip>
+        <Tooltip label={maximized ? "Restore" : "Maximize"}>
+          <IconButton
+            className="window-control"
+            aria-label={maximized ? "Restore" : "Maximize"}
+            variant="text"
+            onClick={() =>
+              void runWindowAction(() => windowAdapter.toggleMaximize(), true)
+            }
+          >
+            <IconSwap
+              active={maximized}
+              inactive={
+                <Square aria-hidden="true" size={13} strokeWidth={1.8} />
+              }
+              activeIcon={
+                <Copy aria-hidden="true" size={14} strokeWidth={1.8} />
+              }
+            />
+          </IconButton>
+        </Tooltip>
+        <Tooltip label="Close">
+          <IconButton
+            className="window-control window-control-close"
+            aria-label="Close"
+            variant="text"
+            onClick={() => void runWindowAction(() => windowAdapter.close())}
+          >
+            <X aria-hidden="true" size={18} strokeWidth={1.8} />
+          </IconButton>
+        </Tooltip>
       </div>
       <span className="sr-only" role="status" aria-live="polite">
         {error}
