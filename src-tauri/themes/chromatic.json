@@ -10,8 +10,8 @@
   "min_app_version": "0.1.0",
   "capabilities": ["artwork-accent"],
   "tokens": {
-    "color.accent.primary": "#8b7cff",
-    "color.focus.ring": "#b9afff",
+    "color.accent.primary": "#49d9c7",
+    "color.focus.ring": "#a5f4e6",
     "effects.ambientGlowStrength": 0.45,
     "motion.duration.normal": 200
   },

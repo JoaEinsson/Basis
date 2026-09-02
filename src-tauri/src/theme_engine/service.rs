@@ -440,7 +440,7 @@ fn apply_contrast_policy(
     tokens: &mut BTreeMap<String, ThemeTokenValue>,
     warnings: &mut Vec<String>,
 ) {
-    let accent = token_text(tokens, "color.accent.primary").unwrap_or("#9a8cff");
+    let accent = token_text(tokens, "color.accent.primary").unwrap_or("#49d9c7");
     let on_accent = token_text(tokens, "color.accent.onAccent").unwrap_or("#ffffff");
     if contrast_ratio(accent, on_accent).map_or(true, |ratio| ratio < 4.5) {
         let safe = safe_on_accent(accent);
@@ -461,7 +461,7 @@ fn apply_contrast_policy(
             contrast_ratio(canvas, primary).unwrap_or(0.0)
         ));
     }
-    let focus = token_text(tokens, "color.focus.ring").unwrap_or("#b9afff");
+    let focus = token_text(tokens, "color.focus.ring").unwrap_or("#a5f4e6");
     if contrast_ratio(canvas, focus).map_or(true, |ratio| ratio < 3.0) {
         tokens.insert(
             "color.focus.ring".to_owned(),
@@ -472,7 +472,7 @@ fn apply_contrast_policy(
                 .to_owned(),
         );
     }
-    let selection = token_text(tokens, "color.selection.background").unwrap_or("#302c51");
+    let selection = token_text(tokens, "color.selection.background").unwrap_or("#123734");
     let selection_text = token_text(tokens, "color.selection.foreground").unwrap_or("#f4f5f7");
     if contrast_ratio(selection, selection_text).map_or(true, |ratio| ratio < 3.0) {
         tokens.insert(
@@ -671,7 +671,7 @@ mod tests {
     use std::fs;
 
     use crate::{
-        domain::theme::{ThemeAppearance, ThemeDocument, ThemeTokenValue, NOCTURNE_ID},
+        domain::theme::{ThemeAppearance, ThemeDocument, ThemeTokenValue, NOCTURNE_ID, PAPER_ID},
         portable::{manifest::ensure_layout, workspace::ensure_workspace},
     };
 
@@ -698,14 +698,24 @@ mod tests {
         let validator = jsonschema::JSONSchema::compile(&schema).unwrap();
         let themes = built_in_themes().unwrap();
         assert_eq!(themes.len(), 3);
-        for theme in themes {
-            let document = serde_json::to_value(&theme).unwrap();
+        for theme in &themes {
+            let document = serde_json::to_value(theme).unwrap();
             assert!(
                 validator.is_valid(&document),
                 "{} does not match the checked-in JSON Schema",
                 theme.id
             );
-            validate_theme(&theme, true).unwrap();
+            validate_theme(theme, true).unwrap();
+        }
+        let paper = themes.iter().find(|theme| theme.id == PAPER_ID).unwrap();
+        for token in super::hard_defaults()
+            .keys()
+            .filter(|token| token.starts_with("color."))
+        {
+            assert!(
+                paper.tokens.contains_key(token),
+                "Paper must explicitly override the dark color default {token}"
+            );
         }
     }
 

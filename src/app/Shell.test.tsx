@@ -155,6 +155,12 @@ describe("Basis definitive shell", () => {
     ).toBeInTheDocument();
     expect(container.querySelector("aside")).toBeNull();
     expect(container.querySelector(".sidebar")).toBeNull();
+    const mark = container.querySelector("svg.brand-mark");
+    expect(mark).toHaveAttribute("viewBox", "350 245 580 755");
+    expect(mark?.querySelector("g")).toHaveAttribute("fill", "currentColor");
+    expect(
+      mark?.querySelectorAll("linearGradient, radialGradient"),
+    ).toHaveLength(0);
   });
 
   it("lets an empty library choose a music folder from the application menu", async () => {

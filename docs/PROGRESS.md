@@ -545,6 +545,75 @@ package manifests or bundles from dropping it. Prettier, local README-link
 validation, Cargo metadata parsing, release validation, and `git diff --check`
 pass.
 
+2026-09-01 16:25 BRT — P0 deterministic visual baseline and first audit
+Result: PASS (P0 remains in progress)
+Evidence: development-only `visual-fixture` IPC/event data now boots the real
+shell, routes, theme resolution, player, queue, and five lyric states without a
+personal library or production code path. Browser evidence covers the 640,
+800, 1199, 1200, and 1600 width bands plus every primary route. The audit
+reproduced Paper's near-white active lyric, synchronized-line scale overflow,
+the missing artwork-only/instrumental composition, and queue-open canvas
+overflow. `docs/UI_UX_BASELINE.md` records every coverage-matrix row, explicit
+unreachable states, keyboard/reduced-motion findings, and remaining packaged
+Windows/Arch motion prototypes. TypeScript, ESLint, fixture tests, and build
+validation are the automated gate for this slice.
+
+2026-09-01 21:11 BRT — P1 token, Signal Cyan identity, and lyric contrast
+Result: PASS
+Evidence: the canonical Theme Engine registry and CSS alias bridge now provide
+semantic window, overlay, interaction, player, lyric, and expressive motion
+roles. Nocturne/startup/Chromatic fallback accents use Signal Cyan; feature CSS
+contains no brand-color literals. Paper explicitly overrides every lyric role,
+active scale, and inactive opacity. The appearance cards preview effective
+Paper/Nocturne lyric hierarchy, while the editor reports contrast after opacity
+composition. Browser inspection at 1200 × 800 confirmed readable active, past,
+and upcoming Paper states without an exposed horizontal lyric scrollbar. The
+theme-provider regression switches Paper, Nocturne, Chromatic, and a divergent
+custom theme without replacing the navigation DOM. All 35 frontend tests,
+8 focused Rust Theme Engine tests, ESLint, TypeScript production build, Rust
+formatting, and `git diff --check` pass. P0's packaged Windows/Arch motion and
+keyboard evidence remains open and is not misreported as completed by P1.
+
+2026-09-01 21:24 BRT — P1 bidirectional Theme isolation regression
+Result: PASS
+Evidence: visual review found Paper-only titlebar/menu variables surviving a
+switch to Nocturne, then exposed the inverse class of defect when Paper inherited
+the dark registry's player surface. The CSS-variable boundary now removes every
+property absent from the next resolved theme, the browser fixture mirrors all
+new hard defaults, and Paper explicitly overrides every `color.*` registry
+token. A Rust assertion prevents future dark color defaults from entering Paper
+implicitly. Clean-browser round trips measured Paper canvas/toolbar/player as
+`rgb(247,247,245)`/`rgb(255,255,255)`/`rgb(255,255,255)` and Nocturne as
+`rgb(12,13,16)`/`rgb(21,23,28)`/`rgb(21,23,28)`. All 37 frontend tests, ESLint,
+the production build, 8 Rust Theme Engine tests, formatting, and
+`git diff --check` pass.
+
+2026-09-01 21:32 BRT — P1 adaptive in-app identity mark
+Result: PASS
+Evidence: the shell now renders the provided adaptive Basis geometry as an
+inline, flat `currentColor` SVG instead of the fixed-gradient application icon.
+The semantic accent role colors the 32 px mark without increasing toolbar
+height: browser inspection measured Paper as `rgb(64, 86, 180)` and Nocturne as
+`rgb(73, 217, 199)`, with two paths and no gradient nodes. The focused shell
+suite passes 8 tests; ESLint and the TypeScript/Vite production build pass.
+
+2026-09-02 09:21 BRT — P2 unified window chrome automated gate
+Result: PASS (packaged desktop acceptance pending)
+Evidence: `WindowChrome` and its Tauri/browser adapter now provide a dedicated
+empty drag region, double-click maximize/restore, synchronized Minimize,
+Maximize/Restore, and Close controls, accessible labels, Theme-Engine-owned
+hover/focus/pressed/tooltips, and a distinct Close danger state. Only the drag
+region calls `startDragging`; navigation, search, menus, and controls remain
+ordinary interactive DOM. The main window is undecorated and the capability
+allowlist adds only Close, Minimize, Start Dragging, and Toggle Maximize.
+Browser measurements at 1200x800 and the 640x560 minimum found no horizontal
+overflow and retained 236 px and 228 px drag targets respectively, including
+active Search. Browser preview logged no unavailable-Tauri errors. All 40
+frontend tests, ESLint, Prettier, TypeScript/Vite production build,
+`release:validate`, `git diff --check`, and a native Tauri debug build pass.
+Windows snap/scale and Arch KDE/Wayland packaged behavior remain manual gate
+evidence and P2 is not closed until those checks are observed.
+
 Format for new entries:
 
 ```text

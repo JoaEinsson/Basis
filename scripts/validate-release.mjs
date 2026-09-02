@@ -35,6 +35,12 @@ if (tauri.identifier !== "io.github.joaeinsson.basis") {
 if (tauri.bundle?.createUpdaterArtifacts !== true) {
   errors.push("bundle.createUpdaterArtifacts must be true");
 }
+const mainWindow = tauri.app?.windows?.find(
+  (window) => window.label === "main",
+);
+if (mainWindow?.decorations !== false) {
+  errors.push("the main window must use the unified custom window chrome");
+}
 if (
   packageJson.license !== "Apache-2.0" ||
   !/^license\s*=\s*"Apache-2.0"$/m.test(cargo) ||
@@ -102,13 +108,24 @@ for (const [npmName, rustName] of [
     );
   }
 }
-for (const permission of ["updater:default", "process:allow-restart"]) {
+for (const permission of [
+  "core:window:allow-close",
+  "core:window:allow-minimize",
+  "core:window:allow-start-dragging",
+  "core:window:allow-toggle-maximize",
+  "updater:default",
+  "process:allow-restart",
+]) {
   if (!capabilities.permissions?.includes(permission)) {
     errors.push(`${permission} is missing from the main-window capability`);
   }
 }
 const allowedPermissions = new Set([
   "core:default",
+  "core:window:allow-close",
+  "core:window:allow-minimize",
+  "core:window:allow-start-dragging",
+  "core:window:allow-toggle-maximize",
   "updater:default",
   "process:allow-restart",
 ]);

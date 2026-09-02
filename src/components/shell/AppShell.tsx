@@ -23,7 +23,6 @@ import {
   useNavigate,
   useSearchParams,
 } from "react-router-dom";
-import basisIconSignal from "../../../assets/brand/basis-icon-signal.svg";
 import {
   chooseLibraryRoot,
   getLibraryStatus,
@@ -38,6 +37,7 @@ import type {
 } from "../../lib/types";
 import { useNavigationStore } from "../../stores/navigation";
 import { ThemeProvider } from "../../theme/ThemeProvider";
+import { BasisMark } from "../brand/BasisMark";
 import { CommandPalette } from "../command-palette/CommandPalette";
 import { PlayerBar } from "../player/PlayerBar";
 import {
@@ -46,6 +46,7 @@ import {
 } from "../player/PlayerContext";
 import { QueuePane } from "../player/QueuePane";
 import { LibraryContext } from "./LibraryContext";
+import { WindowChrome } from "./WindowChrome";
 
 export function AppShell() {
   const location = useLocation();
@@ -241,12 +242,7 @@ export function AppShell() {
                 to="/home"
                 aria-label="Basis library"
               >
-                <img
-                  className="brand-mark"
-                  src={basisIconSignal}
-                  alt=""
-                  aria-hidden="true"
-                />
+                <BasisMark />
                 <span>Basis</span>
               </Link>
               <div className="history-controls" aria-label="Navigation history">
@@ -290,83 +286,86 @@ export function AppShell() {
                   </details>
                 )}
               </nav>
-              <div className="toolbar-actions">
-                {scan !== null &&
-                  !scan.progress.complete &&
-                  scan.error === null && (
-                    <span className="inline-scan-status" aria-live="polite">
-                      Indexing {scan.progress.indexed} of{" "}
-                      {scan.progress.discovered}
-                    </span>
+              <WindowChrome>
+                <div className="toolbar-actions">
+                  {scan !== null &&
+                    !scan.progress.complete &&
+                    scan.error === null && (
+                      <span className="inline-scan-status" aria-live="polite">
+                        Indexing {scan.progress.indexed} of{" "}
+                        {scan.progress.discovered}
+                      </span>
+                    )}
+                  {searchActive ? (
+                    <label className="toolbar-search">
+                      <Search aria-hidden="true" size={17} />
+                      <span className="sr-only">Search library</span>
+                      <input
+                        ref={searchInputRef}
+                        autoFocus
+                        value={searchParams.get("q") ?? ""}
+                        onChange={(event) => {
+                          const query = event.target.value;
+                          navigate(
+                            query
+                              ? `/search?q=${encodeURIComponent(query)}`
+                              : "/search",
+                            {
+                              replace: true,
+                            },
+                          );
+                        }}
+                        placeholder="Search library"
+                      />
+                      <kbd>Esc</kbd>
+                    </label>
+                  ) : (
+                    <button
+                      className="toolbar-icon-label"
+                      type="button"
+                      aria-label="Search"
+                      onClick={() => navigate("/search")}
+                    >
+                      <Search aria-hidden="true" size={18} />
+                      <span>Search</span>
+                    </button>
                   )}
-                {searchActive ? (
-                  <label className="toolbar-search">
-                    <Search aria-hidden="true" size={17} />
-                    <span className="sr-only">Search library</span>
-                    <input
-                      ref={searchInputRef}
-                      autoFocus
-                      value={searchParams.get("q") ?? ""}
-                      onChange={(event) => {
-                        const query = event.target.value;
-                        navigate(
-                          query
-                            ? `/search?q=${encodeURIComponent(query)}`
-                            : "/search",
-                          {
-                            replace: true,
-                          },
-                        );
-                      }}
-                      placeholder="Search library"
-                    />
-                    <kbd>Esc</kbd>
-                  </label>
-                ) : (
-                  <button
-                    className="toolbar-icon-label"
-                    type="button"
-                    onClick={() => navigate("/search")}
-                  >
-                    <Search aria-hidden="true" size={18} />
-                    <span>Search</span>
-                  </button>
-                )}
-                <details className="toolbar-menu application-menu">
-                  <summary aria-label="Application menu">
-                    <MoreHorizontal aria-hidden="true" size={19} />
-                  </summary>
-                  <div className="menu-popover menu-popover-end" role="menu">
-                    <button
-                      role="menuitem"
-                      type="button"
-                      onClick={() => setPaletteOpen(true)}
-                    >
-                      <Command aria-hidden="true" size={16} /> Command palette
-                      <kbd>Ctrl K</kbd>
-                    </button>
-                    <button
-                      role="menuitem"
-                      type="button"
-                      disabled={choosingLibrary}
-                      onClick={() => void chooseLibrary()}
-                    >
-                      <FolderOpen aria-hidden="true" size={16} />
-                      {choosingLibrary
-                        ? "Opening…"
-                        : library
-                          ? "Change music folder…"
-                          : "Add music folder…"}
-                    </button>
-                    <Link role="menuitem" to="/settings">
-                      <Settings2 aria-hidden="true" size={16} /> Settings
-                    </Link>
-                    <Link role="menuitem" to="/playlists">
-                      Playlists
-                    </Link>
-                  </div>
-                </details>
-              </div>
+                  <details className="toolbar-menu application-menu">
+                    <summary aria-label="Application menu">
+                      <MoreHorizontal aria-hidden="true" size={19} />
+                    </summary>
+                    <div className="menu-popover menu-popover-end" role="menu">
+                      <button
+                        role="menuitem"
+                        type="button"
+                        onClick={() => setPaletteOpen(true)}
+                      >
+                        <Command aria-hidden="true" size={16} /> Command palette
+                        <kbd>Ctrl K</kbd>
+                      </button>
+                      <button
+                        role="menuitem"
+                        type="button"
+                        disabled={choosingLibrary}
+                        onClick={() => void chooseLibrary()}
+                      >
+                        <FolderOpen aria-hidden="true" size={16} />
+                        {choosingLibrary
+                          ? "Opening…"
+                          : library
+                            ? "Change music folder…"
+                            : "Add music folder…"}
+                      </button>
+                      <Link role="menuitem" to="/settings">
+                        <Settings2 aria-hidden="true" size={16} /> Settings
+                      </Link>
+                      <Link role="menuitem" to="/playlists">
+                        Playlists
+                      </Link>
+                    </div>
+                  </details>
+                </div>
+              </WindowChrome>
             </header>
 
             <div className="shell-workspace">

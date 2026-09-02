@@ -3,5 +3,13 @@
   "identifier": "default",
   "description": "Minimum capability for the Basis main window",
   "windows": ["main"],
-  "permissions": ["core:default", "updater:default", "process:allow-restart"]
+  "permissions": [
+    "core:default",
+    "core:window:allow-close",
+    "core:window:allow-minimize",
+    "core:window:allow-start-dragging",
+    "core:window:allow-toggle-maximize",
+    "updater:default",
+    "process:allow-restart"
+  ]
 }

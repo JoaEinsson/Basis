@@ -43,6 +43,12 @@ const BASIC_TOKENS = new Set([
   "shape.radius.artwork",
   "effects.artworkSaturation",
   "motion.duration.normal",
+  "color.lyrics.active",
+  "color.lyrics.past",
+  "color.lyrics.upcoming",
+  "color.lyrics.translation",
+  "component.lyrics.activeScale",
+  "component.lyrics.inactiveOpacity",
 ]);
 
 export function AppearanceEditor({ libraryReady }: { libraryReady: boolean }) {
@@ -311,9 +317,10 @@ export function AppearanceEditor({ libraryReady }: { libraryReady: boolean }) {
                 style={previewStyle(colors)}
               >
                 <span className="theme-preview-surface">
-                  <span />
-                  <span />
-                  <span />
+                  <span className="theme-preview-accent" />
+                  <span className="theme-preview-lyric" data-state="past" />
+                  <span className="theme-preview-lyric" data-state="active" />
+                  <span className="theme-preview-lyric" data-state="upcoming" />
                 </span>
               </button>
               <div className="theme-card-label">
@@ -776,6 +783,31 @@ function previewStyle(tokens?: Record<string, ThemeTokenValue>) {
       "color.text.primary",
       "currentColor",
     ),
+    "--theme-preview-lyrics-active": colorToken(
+      tokens,
+      "color.lyrics.active",
+      "currentColor",
+    ),
+    "--theme-preview-lyrics-past": colorToken(
+      tokens,
+      "color.lyrics.past",
+      "currentColor",
+    ),
+    "--theme-preview-lyrics-upcoming": colorToken(
+      tokens,
+      "color.lyrics.upcoming",
+      "currentColor",
+    ),
+    "--theme-preview-lyrics-opacity": numberToken(
+      tokens,
+      "component.lyrics.inactiveOpacity",
+      1,
+    ),
+    "--theme-preview-lyrics-scale": numberToken(
+      tokens,
+      "component.lyrics.activeScale",
+      1,
+    ),
     "--theme-preview-radius": `${numberToken(tokens, "shape.radius.surface", 0)}px`,
     "--theme-preview-elevation": textToken(tokens, "elevation.surface", "none"),
   } as React.CSSProperties;
@@ -807,25 +839,73 @@ function numberToken(
   return typeof value === "number" ? value : fallback;
 }
 
-function contrastReport(tokens: Record<string, ThemeTokenValue>) {
+export function contrastReport(tokens: Record<string, ThemeTokenValue>) {
   const canvas = textToken(tokens, "color.background.canvas", "");
   const text = textToken(tokens, "color.text.primary", "");
   const accent = textToken(tokens, "color.accent.primary", "");
   const onAccent = textToken(tokens, "color.accent.onAccent", "");
   const body = hexContrast(canvas, text);
   const control = hexContrast(accent, onAccent);
-  if (body === null || control === null) {
+  const inactiveOpacity = numberToken(
+    tokens,
+    "component.lyrics.inactiveOpacity",
+    0.62,
+  );
+  const lyricActive = hexContrast(
+    canvas,
+    textToken(tokens, "color.lyrics.active", ""),
+  );
+  const lyricPast = effectiveHexContrast(
+    textToken(tokens, "color.lyrics.past", ""),
+    canvas,
+    inactiveOpacity,
+  );
+  const lyricUpcoming = effectiveHexContrast(
+    textToken(tokens, "color.lyrics.upcoming", ""),
+    canvas,
+    inactiveOpacity,
+  );
+  const lyricTranslation = hexContrast(
+    canvas,
+    textToken(tokens, "color.lyrics.translation", ""),
+  );
+  const values = [
+    body,
+    control,
+    lyricActive,
+    lyricPast,
+    lyricUpcoming,
+    lyricTranslation,
+  ];
+  if (values.some((value) => value === null)) {
     return {
       ok: true,
       message:
         "OKLCH contrast is checked again by the Theme Engine when saved.",
     };
   }
-  const ok = body >= 4.5 && control >= 4.5;
+  const [safeBody, safeControl, active, past, upcoming, translation] =
+    values as number[];
+  const ok = values.every((value) => value !== null && value >= 4.5);
   return {
     ok,
-    message: `Text ${body.toFixed(2)}:1 · Accent control ${control.toFixed(2)}:1${ok ? "" : " — target 4.5:1"}`,
+    message: `Text ${safeBody.toFixed(2)}:1 · Accent ${safeControl.toFixed(2)}:1 · Lyrics active ${active.toFixed(2)}:1, past ${past.toFixed(2)}:1, upcoming ${upcoming.toFixed(2)}:1, translation ${translation.toFixed(2)}:1${ok ? "" : " — target 4.5:1"}`,
   };
+}
+
+function effectiveHexContrast(
+  foreground: string,
+  background: string,
+  opacity: number,
+) {
+  const front = hexChannels(foreground);
+  const back = hexChannels(background);
+  if (!front || !back) return null;
+  const alpha = Math.max(0, Math.min(1, opacity));
+  const mixed = front.map((channel, index) =>
+    Math.round(channel * alpha + back[index] * (1 - alpha)),
+  );
+  return contrastFromChannels(mixed, back);
 }
 
 function hexContrast(first: string, second: string) {
@@ -836,11 +916,27 @@ function hexContrast(first: string, second: string) {
 }
 
 function luminance(value: string) {
+  const channels = hexChannels(value);
+  if (!channels) return null;
+  return luminanceFromChannels(channels);
+}
+
+function hexChannels(value: string) {
   if (!/^#[0-9a-f]{6}$/i.test(value)) return null;
-  const channels = [1, 3, 5].map(
-    (start) => Number.parseInt(value.slice(start, start + 2), 16) / 255,
+  return [1, 3, 5].map((start) =>
+    Number.parseInt(value.slice(start, start + 2), 16),
   );
-  const [red, green, blue] = channels.map((channel) =>
+}
+
+function contrastFromChannels(first: number[], second: number[]) {
+  const a = luminanceFromChannels(first);
+  const b = luminanceFromChannels(second);
+  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+}
+
+function luminanceFromChannels(channels: number[]) {
+  const normalized = channels.map((channel) => channel / 255);
+  const [red, green, blue] = normalized.map((channel) =>
     channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4,
   );
   return 0.2126 * red + 0.7152 * green + 0.0722 * blue;

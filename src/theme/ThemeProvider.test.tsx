@@ -36,6 +36,7 @@ describe("ThemeProvider", () => {
         summary("builtin:paper", "Paper", "light"),
         summary("builtin:nocturne", "Nocturne", "dark"),
         summary("builtin:chromatic", "Chromatic", "dark"),
+        summary("custom:divergent", "Divergent", "dark", false),
       ],
       warnings: [],
     });
@@ -62,6 +63,9 @@ describe("ThemeProvider", () => {
     );
     const navigation = container.querySelector("nav");
     expect(navigation).not.toBeNull();
+    expect(
+      document.documentElement.style.getPropertyValue("--mv-color-accent"),
+    ).toBe("#49d9c7");
 
     fireEvent.click(screen.getByRole("button", { name: "Paper" }));
     await waitFor(() =>
@@ -70,6 +74,9 @@ describe("ThemeProvider", () => {
     expect(
       document.documentElement.style.getPropertyValue("--mv-color-bg-canvas"),
     ).toBe("#f7f7f5");
+    expect(
+      document.documentElement.style.getPropertyValue("--mv-color-bg-titlebar"),
+    ).toBe("#ffffff");
     expect(container.querySelector("nav")).toBe(navigation);
 
     fireEvent.click(screen.getByRole("button", { name: "Chromatic" }));
@@ -81,6 +88,21 @@ describe("ThemeProvider", () => {
     expect(
       document.documentElement.style.getPropertyValue("--mv-color-accent"),
     ).toBe("#ff4f9a");
+    expect(
+      document.documentElement.style.getPropertyValue("--mv-color-bg-titlebar"),
+    ).toBe("");
+    expect(container.querySelector("nav")).toBe(navigation);
+
+    fireEvent.click(screen.getByRole("button", { name: "Divergent" }));
+    await waitFor(() =>
+      expect(document.documentElement.dataset.themeId).toBe("custom:divergent"),
+    );
+    expect(
+      document.documentElement.style.getPropertyValue("--mv-color-bg-canvas"),
+    ).toBe("#102030");
+    expect(
+      document.documentElement.style.getPropertyValue("--mv-color-accent"),
+    ).toBe("#ffb000");
     expect(container.querySelector("nav")).toBe(navigation);
   });
 });
@@ -107,30 +129,49 @@ function Harness() {
       >
         Chromatic
       </button>
+      <button
+        type="button"
+        onClick={() => void theme.select("dark", "custom:divergent")}
+      >
+        Divergent
+      </button>
     </>
   );
 }
 
-function summary(id: string, name: string, appearance: ThemeAppearance) {
-  return { id, name, appearance, basedOn: null, builtIn: true };
+function summary(
+  id: string,
+  name: string,
+  appearance: ThemeAppearance,
+  builtIn = true,
+) {
+  return { id, name, appearance, basedOn: null, builtIn };
 }
 
 function resolved(id: string): ResolvedTheme {
   const paper = id === "builtin:paper";
   const chromatic = id === "builtin:chromatic";
+  const divergent = id === "custom:divergent";
   return {
     id,
     name: id.split(":")[1],
     appearance: paper ? "light" : "dark",
     tokens: {
-      "color.background.canvas": paper ? "#f7f7f5" : "#0c0d10",
-      "color.background.surface": paper ? "#ffffff" : "#15171c",
-      "color.text.primary": paper ? "#202124" : "#f4f5f7",
-      "color.accent.primary": chromatic
-        ? "#ff4f9a"
+      "color.background.canvas": divergent
+        ? "#102030"
         : paper
-          ? "#4056b4"
-          : "#9a8cff",
+          ? "#f7f7f5"
+          : "#0c0d10",
+      "color.background.surface": paper ? "#ffffff" : "#15171c",
+      ...(paper ? { "color.background.titlebar": "#ffffff" } : {}),
+      "color.text.primary": paper ? "#202124" : "#f4f5f7",
+      "color.accent.primary": divergent
+        ? "#ffb000"
+        : chromatic
+          ? "#ff4f9a"
+          : paper
+            ? "#4056b4"
+            : "#49d9c7",
       "density.scale": 1,
       "density.controlHeight": 36,
       "density.trackRowHeight": 54,

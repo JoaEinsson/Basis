@@ -192,13 +192,13 @@ fn definitions() -> Vec<Definition> {
         color("color.text.secondary", "Secondary text", "Color", "#a9afbd"),
         color("color.text.tertiary", "Tertiary text", "Color", "#747b8d"),
         color("color.text.disabled", "Disabled text", "Color", "#747b8d"),
-        color("color.accent.primary", "Accent", "Color", "#9a8cff"),
+        color("color.accent.primary", "Accent", "Color", "#49d9c7"),
         color("color.accent.onAccent", "On accent", "Color", "#0c0d10"),
         color(
             "color.selection.background",
             "Selection",
             "Color",
-            "#302c51",
+            "#123734",
         ),
         color(
             "color.selection.foreground",
@@ -207,7 +207,7 @@ fn definitions() -> Vec<Definition> {
             "#f4f5f7",
         ),
         color("color.border.default", "Border", "Color", "#2d3039"),
-        color("color.focus.ring", "Focus ring", "Color", "#b9afff"),
+        color("color.focus.ring", "Focus ring", "Color", "#a5f4e6"),
         color("color.status.error", "Error", "Color", "#ff9b9b"),
         color("color.favorite", "Favorite", "Color", "#ff87ae"),
         color(
@@ -553,6 +553,60 @@ fn definitions() -> Vec<Definition> {
             "#15171c",
         ),
         color(
+            "color.background.titlebar",
+            "Titlebar",
+            "Color · Surfaces",
+            "#15171c",
+        ),
+        color(
+            "color.background.menu",
+            "Menu",
+            "Color · Surfaces",
+            "#1c1f26",
+        ),
+        color(
+            "color.background.tooltip",
+            "Tooltip",
+            "Color · Surfaces",
+            "#24262d",
+        ),
+        color(
+            "color.background.scrim",
+            "Modal scrim",
+            "Color · Surfaces",
+            "#00000099",
+        ),
+        color(
+            "color.interaction.pressed",
+            "Pressed",
+            "Color · Interaction",
+            "#123734",
+        ),
+        color(
+            "color.interaction.dragInsertion",
+            "Drag insertion",
+            "Color · Interaction",
+            "#49d9c7",
+        ),
+        color(
+            "color.windowControl.hover",
+            "Window control hover",
+            "Color · Window",
+            "#24262d",
+        ),
+        color(
+            "color.windowControl.closeHover",
+            "Close control hover",
+            "Color · Window",
+            "#c42b1c",
+        ),
+        color(
+            "color.windowControl.closeForeground",
+            "Close control foreground",
+            "Color · Window",
+            "#ffffff",
+        ),
+        color(
             "color.text.inverse",
             "Inverse text",
             "Color · Text",
@@ -588,24 +642,30 @@ fn definitions() -> Vec<Definition> {
             "Color · Borders",
             "#474b56",
         ),
+        color(
+            "color.border.menu",
+            "Menu border",
+            "Color · Borders",
+            "#3a3d46",
+        ),
         color("color.divider", "Divider", "Color · Borders", "#2d3039"),
         color(
             "color.accent.hover",
             "Accent hover",
             "Color · Accent",
-            "#ada2ff",
+            "#5de1d0",
         ),
         color(
             "color.accent.active",
             "Accent active",
             "Color · Accent",
-            "#8172ed",
+            "#20afc8",
         ),
         color(
             "color.accent.muted",
             "Muted accent",
             "Color · Accent",
-            "#302c51",
+            "#123734",
         ),
         color(
             "color.status.success",
@@ -653,7 +713,7 @@ fn definitions() -> Vec<Definition> {
             "color.player.progress",
             "Player progress",
             "Color · Music",
-            "#9a8cff",
+            "#49d9c7",
         ),
         color(
             "color.player.progressTrack",
@@ -671,7 +731,7 @@ fn definitions() -> Vec<Definition> {
             "color.waveform.active",
             "Active waveform",
             "Color · Music",
-            "#9a8cff",
+            "#49d9c7",
         ),
         color(
             "color.waveform.inactive",
@@ -679,28 +739,18 @@ fn definitions() -> Vec<Definition> {
             "Color · Music",
             "#4d515d",
         ),
-        color(
-            "color.lyrics.active",
-            "Active lyric",
-            "Color · Music",
-            "#f4f5f7",
-        ),
-        color(
-            "color.lyrics.past",
-            "Past lyric",
-            "Color · Music",
-            "#747b8d",
-        ),
+        color("color.lyrics.active", "Active lyric", "Lyrics", "#f4f5f7"),
+        color("color.lyrics.past", "Past lyric", "Lyrics", "#747b8d"),
         color(
             "color.lyrics.upcoming",
             "Upcoming lyric",
-            "Color · Music",
+            "Lyrics",
             "#a9afbd",
         ),
         color(
             "color.lyrics.translation",
             "Lyric translation",
-            "Color · Music",
+            "Lyrics",
             "#8b91a0",
         ),
         number(
@@ -884,6 +934,46 @@ fn definitions() -> Vec<Definition> {
             0.0,
             1000.0,
         ),
+        number(
+            "motion.duration.route",
+            "Route motion",
+            "Motion",
+            240.0,
+            0.0,
+            1000.0,
+        ),
+        number(
+            "motion.duration.overlay",
+            "Overlay motion",
+            "Motion",
+            180.0,
+            0.0,
+            1000.0,
+        ),
+        number(
+            "motion.duration.sharedArtwork",
+            "Shared artwork motion",
+            "Motion",
+            320.0,
+            0.0,
+            1000.0,
+        ),
+        number(
+            "motion.duration.dragSettlement",
+            "Drag settlement",
+            "Motion",
+            180.0,
+            0.0,
+            1000.0,
+        ),
+        number(
+            "motion.delay.staggerStep",
+            "Short-list stagger step",
+            "Motion",
+            24.0,
+            0.0,
+            120.0,
+        ),
         text(
             "motion.easing.emphasized",
             "Emphasized easing",
@@ -895,6 +985,66 @@ fn definitions() -> Vec<Definition> {
             "Exit easing",
             "Motion",
             "cubic-bezier(0.4, 0, 1, 1)",
+        ),
+        text(
+            "motion.easing.springSoft",
+            "Soft spring easing",
+            "Motion",
+            "cubic-bezier(0.22, 1, 0.36, 1)",
+        ),
+        text(
+            "motion.easing.springFirm",
+            "Firm spring easing",
+            "Motion",
+            "cubic-bezier(0.16, 1, 0.3, 1)",
+        ),
+        number(
+            "motion.distance.route",
+            "Route distance",
+            "Motion",
+            18.0,
+            0.0,
+            64.0,
+        ),
+        number(
+            "motion.distance.overlay",
+            "Overlay distance",
+            "Motion",
+            8.0,
+            0.0,
+            48.0,
+        ),
+        number(
+            "motion.distance.dragLift",
+            "Drag lift",
+            "Motion",
+            4.0,
+            0.0,
+            24.0,
+        ),
+        number(
+            "motion.scale.pressed",
+            "Pressed scale",
+            "Motion",
+            0.97,
+            0.8,
+            1.0,
+        ),
+        number(
+            "motion.scale.popoverFrom",
+            "Popover entry scale",
+            "Motion",
+            0.98,
+            0.8,
+            1.0,
+        ),
+        number(
+            "motion.scale.artworkHover",
+            "Artwork hover scale",
+            "Motion",
+            1.025,
+            1.0,
+            1.12,
         ),
         number(
             "component.albumCard.radius",
@@ -947,7 +1097,7 @@ fn definitions() -> Vec<Definition> {
         number(
             "component.lyrics.activeScale",
             "Active lyric scale",
-            "Components",
+            "Lyrics",
             1.04,
             0.8,
             1.4,
@@ -955,7 +1105,7 @@ fn definitions() -> Vec<Definition> {
         number(
             "component.lyrics.inactiveOpacity",
             "Inactive lyric opacity",
-            "Components",
+            "Lyrics",
             0.62,
             0.4,
             1.0,
@@ -1158,7 +1308,10 @@ fn relative_luminance(rgb: [u8; 3]) -> f64 {
 
 #[cfg(test)]
 mod tests {
-    use super::{canonical_color, contrast_ratio, safe_on_accent, validate_and_canonicalize};
+    use super::{
+        canonical_color, contrast_ratio, hard_defaults, safe_on_accent, validate_and_canonicalize,
+    };
+    use crate::domain::theme::ThemeTokenValue;
 
     #[test]
     fn colors_are_strict_and_canonical() {
@@ -1176,5 +1329,26 @@ mod tests {
         assert!(validate_and_canonicalize("density.scale", &serde_json::json!(2.0)).is_err());
         assert_eq!(safe_on_accent("#ffffff"), "#000000");
         assert!(contrast_ratio("#000000", "#ffffff").unwrap() > 20.0);
+    }
+
+    #[test]
+    fn signal_identity_and_motion_defaults_are_semantic_registry_data() {
+        let defaults = hard_defaults();
+        assert_eq!(
+            defaults["color.accent.primary"],
+            ThemeTokenValue::Text("#49d9c7".to_owned())
+        );
+        assert_eq!(
+            defaults["color.focus.ring"],
+            ThemeTokenValue::Text("#a5f4e6".to_owned())
+        );
+        assert_eq!(
+            defaults["motion.duration.route"],
+            ThemeTokenValue::Number(240.0)
+        );
+        assert_eq!(
+            defaults["motion.distance.route"],
+            ThemeTokenValue::Number(18.0)
+        );
     }
 }
