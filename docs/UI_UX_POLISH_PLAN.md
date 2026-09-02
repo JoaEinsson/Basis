@@ -3,8 +3,9 @@
 Status: **accepted post-MVP product direction on September 1, 2026; M8 entry
 gate green; P0 packaged-WebView evidence remains open; P1 token and identity
 foundation is green; P2 is user-confirmed on Windows with packaged Arch/KDE
-acceptance still open; P3 shared interaction primitives are green**. Current
-baseline evidence and remaining P0 work are recorded in `UI_UX_BASELINE.md`.
+acceptance still open; P3 shared interaction primitives and P4 shell,
+navigation, search, and overlays are green**. Current baseline evidence and
+remaining P0 work are recorded in `UI_UX_BASELINE.md`.
 
 This document is the execution plan for the first general visual and interaction
 polish pass after the MVP. It extends `DESIGN_UX.md`; it does not replace its

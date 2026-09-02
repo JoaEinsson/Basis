@@ -231,6 +231,12 @@ describe("shared UI primitives", () => {
     expect(screen.getByRole("searchbox", { name: "Search" })).toHaveClass(
       "ui-search-input",
     );
+    const range = screen.getByRole("slider", { name: "Cover size" });
+    expect(range).toHaveStyle({
+      "--ui-range-progress": "50%",
+    });
+    fireEvent.input(range, { target: { value: "75" } });
+    expect(range).toHaveStyle({ "--ui-range-progress": "75%" });
     expect(screen.getByRole("button", { name: "Rock" })).toHaveAttribute(
       "aria-pressed",
       "true",

@@ -163,6 +163,8 @@ for (const requiredWorkflowText of [
   "scripts/install-minisign.sh",
   "scripts/verify-updater-signatures.sh",
   "scripts/finalize-updater-manifest.mjs",
+  "Basis.AppImage",
+  "gh release delete-asset",
   "pnpm audit --prod",
   "cargo audit --file src-tauri/Cargo.lock",
 ]) {

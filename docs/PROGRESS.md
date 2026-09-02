@@ -19,13 +19,13 @@ the resolution.
 
 ## Current gate
 
-`M0–M8 complete — post-MVP UI/UX polish is accepted but not started`
+`M0–M8 complete — post-MVP UI/UX polish P0–P4 implemented; P5 is next`
 
 The product owner accepted the packaged Arch/KDE result, library acquisition and
-indexing, and synchronization behavior on September 1, 2026. D89's
-featured-credit grouping correction was explicitly removed from M8 and belongs
-to the post-MVP P5 library-surface pass. The next implementation action, when
-requested, is P0 of `UI_UX_POLISH_PLAN.md`.
+indexing, and synchronization behavior on September 1, 2026. P1–P4 are green;
+the remaining packaged-platform portions of the P0/P2 matrix stay recorded for
+the system-wide P8 pass. D89's featured-credit grouping correction was
+explicitly removed from M8 and belongs to the next P5 library-surface pass.
 
 ## Verification
 
@@ -637,6 +637,42 @@ fixtures verified Paper and Nocturne, context-menu keyboard traversal, the
 Columns popover, dialog focus restoration, zero horizontal overflow at 640 px,
 and no console warnings/errors. `pnpm lint`, `pnpm typecheck`, all 49 frontend
 tests, `pnpm build`, `pnpm format:check`, and `git diff --check` pass.
+
+2026-09-02 15:53 BRT — P4 shell, navigation, search, and overlays
+Result: PASS
+Evidence: the compact `AppShell` now gives pinned Views a measured moving
+active indicator and an accessible overflow representation, keeps Search in a
+single expanding toolbar surface, uses portal menus for the application and
+View overflow, and applies nonblocking directional route motion. History
+entries persist exact canvas scroll, focus, and Search track selection state.
+`CommandPalette` uses the shared focus-trapped dialog with keyboard
+Home/End/arrow selection, emphasized matches, loading/error feedback, and
+focus restoration. `SearchView` exposes distinct prompt, loading, grouped,
+no-result, parse-error, and transport-error states. `QueuePane` is a focused,
+Escape-dismissible responsive overlay with scrim, explicit empty/error states,
+and canvas-route preservation. Browser/WebView fixtures verified portal
+layering, moving View state, Search expansion/focus continuity, palette and
+queue focus restoration, directional Back behavior, active overflow state,
+and zero horizontal overflow at 720 px. `pnpm format`, `pnpm typecheck`,
+`pnpm lint`, all 54 frontend tests, `pnpm build`, and `git diff --check` pass.
+
+2026-09-02 16:18 BRT — P4 playback-regression correction and v0.2.0 release preparation
+Result: PASS (automated; packaged restart smoke remains manual)
+Evidence: the route stage now retains a definite canvas height, preventing
+Now Playing's artwork/metadata column from being centered against the full
+lyrics document. The shared range primitive computes a clamped semantic fill,
+and the player session persists duration with a metadata fallback for legacy
+session JSON; restored position is no longer hidden behind a zero-duration UI.
+The browser fixture measured a visible 384x384 artwork frame, zero horizontal
+overflow, and a 31.09% timeline fill in both Paper and Nocturne. The project is
+version-aligned at 0.2.0. The Linux workflow renames and re-signs the final
+payload as `Basis.AppImage`, deletes the superseded versioned draft assets, and
+the manifest/AppImage validators reject versioned Linux updater names.
+`release:validate`, all 5 updater-manifest tests, ESLint, TypeScript, all 54
+frontend tests, the production build, Prettier, rustfmt, Clippy `-D warnings`,
+57 Rust unit tests plus the updater-signature integration test,
+`git diff --check`, `pnpm audit --prod`, and `cargo audit` pass; RustSec reports
+only the 18 dependency-chain warnings already allowed by the repository policy.
 
 Format for new entries:
 

@@ -29,6 +29,13 @@ export function validateUpdaterManifest(manifest, expectedVersion) {
       errors.push(`${platform} URL must use HTTPS`);
     }
     if (
+      platform === "linux-x86_64" &&
+      isHttpsUrl(artifact.url) &&
+      new URL(artifact.url).pathname.split("/").at(-1) !== "Basis.AppImage"
+    ) {
+      errors.push("linux-x86_64 must use the stable Basis.AppImage filename");
+    }
+    if (
       typeof artifact.signature !== "string" ||
       artifact.signature.trim().length < 32
     ) {
@@ -67,6 +74,9 @@ export function createUpdaterManifest({
     ) {
       throw new Error(`Invalid ${platform} updater signature`);
     }
+  }
+  if (linux.file !== "Basis.AppImage") {
+    throw new Error("Linux updater filename must be Basis.AppImage");
   }
 
   const linuxArtifact = releaseArtifact(repository, tag, linux);

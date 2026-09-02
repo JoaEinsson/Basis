@@ -1,25 +1,50 @@
 import { Folder, Search } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import {
+  Link,
+  useLocation,
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
 import { AlbumGrid } from "../components/library/AlbumGrid";
 import { ArtistGrid } from "../components/library/ArtistGrid";
 import { TrackList } from "../components/library/TrackList";
 import { PlaylistPicker } from "../components/playlists/PlaylistPicker";
 import { usePlayer } from "../components/player/PlayerContext";
 import { useLibraryContext } from "../components/shell/LibraryContext";
+import {
+  Badge,
+  EmptyState,
+  InlineStatus,
+  LocalErrorState,
+  Skeleton,
+} from "../components/ui";
 import { searchLibrary, setFavorite } from "../lib/tauri";
 import type { GlobalSearchResults, TrackDto } from "../lib/types";
+import { useNavigationStore } from "../stores/navigation";
+
+const EMPTY_SELECTION: string[] = [];
 
 export function SearchView() {
   const navigate = useNavigate();
+  const location = useLocation();
   const player = usePlayer();
   const [params] = useSearchParams();
   const { library } = useLibraryContext();
   const query = params.get("q") ?? "";
   const [results, setResults] = useState<GlobalSearchResults | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{
+    message: string;
+    parse: boolean;
+  } | null>(null);
   const [playlistTracks, setPlaylistTracks] = useState<TrackDto[] | null>(null);
+  const selectedTrackIds = useNavigationStore(
+    (state) => state.searchSelections[location.key] ?? EMPTY_SELECTION,
+  );
+  const saveSearchSelection = useNavigationStore(
+    (state) => state.saveSearchSelection,
+  );
 
   useEffect(() => {
     if (!query.trim() || library === null) {
@@ -32,20 +57,26 @@ export function SearchView() {
     setLoading(true);
     setError(null);
     const timer = window.setTimeout(() => {
-      void searchLibrary({ input: query, limitPerSection: 40 })
-        .then((next) => {
-          if (active) setResults(next);
-        })
-        .catch((cause: unknown) => {
-          if (active) {
-            setResults(null);
-            setError(cause instanceof Error ? cause.message : "Search failed.");
-          }
-        })
-        .finally(() => {
-          if (active) setLoading(false);
-        });
+      void runSearch();
     }, 160);
+
+    async function runSearch() {
+      try {
+        const next = await searchLibrary({
+          input: query,
+          limitPerSection: 40,
+        });
+        if (active) setResults(next);
+      } catch (cause) {
+        if (!active) return;
+        setResults(null);
+        const message =
+          cause instanceof Error ? cause.message : "Search failed.";
+        setError({ message, parse: isParseError(message) });
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
     return () => {
       active = false;
       window.clearTimeout(timer);
@@ -72,54 +103,59 @@ export function SearchView() {
           <p className="page-kicker">Library</p>
           <h1 id="search-title">Search</h1>
         </div>
-        {query && <span className="result-query">{query}</span>}
+        {query && <Badge tone="accent">{query}</Badge>}
       </div>
 
       {library === null && (
-        <div className="quiet-state">
-          <h2>No music folder added.</h2>
-          <p>Add a folder before searching your library.</p>
-        </div>
+        <EmptyState title="No music folder added">
+          Add a folder before searching your library.
+        </EmptyState>
       )}
       {library !== null && !query && (
-        <div className="quiet-state search-prompt">
+        <EmptyState className="search-prompt" title="Search your library">
           <Search aria-hidden="true" size={22} />
-          <h2>Search your library</h2>
           <p>
             Find artists, albums, tracks, genres, folders, and technical
             metadata.
           </p>
-        </div>
+        </EmptyState>
       )}
-      {loading && <p className="loading-state">Searching…</p>}
+      {loading && !results && <SearchLoading />}
+      {loading && results && (
+        <InlineStatus>Updating grouped results…</InlineStatus>
+      )}
       {error && (
-        <div className="quiet-state" role="alert">
-          <h2>Search could not be completed</h2>
-          <p className="inline-error">{error}</p>
-        </div>
+        <LocalErrorState
+          title={error.parse ? "Search query is not valid" : "Search failed"}
+        >
+          {error.message}
+        </LocalErrorState>
       )}
       {empty && (
-        <div className="quiet-state">
-          <h2>No results for “{query}”</h2>
-          <p>Try another name, field, or structured filter.</p>
-        </div>
+        <EmptyState title={`No results for “${query}”`}>
+          Try another name, field, or structured filter.
+        </EmptyState>
       )}
       {results && !empty && (
         <div className="search-sections">
           {results.artists.length > 0 && (
-            <ResultSection title="Artists">
+            <ResultSection title="Artists" count={results.artists.length}>
               <ArtistGrid artists={results.artists} />
             </ResultSection>
           )}
           {results.albums.length > 0 && (
-            <ResultSection title="Albums">
+            <ResultSection title="Albums" count={results.albums.length}>
               <AlbumGrid albums={results.albums} />
             </ResultSection>
           )}
           {results.tracks.length > 0 && (
-            <ResultSection title="Tracks">
+            <ResultSection title="Tracks" count={results.tracks.length}>
               <TrackList
                 tracks={results.tracks}
+                selectedIds={selectedTrackIds}
+                onSelectionChange={(ids) =>
+                  saveSearchSelection(location.key, ids)
+                }
                 onPlayTrack={(track) => void playSearchResults(track.id)}
                 onPlayNext={(track) =>
                   void player.playCollection([track.id], track.id, "next")
@@ -133,7 +169,7 @@ export function SearchView() {
             </ResultSection>
           )}
           {results.genres.length > 0 && (
-            <ResultSection title="Genres">
+            <ResultSection title="Genres" count={results.genres.length}>
               <div className="facet-list">
                 {results.genres.map((genre) => (
                   <span className="facet-entity" key={genre.name}>
@@ -145,7 +181,7 @@ export function SearchView() {
             </ResultSection>
           )}
           {results.folders.length > 0 && (
-            <ResultSection title="Folders">
+            <ResultSection title="Folders" count={results.folders.length}>
               <div className="entity-list">
                 {results.folders.map((folder) => (
                   <div className="list-entity" key={folder.path}>
@@ -162,7 +198,7 @@ export function SearchView() {
             </ResultSection>
           )}
           {results.views.length > 0 && (
-            <ResultSection title="Views">
+            <ResultSection title="Views" count={results.views.length}>
               <div className="entity-list">
                 {results.views.map((view) => (
                   <Link
@@ -182,7 +218,7 @@ export function SearchView() {
             </ResultSection>
           )}
           {results.playlists.length > 0 && (
-            <ResultSection title="Playlists">
+            <ResultSection title="Playlists" count={results.playlists.length}>
               <div className="entity-list">
                 {results.playlists.map((playlist) => (
                   <Link
@@ -220,17 +256,36 @@ export function SearchView() {
 
 function ResultSection({
   title,
+  count,
   children,
 }: {
   title: string;
+  count: number;
   children: ReactNode;
 }) {
   return (
     <section className="result-section" aria-labelledby={`result-${title}`}>
-      <h2 id={`result-${title}`}>{title}</h2>
+      <div className="result-section-heading">
+        <h2 id={`result-${title}`}>{title}</h2>
+        <Badge>{count}</Badge>
+      </div>
       {children}
     </section>
   );
+}
+
+function SearchLoading() {
+  return (
+    <div className="search-loading" aria-label="Searching library">
+      <Skeleton label="Loading search results" />
+      <Skeleton label="Loading more search results" />
+      <Skeleton label="Loading more search results" />
+    </div>
+  );
+}
+
+function isParseError(message: string) {
+  return /field|operator|parse|query|syntax|unexpected/i.test(message);
 }
 
 function resultCount(results: GlobalSearchResults) {

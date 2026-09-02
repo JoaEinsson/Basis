@@ -17,6 +17,10 @@ else
   fi
   appimage="$(realpath "${artifacts[0]}")"
 fi
+if [[ "$(basename "$appimage")" != "Basis.AppImage" ]]; then
+  echo "The final Linux updater asset must be named Basis.AppImage." >&2
+  exit 1
+fi
 chmod +x "$appimage"
 extract_dir="$(mktemp -d)"
 trap 'rm -rf -- "$extract_dir"' EXIT

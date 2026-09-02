@@ -60,7 +60,7 @@ test("creates stable browser-download metadata from final signed assets", () => 
     pubDate: "2026-09-01T00:00:00.000Z",
     notes: "Basis 0.2.0 stable release.",
     linux: {
-      file: "Basis_0.2.0_amd64.AppImage",
+      file: "Basis.AppImage",
       signature,
     },
     windows: {
@@ -72,10 +72,31 @@ test("creates stable browser-download metadata from final signed assets", () => 
   assert.deepEqual(validateUpdaterManifest(manifest, "v0.2.0"), []);
   assert.equal(
     manifest.platforms["linux-x86_64"].url,
-    "https://github.com/JoaEinsson/Basis/releases/download/v0.2.0/Basis_0.2.0_amd64.AppImage",
+    "https://github.com/JoaEinsson/Basis/releases/download/v0.2.0/Basis.AppImage",
   );
   assert.equal(
     manifest.platforms["windows-x86_64"].url,
     "https://github.com/JoaEinsson/Basis/releases/download/v0.2.0/Basis_0.2.0_x64-setup.exe",
+  );
+});
+
+test("rejects a versioned Linux updater filename", () => {
+  assert.throws(
+    () =>
+      createUpdaterManifest({
+        tag: "v0.2.0",
+        repository: "JoaEinsson/Basis",
+        pubDate: "2026-09-01T00:00:00.000Z",
+        notes: "Basis 0.2.0 stable release.",
+        linux: {
+          file: "Basis_0.2.0_amd64.AppImage",
+          signature,
+        },
+        windows: {
+          file: "Basis_0.2.0_x64-setup.exe",
+          signature,
+        },
+      }),
+    /Basis\.AppImage/,
   );
 });

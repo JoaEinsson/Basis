@@ -12,6 +12,7 @@ import { Button, type ButtonProps } from "./Button";
 import { cx } from "./utils";
 
 interface MenuSurfaceProps {
+  align?: "end" | "start";
   ariaLabel: string;
   children: ReactNode;
   className?: string;
@@ -20,6 +21,7 @@ interface MenuSurfaceProps {
 }
 
 export function MenuSurface({
+  align = "start",
   ariaLabel,
   children,
   className,
@@ -33,19 +35,21 @@ export function MenuSurface({
     if (!position || !menuRef.current) return;
     const bounds = menuRef.current.getBoundingClientRect();
     const inset = 8;
+    const requestedX = align === "end" ? position.x - bounds.width : position.x;
     setResolvedPosition({
       x: Math.max(
         inset,
-        Math.min(position.x, window.innerWidth - bounds.width - inset),
+        Math.min(requestedX, window.innerWidth - bounds.width - inset),
       ),
       y: Math.max(
         inset,
         Math.min(position.y, window.innerHeight - bounds.height - inset),
       ),
     });
-  }, [position]);
+  }, [align, position]);
 
   useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
     const frame = window.requestAnimationFrame(() => {
       menuItems(menuRef.current)[0]?.focus();
     });
@@ -56,6 +60,7 @@ export function MenuSurface({
     return () => {
       window.cancelAnimationFrame(frame);
       window.removeEventListener("pointerdown", closeFromOutside);
+      previous?.focus();
     };
   }, [onClose]);
 

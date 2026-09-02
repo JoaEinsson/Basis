@@ -14,6 +14,8 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
+  type ReactNode,
 } from "react";
 import {
   Link,
@@ -21,6 +23,7 @@ import {
   Outlet,
   useLocation,
   useNavigate,
+  useNavigationType,
   useSearchParams,
 } from "react-router-dom";
 import {
@@ -45,6 +48,14 @@ import {
   PlayerProvider,
 } from "../player/PlayerContext";
 import { QueuePane } from "../player/QueuePane";
+import {
+  IconButton,
+  InlineStatus,
+  MenuItem,
+  MenuSurface,
+  SearchInput,
+  Tooltip,
+} from "../ui";
 import { LibraryContext } from "./LibraryContext";
 import { WindowChrome } from "./WindowChrome";
 
@@ -62,6 +73,7 @@ export function AppShell() {
   const setPaletteOpen = useNavigationStore((state) => state.setPaletteOpen);
   const visibleViewCount = useVisibleViewCount();
   const searchActive = location.pathname === "/search";
+  const routeDirection = useRouteDirection(location.key, location.pathname);
 
   const refreshViews = useCallback(async () => {
     const next = await listViews();
@@ -171,6 +183,14 @@ export function AppShell() {
     return () => window.removeEventListener("keydown", handleShortcut);
   }, [navigate, searchActive, setPaletteOpen]);
 
+  useEffect(() => {
+    if (!searchActive) return;
+    const frame = window.requestAnimationFrame(() =>
+      searchInputRef.current?.focus({ preventScroll: true }),
+    );
+    return () => window.cancelAnimationFrame(frame);
+  }, [searchActive]);
+
   useCanvasRestoration(canvasRef, location.key);
 
   const chooseLibrary = useCallback(async () => {
@@ -230,7 +250,7 @@ export function AppShell() {
   const pinnedViews = views.filter((view) => view.pin_to_sidebar);
   const visibleViews = pinnedViews.slice(0, visibleViewCount);
   const overflowViews = pinnedViews.slice(visibleViewCount);
-
+  const activeViewId = viewIdForLocation(location.pathname);
   return (
     <LibraryContext.Provider value={context}>
       <ThemeProvider enabled={library !== null}>
@@ -246,131 +266,129 @@ export function AppShell() {
                 <span>Basis</span>
               </Link>
               <div className="history-controls" aria-label="Navigation history">
-                <button
-                  type="button"
-                  aria-label="Back"
-                  onClick={() => navigate(-1)}
-                >
-                  <ArrowLeft aria-hidden="true" size={18} />
-                </button>
-                <button
-                  type="button"
-                  aria-label="Forward"
-                  onClick={() => navigate(1)}
-                >
-                  <ArrowRight aria-hidden="true" size={18} />
-                </button>
+                <Tooltip label="Back">
+                  <IconButton aria-label="Back" onClick={() => navigate(-1)}>
+                    <ArrowLeft aria-hidden="true" size={18} />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip label="Forward">
+                  <IconButton aria-label="Forward" onClick={() => navigate(1)}>
+                    <ArrowRight aria-hidden="true" size={18} />
+                  </IconButton>
+                </Tooltip>
               </div>
-              <nav className="primary-navigation" aria-label="Library Views">
-                {visibleViews.map((view) => (
-                  <NavLink key={view.id} to={viewPath(view.id)}>
-                    {view.name}
-                  </NavLink>
-                ))}
-                {overflowViews.length > 0 && (
-                  <details className="toolbar-menu">
-                    <summary aria-label="More library Views">
-                      <MoreHorizontal aria-hidden="true" size={19} />
-                    </summary>
-                    <div className="menu-popover" role="menu">
-                      {overflowViews.map((view) => (
-                        <NavLink
-                          role="menuitem"
-                          key={view.id}
-                          to={viewPath(view.id)}
-                        >
-                          {view.name}
-                        </NavLink>
-                      ))}
-                    </div>
-                  </details>
-                )}
-              </nav>
+              <PinnedNavigation
+                activeViewId={activeViewId}
+                overflowViews={overflowViews}
+                visibleViews={visibleViews}
+                onNavigate={(path) => navigate(path)}
+              />
               <WindowChrome>
                 <div className="toolbar-actions">
                   {scan !== null &&
                     !scan.progress.complete &&
                     scan.error === null && (
-                      <span className="inline-scan-status" aria-live="polite">
+                      <InlineStatus className="inline-scan-status">
                         Indexing {scan.progress.indexed} of{" "}
                         {scan.progress.discovered}
-                      </span>
+                      </InlineStatus>
                     )}
-                  {searchActive ? (
-                    <label className="toolbar-search">
-                      <Search aria-hidden="true" size={17} />
-                      <span className="sr-only">Search library</span>
-                      <input
-                        ref={searchInputRef}
-                        autoFocus
-                        value={searchParams.get("q") ?? ""}
-                        onChange={(event) => {
-                          const query = event.target.value;
-                          navigate(
-                            query
-                              ? `/search?q=${encodeURIComponent(query)}`
-                              : "/search",
-                            {
-                              replace: true,
-                            },
-                          );
-                        }}
-                        placeholder="Search library"
-                      />
-                      <kbd>Esc</kbd>
-                    </label>
-                  ) : (
-                    <button
-                      className="toolbar-icon-label"
-                      type="button"
-                      aria-label="Search"
-                      onClick={() => navigate("/search")}
-                    >
-                      <Search aria-hidden="true" size={18} />
-                      <span>Search</span>
-                    </button>
-                  )}
-                  <details className="toolbar-menu application-menu">
-                    <summary aria-label="Application menu">
-                      <MoreHorizontal aria-hidden="true" size={19} />
-                    </summary>
-                    <div className="menu-popover menu-popover-end" role="menu">
+                  <div
+                    className="toolbar-search-shell"
+                    data-active={searchActive || undefined}
+                  >
+                    <Search aria-hidden="true" size={18} />
+                    {searchActive ? (
+                      <label className="toolbar-search-field">
+                        <span className="sr-only">Search library</span>
+                        <SearchInput
+                          ref={searchInputRef}
+                          value={searchParams.get("q") ?? ""}
+                          onChange={(event) => {
+                            const query = event.target.value;
+                            navigate(
+                              query
+                                ? `/search?q=${encodeURIComponent(query)}`
+                                : "/search",
+                              {
+                                replace: true,
+                              },
+                            );
+                          }}
+                          placeholder="Search library"
+                        />
+                        <kbd>Esc</kbd>
+                      </label>
+                    ) : (
                       <button
-                        role="menuitem"
+                        className="toolbar-search-trigger"
                         type="button"
-                        onClick={() => setPaletteOpen(true)}
+                        aria-label="Search"
+                        onClick={() => navigate("/search")}
                       >
-                        <Command aria-hidden="true" size={16} /> Command palette
-                        <kbd>Ctrl K</kbd>
+                        <span>Search</span>
                       </button>
-                      <button
-                        role="menuitem"
-                        type="button"
-                        disabled={choosingLibrary}
-                        onClick={() => void chooseLibrary()}
-                      >
-                        <FolderOpen aria-hidden="true" size={16} />
-                        {choosingLibrary
-                          ? "Opening…"
-                          : library
-                            ? "Change music folder…"
-                            : "Add music folder…"}
-                      </button>
-                      <Link role="menuitem" to="/settings">
-                        <Settings2 aria-hidden="true" size={16} /> Settings
-                      </Link>
-                      <Link role="menuitem" to="/playlists">
-                        Playlists
-                      </Link>
-                    </div>
-                  </details>
+                    )}
+                  </div>
+                  <ToolbarMenu ariaLabel="Application menu" align="end">
+                    {(close) => (
+                      <>
+                        <MenuItem
+                          onClick={() => {
+                            close();
+                            setPaletteOpen(true);
+                          }}
+                        >
+                          <Command aria-hidden="true" size={16} /> Command
+                          palette
+                          <kbd>Ctrl K</kbd>
+                        </MenuItem>
+                        <MenuItem
+                          disabled={choosingLibrary}
+                          onClick={() => {
+                            close();
+                            void chooseLibrary();
+                          }}
+                        >
+                          <FolderOpen aria-hidden="true" size={16} />
+                          {choosingLibrary
+                            ? "Opening…"
+                            : library
+                              ? "Change music folder…"
+                              : "Add music folder…"}
+                        </MenuItem>
+                        <MenuItem
+                          onClick={() => {
+                            close();
+                            navigate("/settings");
+                          }}
+                        >
+                          <Settings2 aria-hidden="true" size={16} /> Settings
+                        </MenuItem>
+                        <MenuItem
+                          onClick={() => {
+                            close();
+                            navigate("/playlists");
+                          }}
+                        >
+                          Playlists
+                        </MenuItem>
+                      </>
+                    )}
+                  </ToolbarMenu>
                 </div>
               </WindowChrome>
             </header>
 
             <div className="shell-workspace">
               <main className="main-canvas" ref={canvasRef} tabIndex={-1}>
-                <Outlet />
+                <div
+                  className="route-stage"
+                  data-direction={routeDirection}
+                  key={location.pathname}
+                >
+                  <Outlet />
+                </div>
               </main>
               <QueuePane />
             </div>
@@ -381,6 +399,147 @@ export function AppShell() {
         </PlayerProvider>
       </ThemeProvider>
     </LibraryContext.Provider>
+  );
+}
+
+function PinnedNavigation({
+  activeViewId,
+  onNavigate,
+  overflowViews,
+  visibleViews,
+}: {
+  activeViewId: string | null;
+  onNavigate: (path: string) => void;
+  overflowViews: ViewDefinition[];
+  visibleViews: ViewDefinition[];
+}) {
+  const navigationRef = useRef<HTMLElement>(null);
+  const linkRefs = useRef<Array<HTMLAnchorElement | null>>([]);
+  const [indicator, setIndicator] = useState({ left: 0, width: 0 });
+  const activeIndex = visibleViews.findIndex(
+    (view) => view.id === activeViewId,
+  );
+  const overflowActive = overflowViews.some((view) => view.id === activeViewId);
+
+  useLayoutEffect(() => {
+    const measure = () => {
+      const link = linkRefs.current[activeIndex];
+      if (!link) {
+        setIndicator({ left: 0, width: 0 });
+        return;
+      }
+      setIndicator({ left: link.offsetLeft, width: link.offsetWidth });
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined" || !navigationRef.current) return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(navigationRef.current);
+    return () => observer.disconnect();
+  }, [activeIndex, visibleViews]);
+
+  return (
+    <nav
+      ref={navigationRef}
+      className="primary-navigation"
+      aria-label="Library Views"
+      data-has-active={activeIndex >= 0 || undefined}
+      style={
+        {
+          "--mv-navigation-indicator-left": `${indicator.left}px`,
+          "--mv-navigation-indicator-width": `${indicator.width}px`,
+        } as CSSProperties
+      }
+    >
+      <span className="primary-navigation-indicator" aria-hidden="true" />
+      {visibleViews.map((view, index) => (
+        <NavLink
+          ref={(element) => {
+            linkRefs.current[index] = element;
+          }}
+          key={view.id}
+          to={viewPath(view.id)}
+        >
+          {view.name}
+        </NavLink>
+      ))}
+      {overflowViews.length > 0 && (
+        <ToolbarMenu active={overflowActive} ariaLabel="More library Views">
+          {(close) => (
+            <>
+              {overflowViews.map((view) => (
+                <MenuItem
+                  key={view.id}
+                  data-active={view.id === activeViewId || undefined}
+                  onClick={() => {
+                    close();
+                    onNavigate(viewPath(view.id));
+                  }}
+                >
+                  {view.name}
+                </MenuItem>
+              ))}
+            </>
+          )}
+        </ToolbarMenu>
+      )}
+    </nav>
+  );
+}
+
+function ToolbarMenu({
+  active,
+  align = "start",
+  ariaLabel,
+  children,
+}: {
+  active?: boolean;
+  align?: "end" | "start";
+  ariaLabel: string;
+  children: (close: () => void) => ReactNode;
+}) {
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(
+    null,
+  );
+  const close = () => setPosition(null);
+  const toggle = () => {
+    if (position) {
+      close();
+      return;
+    }
+    const bounds = triggerRef.current?.getBoundingClientRect();
+    if (!bounds) return;
+    setPosition({
+      x: align === "end" ? bounds.right : bounds.left,
+      y: bounds.bottom + 4,
+    });
+  };
+
+  return (
+    <span className="toolbar-menu">
+      <Tooltip label={ariaLabel}>
+        <IconButton
+          ref={triggerRef}
+          aria-label={ariaLabel}
+          aria-haspopup="menu"
+          aria-expanded={position !== null}
+          data-active={active || undefined}
+          onClick={toggle}
+        >
+          <MoreHorizontal aria-hidden="true" size={19} />
+        </IconButton>
+      </Tooltip>
+      {position && (
+        <MenuSurface
+          align={align}
+          ariaLabel={ariaLabel}
+          position={position}
+          onClose={close}
+        >
+          {children(close)}
+        </MenuSurface>
+      )}
+    </span>
   );
 }
 
@@ -406,34 +565,130 @@ function viewPath(id: string) {
   return id === "builtin:home" ? "/home" : `/views/${encodeURIComponent(id)}`;
 }
 
+function viewIdForLocation(pathname: string) {
+  if (pathname === "/home") return "builtin:home";
+  if (!pathname.startsWith("/views/")) return null;
+  try {
+    return decodeURIComponent(pathname.slice("/views/".length));
+  } catch {
+    return pathname.slice("/views/".length);
+  }
+}
+
+function useRouteDirection(historyKey: string, pathname: string) {
+  const navigationType = useNavigationType();
+  const state = useRef({
+    direction: "none" as "back" | "forward" | "none",
+    index: 0,
+    key: historyKey,
+    keys: [historyKey],
+    pathname,
+  });
+  const current = state.current;
+  if (current.key !== historyKey) {
+    const previousPathname = current.pathname;
+    const existing = current.keys.indexOf(historyKey);
+    if (existing >= 0) {
+      current.direction =
+        pathname === previousPathname
+          ? "none"
+          : existing < current.index
+            ? "back"
+            : "forward";
+      current.index = existing;
+    } else if (navigationType === "REPLACE") {
+      current.keys[current.index] = historyKey;
+      current.direction = "none";
+    } else {
+      current.keys.splice(current.index + 1);
+      current.keys.push(historyKey);
+      current.index = current.keys.length - 1;
+      current.direction = pathname === previousPathname ? "none" : "forward";
+    }
+    current.key = historyKey;
+    current.pathname = pathname;
+  }
+  return current.direction;
+}
+
 function useCanvasRestoration(
   canvasRef: React.RefObject<HTMLElement | null>,
   historyKey: string,
 ) {
-  const savedPosition = useNavigationStore(
-    (state) => state.scrollPositions[historyKey] ?? 0,
-  );
   const saveScroll = useNavigationStore((state) => state.saveScroll);
+  const saveFocus = useNavigationStore((state) => state.saveFocus);
 
   useLayoutEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    const navigation = useNavigationStore.getState();
+    const savedPosition = navigation.scrollPositions[historyKey] ?? 0;
+    const savedFocus = navigation.focusTargets[historyKey] ?? null;
+    let restored = savedPosition === 0;
     const restore = () => {
-      if (savedPosition > 0) canvas.scrollTop = savedPosition;
+      if (!restored) {
+        canvas.scrollTop = savedPosition;
+        restored =
+          canvas.scrollTop === savedPosition ||
+          canvas.scrollHeight - canvas.clientHeight >= savedPosition;
+      }
     };
-    restore();
+    const frame = window.requestAnimationFrame(() => {
+      restore();
+      restoreFocus(canvas, savedFocus);
+    });
     let observer: ResizeObserver | undefined;
     if (typeof ResizeObserver !== "undefined") {
-      observer = new ResizeObserver(restore);
+      observer = new ResizeObserver(() => {
+        restore();
+        if (restored) observer?.disconnect();
+      });
       observer.observe(canvas);
     }
     const stop = window.setTimeout(() => observer?.disconnect(), 2000);
+    const rememberFocus = (event: FocusEvent) => {
+      const target = event.target;
+      if (target instanceof HTMLElement) {
+        saveFocus(historyKey, focusTargetFor(target));
+      }
+    };
+    canvas.addEventListener("focusin", rememberFocus);
     return () => {
+      window.cancelAnimationFrame(frame);
       window.clearTimeout(stop);
       observer?.disconnect();
+      canvas.removeEventListener("focusin", rememberFocus);
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && canvas.contains(active)) {
+        saveFocus(historyKey, focusTargetFor(active));
+      }
       saveScroll(historyKey, canvas.scrollTop);
     };
-  }, [canvasRef, historyKey, saveScroll, savedPosition]);
+  }, [canvasRef, historyKey, saveFocus, saveScroll]);
+}
+
+function focusTargetFor(element: HTMLElement) {
+  for (const attribute of [
+    "id",
+    "data-focus-key",
+    "href",
+    "aria-label",
+  ] as const) {
+    const value = element.getAttribute(attribute);
+    if (value) return { attribute, value };
+  }
+  return null;
+}
+
+function restoreFocus(
+  canvas: HTMLElement,
+  target: ReturnType<typeof focusTargetFor>,
+) {
+  if (!target) return;
+  const match = Array.from(
+    canvas.querySelectorAll<HTMLElement>(`[${target.attribute}]`),
+  ).find((element) => element.getAttribute(target.attribute) === target.value);
+  match?.focus({ preventScroll: true });
 }
 
 function isEditable(target: EventTarget | null) {

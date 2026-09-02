@@ -21,6 +21,11 @@ const windowsSignatureFile = exactlyOne(
 );
 const linuxFile = linuxSignatureFile.slice(0, -4);
 const windowsFile = windowsSignatureFile.slice(0, -4);
+if (linuxFile !== "Basis.AppImage") {
+  throw new Error(
+    `Expected the stable Linux asset Basis.AppImage, found ${linuxFile}.`,
+  );
+}
 const linuxSignature = (
   await readFile(`${assetDirectory}/${linuxSignatureFile}`, "utf8")
 ).trim();

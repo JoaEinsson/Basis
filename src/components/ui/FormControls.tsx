@@ -1,5 +1,6 @@
 import {
   forwardRef,
+  type CSSProperties,
   type InputHTMLAttributes,
   type ReactNode,
   type SelectHTMLAttributes,
@@ -58,16 +59,76 @@ export const SelectInput = forwardRef<
 export const RangeInput = forwardRef<
   HTMLInputElement,
   Omit<InputHTMLAttributes<HTMLInputElement>, "type">
->(function RangeInput({ className, ...props }, ref) {
+>(function RangeInput(
+  {
+    className,
+    defaultValue,
+    max = 100,
+    min = 0,
+    onInput,
+    style,
+    value,
+    ...props
+  },
+  ref,
+) {
+  const progress = rangeProgress(value ?? defaultValue, min, max);
+
   return (
     <input
       ref={ref}
       className={cx("ui-range", className)}
+      defaultValue={defaultValue}
+      max={max}
+      min={min}
+      onInput={(event) => {
+        event.currentTarget.style.setProperty(
+          "--ui-range-progress",
+          `${rangeProgress(
+            event.currentTarget.value,
+            event.currentTarget.min,
+            event.currentTarget.max,
+          )}%`,
+        );
+        onInput?.(event);
+      }}
+      style={
+        {
+          ...style,
+          "--ui-range-progress": `${progress}%`,
+        } as CSSProperties
+      }
       type="range"
+      value={value}
       {...props}
     />
   );
 });
+
+function rangeProgress(
+  value: string | number | readonly string[] | undefined,
+  min: string | number,
+  max: string | number,
+) {
+  const minimum = finiteNumber(min, 0);
+  const maximum = finiteNumber(max, 100);
+  const current = finiteNumber(value, minimum);
+  return maximum > minimum
+    ? Math.min(
+        100,
+        Math.max(0, ((current - minimum) / (maximum - minimum)) * 100),
+      )
+    : 0;
+}
+
+function finiteNumber(
+  value: string | number | readonly string[] | undefined,
+  fallback: number,
+) {
+  if (Array.isArray(value)) return fallback;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
 
 interface CheckboxProps extends Omit<
   InputHTMLAttributes<HTMLInputElement>,

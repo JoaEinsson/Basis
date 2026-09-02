@@ -79,14 +79,16 @@ export function InlineStatus({
 export function EmptyState({
   action,
   children,
+  className,
   title,
 }: {
   action?: ReactNode;
   children?: ReactNode;
+  className?: string;
   title: string;
 }) {
   return (
-    <section className="ui-empty-state" aria-label={title}>
+    <section className={cx("ui-empty-state", className)} aria-label={title}>
       <h2>{title}</h2>
       {children && <div>{children}</div>}
       {action}

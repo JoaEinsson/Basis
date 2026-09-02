@@ -83,7 +83,9 @@ const albumsView: ViewDefinition = {
 describe("Basis definitive shell", () => {
   beforeEach(() => {
     useNavigationStore.setState({
+      focusTargets: {},
       paletteOpen: false,
+      searchSelections: {},
       scrollPositions: {},
       viewEntries: {},
     });
@@ -163,6 +165,23 @@ describe("Basis definitive shell", () => {
     ).toHaveLength(0);
   });
 
+  it("moves the pinned navigation representation to the active View", async () => {
+    render(
+      <MemoryRouter initialEntries={["/views/builtin%3Aalbums"]}>
+        <Routes>
+          <Route path="/" element={<AppShell />}>
+            <Route path="views/:viewId" element={<p>Albums canvas</p>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+    const albums = await screen.findByRole("link", { name: "Albums" });
+    expect(albums).toHaveAttribute("aria-current", "page");
+    expect(
+      screen.getByRole("navigation", { name: "Library Views" }),
+    ).toHaveAttribute("data-has-active");
+  });
+
   it("lets an empty library choose a music folder from the application menu", async () => {
     renderShell();
     fireEvent.click(await screen.findByLabelText("Application menu"));
@@ -178,7 +197,24 @@ describe("Basis definitive shell", () => {
     expect(
       await screen.findByRole("dialog", { name: "Command palette" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("combobox")).toHaveFocus();
+    await waitFor(() => expect(screen.getByRole("combobox")).toHaveFocus());
+  });
+
+  it("emphasizes command matches and supports keyboard selection", async () => {
+    renderShell();
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    const input = await screen.findByRole("combobox");
+    fireEvent.change(input, { target: { value: "alb" } });
+    expect(await screen.findByText("Alb", { selector: "mark" })).toBeVisible();
+    fireEvent.keyDown(input, { key: "End" });
+    expect(input).toHaveAttribute(
+      "aria-activedescendant",
+      "view-builtin:albums",
+    );
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(await screen.findByTestId("current-location")).toHaveTextContent(
+      "/views/builtin%3Aalbums",
+    );
   });
 
   it("opens the main-canvas Search route with Ctrl+F", async () => {
@@ -217,12 +253,40 @@ describe("Basis definitive shell", () => {
     expect(canvas).not.toBeNull();
     if (!canvas) return;
     canvas.scrollTop = 137;
-    fireEvent.click(screen.getByRole("button", { name: "Open second" }));
+    const openSecond = screen.getByRole("button", { name: "Open second" });
+    openSecond.focus();
+    fireEvent.click(openSecond);
     expect(
       await screen.findByRole("button", { name: "Return" }),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Return" }));
-    await waitFor(() => expect(canvas.scrollTop).toBe(137));
+    await waitFor(() => {
+      expect(canvas.scrollTop).toBe(137);
+      expect(screen.getByRole("button", { name: "Open second" })).toHaveFocus();
+    });
+  });
+
+  it("focuses the queue overlay and restores the trigger when it closes", async () => {
+    mocks.getPlayerState.mockResolvedValue(
+      playingSnapshot("Queued track", "queued-id"),
+    );
+    renderShell();
+    const trigger = await screen.findByRole("button", { name: "Open queue" });
+    trigger.focus();
+    fireEvent.click(trigger);
+    const heading = await screen.findByRole("heading", { name: "Queue" });
+    const panel = heading.closest("aside");
+    expect(panel).not.toBeNull();
+    const close = panel?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Close queue"]',
+    );
+    await waitFor(() => expect(close).toHaveFocus());
+    if (!close) return;
+    fireEvent.keyDown(close, { key: "Escape" });
+    await waitFor(() => {
+      expect(screen.queryByRole("heading", { name: "Queue" })).toBeNull();
+      expect(screen.getByRole("button", { name: "Open queue" })).toHaveFocus();
+    });
   });
 
   it("updates transport on automatic queue advance without changing the canvas", async () => {
@@ -360,6 +424,7 @@ function renderShell() {
         <Route path="/" element={<AppShell />}>
           <Route index element={<p>Library canvas</p>} />
           <Route path="search" element={<h1>Search</h1>} />
+          <Route path="views/:viewId" element={<LocationProbe />} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -376,6 +441,7 @@ function HistoryPage({
   const navigate = useNavigate();
   return (
     <button
+      aria-label={label}
       type="button"
       onClick={() =>
         typeof destination === "number"

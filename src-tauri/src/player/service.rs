@@ -82,6 +82,8 @@ struct PersistedPlayerSession {
     play_order: Vec<Uuid>,
     cursor: Option<u32>,
     position_ms: f64,
+    #[serde(default)]
+    duration_ms: f64,
     volume: u8,
     shuffle: bool,
     repeat: RepeatMode,
@@ -447,7 +449,9 @@ impl PlayerService {
                         true
                     };
                     core.status = PlaybackStatus::Playing;
-                    core.position_ms = 0.0;
+                    if reason == EngineStartReason::Gapless || core.position_ms <= 0.0 {
+                        core.position_ms = 0.0;
+                    }
                     core.duration_ms = duration_ms;
                     core.error = None;
                     changed
@@ -953,6 +957,7 @@ impl PlayerCore {
             play_order: self.play_order.clone(),
             cursor: self.cursor.and_then(|index| u32::try_from(index).ok()),
             position_ms: finite_nonnegative(self.position_ms),
+            duration_ms: finite_nonnegative(self.duration_ms),
             volume: self.volume,
             shuffle: self.shuffle,
             repeat: self.repeat,
@@ -996,6 +1001,8 @@ impl TryFrom<PersistedPlayerSession> for PlayerCore {
             || session.volume > 100
             || !session.position_ms.is_finite()
             || session.position_ms < 0.0
+            || !session.duration_ms.is_finite()
+            || session.duration_ms < 0.0
             || !session.listened_ms.is_finite()
             || session.listened_ms < 0.0
         {
@@ -1018,6 +1025,16 @@ impl TryFrom<PersistedPlayerSession> for PlayerCore {
         if cursor.is_some_and(|index| index >= session.play_order.len()) {
             return Err("Player session cursor is invalid".to_owned());
         }
+        let duration_ms = if session.duration_ms > 0.0 {
+            session.duration_ms
+        } else {
+            cursor
+                .and_then(|index| session.play_order.get(index))
+                .and_then(|queue_id| session.queue.iter().find(|item| item.queue_id == *queue_id))
+                .and_then(|item| item.track.duration_ms)
+                .map(finite_nonnegative)
+                .unwrap_or(0.0)
+        };
         Ok(Self {
             library_id: session.library_id,
             root_instance_hash: session.root_instance_hash,
@@ -1030,7 +1047,7 @@ impl TryFrom<PersistedPlayerSession> for PlayerCore {
                 PlaybackStatus::Idle
             },
             position_ms: session.position_ms,
-            duration_ms: 0.0,
+            duration_ms,
             volume: session.volume,
             shuffle: session.shuffle,
             repeat: session.repeat,
@@ -1171,11 +1188,29 @@ mod tests {
         assert!(core.move_previous());
         assert_eq!(core.current_item().unwrap().track.id, tracks[0].id);
         core.position_ms = 4_250.0;
+        core.duration_ms = 180_000.0;
         let session = core.persisted();
         let restored = PlayerCore::try_from(session).unwrap();
         assert_eq!(restored.status, PlaybackStatus::Paused);
         assert_eq!(restored.position_ms, 4_250.0);
+        assert_eq!(restored.duration_ms, 180_000.0);
         assert_eq!(volume_to_linear(50), 0.25);
+    }
+
+    #[test]
+    fn legacy_session_without_duration_uses_current_track_metadata() {
+        let source = track(1);
+        let mut core = PlayerCore::default();
+        core.insert_tracks(vec![source.clone()], source.id, QueueInsertMode::Replace)
+            .unwrap();
+        core.position_ms = 750.0;
+        let mut value = serde_json::to_value(core.persisted()).unwrap();
+        value.as_object_mut().unwrap().remove("duration_ms");
+        let session = serde_json::from_value::<PersistedPlayerSession>(value).unwrap();
+        let restored = PlayerCore::try_from(session).unwrap();
+
+        assert_eq!(restored.position_ms, 750.0);
+        assert_eq!(restored.duration_ms, 1_000.0);
     }
 
     #[test]
@@ -1235,7 +1270,11 @@ mod tests {
                 QueueInsertMode::Replace,
             )
             .unwrap();
-        service.core().unwrap().position_ms = 3_250.0;
+        {
+            let mut core = service.core().unwrap();
+            core.position_ms = 3_250.0;
+            core.duration_ms = 185_000.0;
+        }
         service.persist().unwrap();
 
         service
@@ -1266,6 +1305,7 @@ mod tests {
         assert_eq!(snapshot.status, PlaybackStatus::Paused);
         assert_eq!(snapshot.current_track.unwrap().track.id, first_track.id);
         assert_eq!(snapshot.position_ms, 3_250.0);
+        assert_eq!(snapshot.duration_ms, 185_000.0);
         assert!(app_data
             .path()
             .join("basis/sessions")

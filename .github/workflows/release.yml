@@ -85,7 +85,7 @@ jobs:
           tagName: v__VERSION__
           releaseName: Basis v__VERSION__
           releaseBody: |
-            Basis MVP stable release.
+            Basis stable release.
 
             Update artifacts are cryptographically signed for the Tauri updater.
             The Windows installer is not Authenticode-signed yet and may show a Microsoft SmartScreen warning.
@@ -94,7 +94,8 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
-      - name: Remove bundled Wayland ABI libraries and re-sign AppImage
+      - name: Finalize stable Linux updater asset
+        id: linux_appimage
         if: matrix.platform == 'ubuntu-22.04'
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -104,9 +105,16 @@ jobs:
           bash scripts/repack-appimage.sh
           appimage=$(find src-tauri/target/release/bundle/appimage -maxdepth 1 -type f -name '*.AppImage' -print -quit)
           test -n "$appimage"
-          rm -f -- "$appimage.sig"
-          pnpm tauri signer sign "$appimage"
-          test -s "$appimage.sig"
+          original_name=$(basename "$appimage")
+          stable_appimage=$(dirname "$appimage")/Basis.AppImage
+          rm -f -- "$appimage.sig" "$stable_appimage.sig"
+          if [[ "$appimage" != "$stable_appimage" ]]; then
+            mv -- "$appimage" "$stable_appimage"
+          fi
+          chmod +x "$stable_appimage"
+          pnpm tauri signer sign "$stable_appimage"
+          test -s "$stable_appimage.sig"
+          echo "original_name=$original_name" >> "$GITHUB_OUTPUT"
       - name: Validate Linux AppImage payload and icon
         if: matrix.platform == 'ubuntu-22.04'
         run: bash scripts/validate-appimage.sh
@@ -114,10 +122,16 @@ jobs:
         if: matrix.platform == 'ubuntu-22.04'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ORIGINAL_NAME: ${{ steps.linux_appimage.outputs.original_name }}
         run: |
           set -euo pipefail
-          appimage=$(find src-tauri/target/release/bundle/appimage -maxdepth 1 -type f -name '*.AppImage' -print -quit)
-          test -n "$appimage"
+          appimage=src-tauri/target/release/bundle/appimage/Basis.AppImage
+          test -s "$appimage"
+          test -s "$appimage.sig"
+          if [[ "$ORIGINAL_NAME" != "Basis.AppImage" ]]; then
+            gh release delete-asset "$GITHUB_REF_NAME" "$ORIGINAL_NAME" --yes || true
+            gh release delete-asset "$GITHUB_REF_NAME" "$ORIGINAL_NAME.sig" --yes || true
+          fi
           gh release upload "$GITHUB_REF_NAME" "$appimage" "$appimage.sig" --clobber
 
   validate-release-metadata:
