@@ -58,6 +58,7 @@ vi.mock("../lib/tauri", () => ({
   setPlaybackVolume: vi.fn(),
   setPlaybackShuffle: vi.fn(),
   setPlaybackRepeat: vi.fn(),
+  reorderPlaybackQueue: vi.fn(),
 }));
 
 import { AppShell } from "../components/shell/AppShell";

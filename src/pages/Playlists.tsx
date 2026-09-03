@@ -1,5 +1,13 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { ArrowDown, ArrowUp, GripVertical, Plus, Trash2 } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  CircleAlert,
+  GripVertical,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { displayTrackTitle } from "../components/library/format";
@@ -9,7 +17,15 @@ import {
   PlaylistPicker,
 } from "../components/playlists/PlaylistPicker";
 import { usePlayer } from "../components/player/PlayerContext";
-import { Dialog, DialogActions, DragHandle, EntityRow } from "../components/ui";
+import {
+  Button,
+  Dialog,
+  DialogActions,
+  DragHandle,
+  EmptyState,
+  EntityRow,
+  InlineStatus,
+} from "../components/ui";
 import {
   createPlaylist,
   listPlaylists,
@@ -84,9 +100,9 @@ function PlaylistIndex() {
           <p className="page-kicker">Library</p>
           <h1 id="playlists-title">Playlists</h1>
         </div>
-        <button type="button" onClick={() => setCreating(true)}>
+        <Button variant="primary" onClick={() => setCreating(true)}>
           <Plus aria-hidden="true" size={16} /> New playlist
-        </button>
+        </Button>
       </div>
       {error && (
         <p className="inline-error" role="alert">
@@ -105,10 +121,16 @@ function PlaylistIndex() {
       )}
       {loading && <p className="loading-state">Loading playlists…</p>}
       {!loading && playlists.length === 0 && (
-        <div className="quiet-state">
-          <h2>No playlists yet.</h2>
-          <p>Create an ordered static list or a smart metadata query.</p>
-        </div>
+        <EmptyState
+          title="No playlists yet"
+          action={
+            <Button variant="primary" onClick={() => setCreating(true)}>
+              <Plus aria-hidden="true" size={16} /> Create playlist
+            </Button>
+          }
+        >
+          Create an ordered static list or a smart metadata query.
+        </EmptyState>
       )}
       <div className="playlist-index-list">
         {playlists.map((playlist) => (
@@ -121,7 +143,7 @@ function PlaylistIndex() {
                   : "Smart playlist"}
               </span>
             </span>
-            <span className="entity-subtitle">{playlist.type}</span>
+            <span className="playlist-type-badge">{playlist.type}</span>
           </Link>
         ))}
       </div>
@@ -250,6 +272,8 @@ function PlaylistDetail({ id }: { id: string }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [queryText, setQueryText] = useState("");
+  const [renaming, setRenaming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [portableRevision, setPortableRevision] = useState(0);
 
   useEffect(() => {
@@ -291,10 +315,12 @@ function PlaylistDetail({ id }: { id: string }) {
     try {
       await updatePlaylist(playlist);
       await refresh();
+      return true;
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "Playlist could not be saved.",
       );
+      return false;
     } finally {
       setSaving(false);
     }
@@ -302,9 +328,21 @@ function PlaylistDetail({ id }: { id: string }) {
 
   async function deleteCurrent() {
     if (!resolved) return;
-    if (!window.confirm(`Delete playlist “${resolved.playlist.name}”?`)) return;
-    await removePlaylist(resolved.playlist.id);
-    navigate("/playlists", { replace: true });
+    setSaving(true);
+    setError(null);
+    try {
+      await removePlaylist(resolved.playlist.id);
+      navigate("/playlists", { replace: true });
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Playlist could not be deleted.",
+      );
+      setDeleting(false);
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function playAll() {
@@ -337,35 +375,26 @@ function PlaylistDetail({ id }: { id: string }) {
       <div className="page-heading">
         <div>
           <p className="page-kicker">{playlist.type} playlist</p>
-          <input
-            id="playlist-title"
-            className="editable-page-title"
-            aria-label="Playlist name"
-            value={playlist.name}
-            onChange={(event) =>
-              setResolved({
-                ...resolved,
-                playlist: { ...playlist, name: event.target.value },
-              })
-            }
-            onBlur={() => void savePlaylist(resolved.playlist)}
-          />
+          <h1 id="playlist-title">{playlist.name}</h1>
         </div>
         <div className="page-actions">
-          <button
-            type="button"
+          <Button onClick={() => setRenaming(true)}>
+            <Pencil aria-hidden="true" size={16} /> Rename
+          </Button>
+          <Button
+            variant="primary"
             disabled={!resolved.items.some((item) => item.track)}
             onClick={() => void playAll()}
           >
             Play
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="destructive"
             className="danger-action"
-            onClick={() => void deleteCurrent()}
+            onClick={() => setDeleting(true)}
           >
             <Trash2 aria-hidden="true" size={16} /> Delete
-          </button>
+          </Button>
         </div>
       </div>
       {error && (
@@ -377,7 +406,9 @@ function PlaylistDetail({ id }: { id: string }) {
         <StaticPlaylistEditor
           resolved={resolved}
           saving={saving}
-          onSave={savePlaylist}
+          onSave={async (next) => {
+            await savePlaylist(next);
+          }}
           onPlay={(track) =>
             void player.playCollection(
               resolved.items.flatMap((item) =>
@@ -452,7 +483,99 @@ function PlaylistDetail({ id }: { id: string }) {
           />
         </>
       )}
+      {renaming && (
+        <RenamePlaylistDialog
+          name={playlist.name}
+          saving={saving}
+          onClose={() => setRenaming(false)}
+          onSave={async (name) => {
+            const saved = await savePlaylist({ ...playlist, name });
+            if (saved) setRenaming(false);
+          }}
+        />
+      )}
+      {deleting && (
+        <Dialog
+          className="small-dialog"
+          ariaLabelledBy="delete-playlist-title"
+          dismissible={!saving}
+          onClose={() => setDeleting(false)}
+        >
+          <div className="ui-dialog-form">
+            <h2 id="delete-playlist-title">Delete playlist?</h2>
+            <p>
+              “{playlist.name}” will be removed from this library. Music files
+              are never deleted.
+            </p>
+            <DialogActions>
+              <Button disabled={saving} onClick={() => setDeleting(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={saving}
+                onClick={() => void deleteCurrent()}
+              >
+                {saving ? "Deleting…" : "Delete playlist"}
+              </Button>
+            </DialogActions>
+          </div>
+        </Dialog>
+      )}
     </section>
+  );
+}
+
+function RenamePlaylistDialog({
+  name: initialName,
+  saving,
+  onClose,
+  onSave,
+}: {
+  name: string;
+  saving: boolean;
+  onClose: () => void;
+  onSave: (name: string) => Promise<void>;
+}) {
+  const [name, setName] = useState(initialName);
+  const trimmed = name.trim();
+  return (
+    <Dialog
+      className="small-dialog"
+      ariaLabelledBy="rename-playlist-title"
+      dismissible={!saving}
+      onClose={onClose}
+    >
+      <form
+        className="ui-dialog-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (trimmed && trimmed !== initialName) void onSave(trimmed);
+        }}
+      >
+        <h2 id="rename-playlist-title">Rename playlist</h2>
+        <label>
+          Name
+          <input
+            autoFocus
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+          />
+        </label>
+        <DialogActions>
+          <Button onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            type="submit"
+            disabled={saving || !trimmed || trimmed === initialName}
+          >
+            {saving ? "Saving…" : "Save"}
+          </Button>
+        </DialogActions>
+      </form>
+    </Dialog>
   );
 }
 
@@ -469,6 +592,10 @@ export function StaticPlaylistEditor({
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const dragIndexRef = useRef<number | null>(null);
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
+  const [announcement, setAnnouncement] = useState("");
+  const [removingIndex, setRemovingIndex] = useState<number | null>(null);
   const playlist = resolved.playlist;
   if (playlist.type !== "static") return null;
   const virtualizer = useVirtualizer({
@@ -480,6 +607,8 @@ export function StaticPlaylistEditor({
 
   function reorder(from: number, to: number) {
     if (from === to || to < 0 || to >= playlist.items.length) return;
+    const moved = staticPlaylistItemPresentation(resolved.items[from]).title;
+    setAnnouncement(`Moved ${moved} to playlist position ${to + 1}.`);
     void onSave({
       ...playlist,
       items: reorderPlaylistItems(playlist.items, from, to),
@@ -508,6 +637,9 @@ export function StaticPlaylistEditor({
       <p className="playlist-drop-hint">
         Use the drag handle to reorder. Add tracks from a track action menu.
       </p>
+      <p className="sr-only" aria-live="polite">
+        {announcement}
+      </p>
       <div
         className="playlist-track-viewport"
         ref={scrollRef}
@@ -525,6 +657,9 @@ export function StaticPlaylistEditor({
               <EntityRow
                 className="playlist-track-row"
                 key={`${resolvedItem.item.path}:${row.index}`}
+                data-missing={!resolvedItem.track || undefined}
+                data-drop-target={dropIndex === row.index || undefined}
+                data-dragging={draggingIndex === row.index || undefined}
                 onDragOver={(event) => {
                   event.preventDefault();
                   const sourceIndex =
@@ -532,6 +667,7 @@ export function StaticPlaylistEditor({
                     readPlaylistDragIndex(event.dataTransfer);
                   event.dataTransfer.dropEffect =
                     sourceIndex === null ? "copy" : "move";
+                  setDropIndex(row.index);
                 }}
                 onDrop={(event) => {
                   event.preventDefault();
@@ -542,9 +678,11 @@ export function StaticPlaylistEditor({
                   if (sourceIndex !== null) {
                     reorder(sourceIndex, row.index);
                     dragIndexRef.current = null;
+                    setDraggingIndex(null);
                   } else {
                     addDroppedTrack(event);
                   }
+                  setDropIndex(null);
                 }}
                 style={{
                   height: row.size,
@@ -558,6 +696,7 @@ export function StaticPlaylistEditor({
                   disabled={saving}
                   onDragStart={(event) => {
                     dragIndexRef.current = row.index;
+                    setDraggingIndex(row.index);
                     event.dataTransfer.effectAllowed = "move";
                     event.dataTransfer.setData(
                       "application/x-basis-playlist-index",
@@ -570,6 +709,8 @@ export function StaticPlaylistEditor({
                   }}
                   onDragEnd={() => {
                     dragIndexRef.current = null;
+                    setDraggingIndex(null);
+                    setDropIndex(null);
                   }}
                 >
                   <GripVertical aria-hidden="true" size={16} />
@@ -592,12 +733,6 @@ export function StaticPlaylistEditor({
                     type="button"
                     disabled={saving}
                     onClick={() => {
-                      if (
-                        !window.confirm(
-                          `Relink “${resolvedItem.item.path}” to “${resolvedItem.suggested_path}”?`,
-                        )
-                      )
-                        return;
                       const items = [...playlist.items];
                       items[row.index] = {
                         ...items[row.index],
@@ -608,6 +743,11 @@ export function StaticPlaylistEditor({
                   >
                     Relink
                   </button>
+                )}
+                {!resolvedItem.track && !resolvedItem.suggested_path && (
+                  <InlineStatus tone="error">
+                    <CircleAlert aria-hidden="true" size={14} /> Missing
+                  </InlineStatus>
                 )}
                 <button
                   type="button"
@@ -629,14 +769,7 @@ export function StaticPlaylistEditor({
                   type="button"
                   aria-label="Remove from playlist"
                   disabled={saving}
-                  onClick={() =>
-                    void onSave({
-                      ...playlist,
-                      items: playlist.items.filter(
-                        (_, index) => index !== row.index,
-                      ),
-                    })
-                  }
+                  onClick={() => setRemovingIndex(row.index)}
                 >
                   <Trash2 aria-hidden="true" size={15} />
                 </button>
@@ -646,10 +779,50 @@ export function StaticPlaylistEditor({
         </div>
       </div>
       {playlist.items.length === 0 && (
-        <div className="quiet-state">
-          <h2>This playlist is empty.</h2>
-          <p>Add tracks from a track context menu or drag them here.</p>
-        </div>
+        <EmptyState title="This playlist is empty">
+          Add tracks from a track context menu or drag them here.
+        </EmptyState>
+      )}
+      {removingIndex !== null && playlist.items[removingIndex] && (
+        <Dialog
+          className="small-dialog"
+          ariaLabelledBy="remove-playlist-track-title"
+          dismissible={!saving}
+          onClose={() => setRemovingIndex(null)}
+        >
+          <div className="ui-dialog-form">
+            <h2 id="remove-playlist-track-title">Remove from playlist?</h2>
+            <p>
+              “
+              {
+                staticPlaylistItemPresentation(resolved.items[removingIndex])
+                  .title
+              }
+              ” will leave this playlist. The music file stays untouched.
+            </p>
+            <DialogActions>
+              <Button disabled={saving} onClick={() => setRemovingIndex(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={saving}
+                onClick={() => {
+                  const index = removingIndex;
+                  setRemovingIndex(null);
+                  void onSave({
+                    ...playlist,
+                    items: playlist.items.filter(
+                      (_, itemIndex) => itemIndex !== index,
+                    ),
+                  });
+                }}
+              >
+                Remove track
+              </Button>
+            </DialogActions>
+          </div>
+        </Dialog>
       )}
     </>
   );
@@ -702,10 +875,9 @@ function SmartPlaylistTracks({
   const tracks = items.flatMap((item) => (item.track ? [item.track] : []));
   if (tracks.length === 0) {
     return (
-      <div className="quiet-state">
-        <h2>No matches.</h2>
-        <p>This smart playlist does not match any indexed tracks.</p>
-      </div>
+      <EmptyState title="No matches">
+        This smart playlist does not match any indexed tracks.
+      </EmptyState>
     );
   }
   return (

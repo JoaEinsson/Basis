@@ -1,9 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, LocateFixed, RefreshCw } from "lucide-react";
+import {
+  ArrowLeft,
+  Eye,
+  EyeOff,
+  LocateFixed,
+  Music2,
+  RefreshCw,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ArtworkPlaceholder } from "../components/library/ArtworkPlaceholder";
 import { displayTrackTitle } from "../components/library/format";
 import { usePlayer } from "../components/player/PlayerContext";
+import { Button, InlineStatus } from "../components/ui";
 import { chooseLyricsCandidate, resolveLyrics } from "../lib/tauri";
 import type { LyricsCandidate, LyricsResolution } from "../lib/types";
 
@@ -17,6 +25,7 @@ export function NowPlaying() {
   const [loadingLyrics, setLoadingLyrics] = useState(false);
   const [requestVersion, setRequestVersion] = useState(0);
   const [following, setFollowing] = useState(true);
+  const [lyricsVisible, setLyricsVisible] = useState(readLyricsPreference);
   const lineRefs = useRef(new Map<number, HTMLButtonElement>());
   const lyricsScrollRef = useRef<HTMLDivElement>(null);
   const programmaticScroll = useRef(false);
@@ -115,17 +124,61 @@ export function NowPlaying() {
   }
 
   const title = displayTrackTitle(track.title, track.relPath);
+  const instrumental = resolution?.document?.instrumental === true;
+  const showLyrics = lyricsVisible && !instrumental;
+  const setManualLyricsVisibility = (visible: boolean) => {
+    setLyricsVisible(visible);
+    writeLyricsPreference(visible);
+  };
+
   return (
     <article className="page now-playing-view">
-      <button
-        className="back-context"
-        type="button"
-        onClick={() => navigate(-1)}
+      <div className="now-playing-toolbar">
+        <Button
+          className="back-context"
+          variant="text"
+          onClick={() => navigate(-1)}
+        >
+          <ArrowLeft aria-hidden="true" size={17} /> Back
+        </Button>
+        {(player.error || snapshot.error) && (
+          <InlineStatus tone="error">
+            {player.error ?? snapshot.error}
+          </InlineStatus>
+        )}
+        {!player.error && !snapshot.error && snapshot.status === "loading" && (
+          <InlineStatus>Loading track…</InlineStatus>
+        )}
+        {instrumental ? (
+          <Button
+            className="lyrics-visibility-toggle"
+            disabled
+            aria-label="Lyrics unavailable for instrumental track"
+          >
+            <Music2 aria-hidden="true" size={16} /> Instrumental
+          </Button>
+        ) : (
+          <Button
+            className="lyrics-visibility-toggle"
+            aria-controls="now-playing-lyrics"
+            aria-expanded={showLyrics}
+            onClick={() => setManualLyricsVisibility(!lyricsVisible)}
+          >
+            {showLyrics ? (
+              <EyeOff aria-hidden="true" size={16} />
+            ) : (
+              <Eye aria-hidden="true" size={16} />
+            )}
+            {showLyrics ? "Hide lyrics" : "Show lyrics"}
+          </Button>
+        )}
+      </div>
+      <div
+        className="now-playing-layout"
+        data-artwork-only={!showLyrics || undefined}
       >
-        <ArrowLeft aria-hidden="true" size={17} /> Back
-      </button>
-      <div className="now-playing-layout">
         <section
+          key={track.id}
           className="now-playing-track"
           aria-labelledby="now-playing-title"
         >
@@ -140,110 +193,119 @@ export function NowPlaying() {
             <p>{track.artist ?? "Unknown artist"}</p>
             <p>{track.album ?? "Unknown album"}</p>
             {snapshot.outputDevice && <small>{snapshot.outputDevice}</small>}
-          </div>
-        </section>
-        <section className="lyrics-pane" aria-labelledby="lyrics-title">
-          <div className="lyrics-heading">
-            <h2 id="lyrics-title">Lyrics</h2>
-            {!following && resolution?.document?.synced && (
-              <button type="button" onClick={() => setFollowing(true)}>
-                <LocateFixed aria-hidden="true" size={16} /> Resume follow
-              </button>
+            {instrumental && (
+              <InlineStatus>
+                <Music2 aria-hidden="true" size={14} /> Instrumental track
+              </InlineStatus>
             )}
           </div>
-          <div
-            className="lyrics-scroll"
-            ref={lyricsScrollRef}
-            onScroll={() => {
-              if (!programmaticScroll.current) setFollowing(false);
-            }}
+        </section>
+        {showLyrics && (
+          <section
+            id="now-playing-lyrics"
+            className="lyrics-pane"
+            aria-labelledby="lyrics-title"
           >
-            {loadingLyrics ? (
-              <LyricsQuietState message="Fetching lyrics..." />
-            ) : lyricsError ? (
-              <LyricsQuietState
-                message={lyricsError}
-                retry={() => setRequestVersion((current) => current + 1)}
-              />
-            ) : resolution?.document?.instrumental ? (
-              <LyricsQuietState message="Instrumental track" />
-            ) : resolution?.document?.synced ? (
-              <div className="synced-lyrics" aria-live="off">
-                {resolution.document.lines.map((line, index) => (
-                  <button
-                    className="lyrics-line"
-                    data-state={
-                      index === activeLine
-                        ? "active"
-                        : index < activeLine
-                          ? "past"
-                          : "upcoming"
-                    }
-                    aria-current={index === activeLine ? "true" : undefined}
-                    key={`${line.timestampMs}-${index}`}
-                    ref={(element) => {
-                      if (element) lineRefs.current.set(index, element);
-                      else lineRefs.current.delete(index);
-                    }}
-                    type="button"
-                    onClick={() => void player.seek(line.timestampMs)}
-                  >
-                    {line.text || "♪"}
-                  </button>
-                ))}
-              </div>
-            ) : resolution?.document?.plainText ? (
-              <div className="plain-lyrics-stack">
-                <pre className="plain-lyrics">
-                  {resolution.document.plainText}
-                </pre>
-                {!!resolution.candidates.length && (
-                  <LyricsCandidates
-                    candidates={resolution.candidates}
-                    message={resolution.message}
-                    onChoose={(candidateId) => {
-                      setLoadingLyrics(true);
-                      setLyricsError(null);
-                      void chooseLyricsCandidate(track.id, candidateId)
-                        .then(setResolution)
-                        .catch((cause: unknown) =>
-                          setLyricsError(messageFrom(cause)),
-                        )
-                        .finally(() => setLoadingLyrics(false));
-                    }}
-                  />
-                )}
-              </div>
-            ) : resolution?.candidates.length ? (
-              <LyricsCandidates
-                candidates={resolution.candidates}
-                message={resolution.message}
-                onChoose={(candidateId) => {
-                  setLoadingLyrics(true);
-                  setLyricsError(null);
-                  void chooseLyricsCandidate(track.id, candidateId)
-                    .then(setResolution)
-                    .catch((cause: unknown) =>
-                      setLyricsError(messageFrom(cause)),
-                    )
-                    .finally(() => setLoadingLyrics(false));
-                }}
-              />
-            ) : (
-              <LyricsQuietState
-                message={resolution?.message ?? "Lyrics unavailable"}
-                retry={() => setRequestVersion((current) => current + 1)}
-              />
-            )}
-          </div>
-          {resolution?.document &&
-            resolution.message &&
-            !resolution.candidates.length && (
-              <p className="lyrics-notice" role="status">
-                {resolution.message}
-              </p>
-            )}
-        </section>
+            <div className="lyrics-heading">
+              <h2 id="lyrics-title">Lyrics</h2>
+              {!following && resolution?.document?.synced && (
+                <button type="button" onClick={() => setFollowing(true)}>
+                  <LocateFixed aria-hidden="true" size={16} /> Resume follow
+                </button>
+              )}
+            </div>
+            <div
+              className="lyrics-scroll"
+              ref={lyricsScrollRef}
+              onScroll={() => {
+                if (!programmaticScroll.current) setFollowing(false);
+              }}
+            >
+              {loadingLyrics ? (
+                <LyricsQuietState message="Fetching lyrics..." />
+              ) : lyricsError ? (
+                <LyricsQuietState
+                  message={lyricsError}
+                  retry={() => setRequestVersion((current) => current + 1)}
+                />
+              ) : resolution?.document?.synced ? (
+                <div className="synced-lyrics" aria-live="off">
+                  {resolution.document.lines.map((line, index) => (
+                    <button
+                      className="lyrics-line"
+                      data-state={
+                        index === activeLine
+                          ? "active"
+                          : index < activeLine
+                            ? "past"
+                            : "upcoming"
+                      }
+                      aria-current={index === activeLine ? "true" : undefined}
+                      key={`${line.timestampMs}-${index}`}
+                      ref={(element) => {
+                        if (element) lineRefs.current.set(index, element);
+                        else lineRefs.current.delete(index);
+                      }}
+                      type="button"
+                      onClick={() => void player.seek(line.timestampMs)}
+                    >
+                      {line.text || "♪"}
+                    </button>
+                  ))}
+                </div>
+              ) : resolution?.document?.plainText ? (
+                <div className="plain-lyrics-stack">
+                  <pre className="plain-lyrics">
+                    {resolution.document.plainText}
+                  </pre>
+                  {!!resolution.candidates.length && (
+                    <LyricsCandidates
+                      candidates={resolution.candidates}
+                      message={resolution.message}
+                      onChoose={(candidateId) => {
+                        setLoadingLyrics(true);
+                        setLyricsError(null);
+                        void chooseLyricsCandidate(track.id, candidateId)
+                          .then(setResolution)
+                          .catch((cause: unknown) =>
+                            setLyricsError(messageFrom(cause)),
+                          )
+                          .finally(() => setLoadingLyrics(false));
+                      }}
+                    />
+                  )}
+                </div>
+              ) : resolution?.candidates.length ? (
+                <LyricsCandidates
+                  candidates={resolution.candidates}
+                  message={resolution.message}
+                  onChoose={(candidateId) => {
+                    setLoadingLyrics(true);
+                    setLyricsError(null);
+                    void chooseLyricsCandidate(track.id, candidateId)
+                      .then(setResolution)
+                      .catch((cause: unknown) =>
+                        setLyricsError(messageFrom(cause)),
+                      )
+                      .finally(() => setLoadingLyrics(false));
+                  }}
+                />
+              ) : (
+                <LyricsQuietState
+                  message={resolution?.message ?? "Lyrics unavailable"}
+                  retry={() => setRequestVersion((current) => current + 1)}
+                />
+              )}
+            </div>
+            {resolution?.document &&
+              resolution.message &&
+              !resolution.candidates.length && (
+                <p className="lyrics-notice" role="status">
+                  {resolution.message}
+                </p>
+              )}
+          </section>
+        )}
       </div>
     </article>
   );
@@ -309,4 +371,23 @@ function LyricsQuietState({
 
 function messageFrom(cause: unknown) {
   return cause instanceof Error ? cause.message : "Lyrics are unavailable.";
+}
+
+const LYRICS_VISIBILITY_KEY = "basis.now-playing.lyrics-visible";
+
+function readLyricsPreference() {
+  try {
+    return window.localStorage.getItem(LYRICS_VISIBILITY_KEY) !== "false";
+  } catch {
+    return true;
+  }
+}
+
+function writeLyricsPreference(visible: boolean) {
+  try {
+    window.localStorage.setItem(LYRICS_VISIBILITY_KEY, String(visible));
+  } catch {
+    // A privacy-restricted WebView may deny storage; the in-memory preference
+    // remains valid for this session.
+  }
 }

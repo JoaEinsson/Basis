@@ -1,5 +1,5 @@
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     fs,
     path::{Path, PathBuf},
     sync::{
@@ -329,6 +329,20 @@ impl PlayerService {
         self.reprime(app);
         self.persist()?;
         self.emit_state(app);
+        self.snapshot()
+    }
+
+    pub fn reorder_queue(
+        &self,
+        app: &AppHandle,
+        queue_id: Uuid,
+        target_index: u32,
+    ) -> Result<PlayerSnapshot, String> {
+        self.core()?
+            .reorder_queue_item(queue_id, target_index as usize)?;
+        self.reprime(app);
+        self.persist()?;
+        self.emit_queue(app);
         self.snapshot()
     }
 
@@ -805,6 +819,34 @@ impl PlayerCore {
         Ok(())
     }
 
+    fn reorder_queue_item(&mut self, queue_id: Uuid, target_index: usize) -> Result<(), String> {
+        if target_index >= self.play_order.len() {
+            return Err("Queue destination is outside the current order".to_owned());
+        }
+        let source_index = self
+            .play_order
+            .iter()
+            .position(|id| *id == queue_id)
+            .ok_or_else(|| "The requested queue item no longer exists".to_owned())?;
+        if source_index == target_index {
+            return Ok(());
+        }
+        let current = self.current_item().map(|item| item.queue_id);
+        let moved = self.play_order.remove(source_index);
+        self.play_order.insert(target_index, moved);
+        self.cursor = current.and_then(|id| self.play_order.iter().position(|item| *item == id));
+
+        let positions = self
+            .play_order
+            .iter()
+            .enumerate()
+            .map(|(index, id)| (*id, index))
+            .collect::<HashMap<_, _>>();
+        self.queue
+            .sort_by_key(|item| positions.get(&item.queue_id).copied().unwrap_or(usize::MAX));
+        Ok(())
+    }
+
     fn set_shuffle(&mut self, enabled: bool) {
         if self.shuffle == enabled {
             return;
@@ -1195,6 +1237,29 @@ mod tests {
         assert_eq!(restored.position_ms, 4_250.0);
         assert_eq!(restored.duration_ms, 180_000.0);
         assert_eq!(volume_to_linear(50), 0.25);
+    }
+
+    #[test]
+    fn queue_reorder_preserves_the_current_track_and_durable_base_order() {
+        let tracks = (0..4).map(track).collect::<Vec<_>>();
+        let mut core = PlayerCore::default();
+        core.insert_tracks(tracks.clone(), tracks[1].id, QueueInsertMode::Replace)
+            .unwrap();
+        let moved_id = core.play_order[3];
+        let current_id = core.current_item().unwrap().queue_id;
+
+        core.reorder_queue_item(moved_id, 1).unwrap();
+
+        assert_eq!(core.play_order[1], moved_id);
+        assert_eq!(core.current_item().unwrap().queue_id, current_id);
+        assert_eq!(core.cursor, Some(2));
+        assert_eq!(
+            core.play_order,
+            core.queue
+                .iter()
+                .map(|item| item.queue_id)
+                .collect::<Vec<_>>()
+        );
     }
 
     #[test]

@@ -17,6 +17,7 @@ import {
   pausePlayback,
   playCollection as requestPlayCollection,
   previousTrack,
+  reorderPlaybackQueue,
   resumePlayback,
   seekPlayback,
   setPlaybackRepeat,
@@ -47,6 +48,7 @@ type PlayerContextValue = {
   setVolume: (volume: number) => Promise<void>;
   setShuffle: (enabled: boolean) => Promise<void>;
   setRepeat: (repeat: RepeatMode) => Promise<void>;
+  reorderQueue: (queueId: string, targetIndex: number) => Promise<boolean>;
 };
 
 const PlayerContext = createContext<PlayerContextValue | null>(null);
@@ -190,6 +192,8 @@ export function PlayerProvider({
       setRepeat: async (repeat) => {
         await perform(() => setPlaybackRepeat(repeat));
       },
+      reorderQueue: (queueId, targetIndex) =>
+        perform(() => reorderPlaybackQueue(queueId, targetIndex)),
     }),
     [error, perform, queueOpen, snapshot],
   );

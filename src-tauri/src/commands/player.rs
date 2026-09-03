@@ -120,3 +120,14 @@ pub fn player_set_repeat(
 ) -> Result<PlayerSnapshot, String> {
     player.set_repeat(&app, repeat)
 }
+
+#[tauri::command]
+#[specta::specta]
+pub fn player_reorder_queue(
+    app: AppHandle,
+    player: State<'_, Arc<PlayerService>>,
+    queue_id: Uuid,
+    target_index: u32,
+) -> Result<PlayerSnapshot, String> {
+    player.reorder_queue(&app, queue_id, target_index)
+}

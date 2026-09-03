@@ -52,6 +52,7 @@ pub fn run() {
             commands::player::player_set_volume,
             commands::player::player_set_shuffle,
             commands::player::player_set_repeat,
+            commands::player::player_reorder_queue,
             commands::playlists::playlists_list,
             commands::playlists::playlists_create,
             commands::playlists::playlists_update,

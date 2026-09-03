@@ -273,6 +273,13 @@ export async function setPlaybackRepeat(
   return unwrapResult(await commands.playerSetRepeat(repeat));
 }
 
+export async function reorderPlaybackQueue(
+  queueId: string,
+  targetIndex: number,
+): Promise<PlayerSnapshot> {
+  return unwrapResult(await commands.playerReorderQueue(queueId, targetIndex));
+}
+
 export async function listPlaylists(): Promise<PlaylistCatalog> {
   return unwrapResult(await commands.playlistsList());
 }

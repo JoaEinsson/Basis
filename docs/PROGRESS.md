@@ -19,14 +19,15 @@ the resolution.
 
 ## Current gate
 
-`M0–M8 complete — post-MVP UI/UX polish P0–P4 green; P5 implemented and awaiting the real-library desktop smoke`
+`M0–M8 complete — post-MVP UI/UX polish P0–P5 green; P6 implemented and awaiting the desktop smoke`
 
 The product owner accepted the packaged Arch/KDE result, library acquisition and
 indexing, and synchronization behavior on September 1, 2026. P1–P4 are green;
 the remaining packaged-platform portions of the P0/P2 matrix stay recorded for
-the system-wide P8 pass. P5 now includes D89's deterministic featured-credit
-projection and the complete library-surface pass; its final gate is the
-real-library desktop observation after the one-time local index reprojection.
+the system-wide P8 pass. The product owner accepted P5's deterministic
+featured-credit projection and complete library-surface pass against the real
+desktop library on September 2, 2026. P6 now owns PlayerBar, queue, playlists,
+Now Playing, lyrics, and their responsive/motion states.
 
 ## Verification
 
@@ -698,6 +699,27 @@ deterministic placeholder remains visible until the decoded image fires its
 load event. `pnpm lint`, all 57 frontend tests,
 `pnpm build`, rustfmt, all 61 Rust tests (59 passing plus 2 hardware smokes
 ignored), and the updater-signature integration test pass.
+
+2026-09-03 15:14 BRT — P5 desktop acceptance and P6 playback/playlists/lyrics pass
+Result: PASS (automated; desktop interaction smoke pending)
+Evidence: the product owner accepted the P5 real-library grouping and discovery
+result, closing P5. P6 adds durable device-local Show/Hide Lyrics state,
+temporary artwork-only recomposition for explicit instrumental documents,
+independent wide artwork/lyrics regions, bounded theme-owned ambient treatment,
+safe lyric/candidate wrapping, playback/loading/error states, immediate
+transport icon transitions, and accessible timeline/volume descriptions. The
+queue now distinguishes played/current/upcoming items and persists drag or
+keyboard reordering without changing the current track. Playlist creation,
+rename, static/smart empty states, missing tracks, drag targets, ordering
+announcements, action hierarchy, and destructive confirmations share the P3
+primitives and app-native confirmation dialogs. Tests cover manual lyric
+persistence, instrumental restoration,
+synced seek, fallback/candidate/retry states, queue drag and keyboard ordering,
+playlist rename/static order, fixture command parity, and the no-horizontal-
+overflow/theme-token CSS contract. Prettier, ESLint, TypeScript, all 66 frontend
+tests, production build, release validation, rustfmt, Clippy `-D warnings`, all
+62 Rust tests (60 passing plus 2 hardware smokes ignored), updater-signature
+integration, and `git diff --check` pass.
 
 Format for new entries:
 

@@ -177,6 +177,7 @@ export async function installVisualFixture(requestedMode: string) {
   } else if (requestedMode.startsWith("nocturne-")) {
     window.localStorage.setItem("basis.theme.manualAppearance", "dark");
   }
+  window.localStorage.setItem("basis.now-playing.lyrics-visible", "true");
   activeMode = isFixtureMode(fixture) ? fixture : "library";
   playerSnapshot = snapshotFor(activeMode);
   mockWindows("main");
@@ -250,7 +251,7 @@ export function handleFixtureCommand(
     case "player_set_volume":
       playerSnapshot = {
         ...playerSnapshot,
-        volume: Number(payload.volume ?? 0.72),
+        volume: Number(payload.volume ?? 72),
       };
       return playerSnapshot;
     case "player_set_shuffle":
@@ -262,6 +263,28 @@ export function handleFixtureCommand(
         repeat: payload.repeat as PlayerSnapshot["repeat"],
       };
       return playerSnapshot;
+    case "player_reorder_queue": {
+      const queueId = String(payload.queueId ?? "");
+      const targetIndex = Number(payload.targetIndex ?? -1);
+      const sourceIndex = playerSnapshot.playOrder.indexOf(queueId);
+      if (
+        sourceIndex >= 0 &&
+        targetIndex >= 0 &&
+        targetIndex < playerSnapshot.playOrder.length
+      ) {
+        const playOrder = [...playerSnapshot.playOrder];
+        const [moved] = playOrder.splice(sourceIndex, 1);
+        playOrder.splice(targetIndex, 0, moved);
+        playerSnapshot = {
+          ...playerSnapshot,
+          playOrder,
+          currentIndex: playOrder.indexOf(
+            playerSnapshot.currentTrack?.queueId ?? "",
+          ),
+        };
+      }
+      return playerSnapshot;
+    }
     case "lyrics_resolve":
     case "lyrics_choose_candidate":
       if (activeMode === "lyrics-error") throw "Lyrics provider unavailable.";
@@ -443,7 +466,7 @@ function snapshotFor(mode: FixtureMode): PlayerSnapshot {
     currentTrack,
     positionMs: 74_000,
     durationMs: activeTrack.durationMs,
-    volume: 0.72,
+    volume: 72,
     shuffle: false,
     repeat: "off",
     error: null,

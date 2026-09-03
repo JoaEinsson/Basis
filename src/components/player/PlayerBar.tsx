@@ -2,14 +2,17 @@ import {
   ListMusic,
   Pause,
   Play,
+  LoaderCircle,
   Repeat,
   Repeat1,
   Shuffle,
   SkipBack,
   SkipForward,
+  Volume1,
   Volume2,
+  VolumeX,
 } from "lucide-react";
-import { RangeInput } from "../ui";
+import { IconSwap, RangeInput } from "../ui";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { displayTrackTitle, formatDuration } from "../library/format";
@@ -36,6 +39,8 @@ export function PlayerBar() {
   );
   const playing = snapshot.status === "playing";
   const loading = snapshot.status === "loading";
+  const VolumeIcon =
+    snapshot.volume === 0 ? VolumeX : snapshot.volume < 50 ? Volume1 : Volume2;
 
   const commitSeek = () => {
     if (scrubbing === null) return;
@@ -51,15 +56,21 @@ export function PlayerBar() {
         onClick={() => navigate("/now-playing")}
         aria-label={`Open Now Playing for ${title}`}
       >
-        <ArtworkPlaceholder
-          className="player-artwork"
-          title={title}
-          artworkKey={current.artworkKey}
-          seed={current.relPath}
-        />
-        <span className="player-current-copy">
-          <strong>{title}</strong>
-          <span>{current.artist ?? "Unknown artist"}</span>
+        <span
+          className="player-track-transition"
+          key={currentQueueId}
+          aria-live="polite"
+        >
+          <ArtworkPlaceholder
+            className="player-artwork"
+            title={title}
+            artworkKey={current.artworkKey}
+            seed={current.relPath}
+          />
+          <span className="player-current-copy">
+            <strong>{title}</strong>
+            <span>{current.artist ?? "Unknown artist"}</span>
+          </span>
         </span>
       </button>
 
@@ -85,13 +96,22 @@ export function PlayerBar() {
             className="primary-transport"
             type="button"
             aria-label={playing ? "Pause" : "Play"}
+            aria-busy={loading}
             disabled={loading}
             onClick={() => void (playing ? player.pause() : player.resume())}
           >
-            {playing ? (
-              <Pause aria-hidden="true" size={19} />
+            {loading ? (
+              <LoaderCircle
+                className="player-loading-icon"
+                aria-hidden="true"
+                size={19}
+              />
             ) : (
-              <Play aria-hidden="true" size={19} />
+              <IconSwap
+                active={playing}
+                activeIcon={<Pause size={19} />}
+                inactiveIcon={<Play size={19} />}
+              />
             )}
           </button>
           <button
@@ -107,11 +127,11 @@ export function PlayerBar() {
             data-active={snapshot.repeat !== "off" || undefined}
             onClick={() => void player.setRepeat(nextRepeat(snapshot.repeat))}
           >
-            {snapshot.repeat === "track" ? (
-              <Repeat1 aria-hidden="true" size={17} />
-            ) : (
-              <Repeat aria-hidden="true" size={17} />
-            )}
+            <IconSwap
+              active={snapshot.repeat === "track"}
+              activeIcon={<Repeat1 size={17} />}
+              inactiveIcon={<Repeat size={17} />}
+            />
           </button>
         </div>
         <div className="player-timeline">
@@ -122,6 +142,7 @@ export function PlayerBar() {
             max={Math.max(duration, 1)}
             step="250"
             value={position}
+            aria-valuetext={`${formatDuration(position)} of ${formatDuration(duration)}`}
             disabled={duration <= 0}
             onChange={(event) => setScrubbing(Number(event.target.value))}
             onPointerUp={commitSeek}
@@ -133,13 +154,15 @@ export function PlayerBar() {
 
       <div className="player-secondary-controls">
         <label className="volume-control">
-          <Volume2 aria-hidden="true" size={18} />
+          <VolumeIcon aria-hidden="true" size={18} />
           <span className="sr-only">Volume</span>
           <RangeInput
             aria-label="Volume"
             min="0"
             max="100"
+            step="1"
             value={snapshot.volume}
+            aria-valuetext={`${snapshot.volume} percent`}
             onChange={(event) =>
               void player.setVolume(Number(event.target.value))
             }

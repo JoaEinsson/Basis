@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
+import { PlayerProvider } from "../components/player/PlayerContext";
 import type {
   ResolvedPlaylist,
   ResolvedPlaylistItem,
@@ -25,6 +26,8 @@ const mocks = vi.hoisted(() => ({
   listPlaylists: vi.fn(),
   createPlaylist: vi.fn(),
   parseLibraryQuery: vi.fn(),
+  resolvePlaylist: vi.fn(),
+  updatePlaylist: vi.fn(),
 }));
 
 vi.mock("../lib/tauri", async (importOriginal) => ({
@@ -32,6 +35,8 @@ vi.mock("../lib/tauri", async (importOriginal) => ({
   listPlaylists: mocks.listPlaylists,
   createPlaylist: mocks.createPlaylist,
   parseLibraryQuery: mocks.parseLibraryQuery,
+  resolvePlaylist: mocks.resolvePlaylist,
+  updatePlaylist: mocks.updatePlaylist,
 }));
 
 import {
@@ -163,6 +168,63 @@ describe("Playlists", () => {
       }),
     );
     expect(container.querySelectorAll(".playlist-track-row")).toHaveLength(2);
+  });
+
+  it("confirms destructive playlist cleanup inside the app", () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(
+      <StaticPlaylistEditor
+        resolved={staticPlaylist([track("First/one.flac")])}
+        saving={false}
+        onSave={onSave}
+        onPlay={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Remove from playlist" }),
+    );
+    expect(onSave).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("heading", { name: "Remove from playlist?" }),
+    ).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Remove track" }));
+
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ items: [] }));
+  });
+
+  it("renames a playlist through an explicit validated dialog", async () => {
+    const resolved = staticPlaylist([track("First/one.flac")]);
+    mocks.resolvePlaylist.mockResolvedValue(resolved);
+    mocks.updatePlaylist.mockResolvedValue({
+      ...resolved.playlist,
+      name: "Night drive",
+    });
+    render(
+      <MemoryRouter initialEntries={["/playlists/playlist-id"]}>
+        <PlayerProvider connect={false}>
+          <Routes>
+            <Route path="/playlists/:playlistId" element={<Playlists />} />
+          </Routes>
+        </PlayerProvider>
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Static" }),
+    ).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: /rename/i }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Name" }), {
+      target: { value: "Night drive" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(mocks.updatePlaylist).toHaveBeenCalledWith({
+        ...resolved.playlist,
+        name: "Night drive",
+      }),
+    );
   });
 });
 

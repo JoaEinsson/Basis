@@ -27,6 +27,7 @@ vi.mock("../lib/tauri", () => ({
   setPlaybackVolume: vi.fn(),
   setPlaybackShuffle: vi.fn(),
   setPlaybackRepeat: vi.fn(),
+  reorderPlaybackQueue: vi.fn(),
 }));
 
 import { NowPlaying } from "./NowPlaying";
@@ -34,6 +35,7 @@ import { NowPlaying } from "./NowPlaying";
 describe("Now Playing lyrics", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.localStorage.clear();
     mocks.resolveLyrics.mockResolvedValue({
       document: {
         source: "lrclib",
@@ -128,6 +130,55 @@ describe("Now Playing lyrics", () => {
     );
     expect(await screen.findByText("Chosen line")).toBeInTheDocument();
   });
+
+  it("persists the manual lyrics visibility preference locally", async () => {
+    const first = renderNowPlaying();
+
+    expect(await screen.findByText("First line")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Hide lyrics" }));
+    expect(screen.queryByText("First line")).not.toBeInTheDocument();
+    expect(
+      window.localStorage.getItem("basis.now-playing.lyrics-visible"),
+    ).toBe("false");
+
+    first.unmount();
+    renderNowPlaying();
+    expect(
+      await screen.findByRole("button", { name: "Show lyrics" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("First line")).not.toBeInTheDocument();
+  });
+
+  it("temporarily centers instrumental tracks without overwriting the manual preference", async () => {
+    window.localStorage.setItem("basis.now-playing.lyrics-visible", "true");
+    mocks.resolveLyrics.mockResolvedValueOnce({
+      document: {
+        source: "embedded",
+        synced: false,
+        instrumental: true,
+        lines: [],
+        plainText: null,
+      },
+      candidates: [],
+      message: null,
+    });
+
+    const view = renderNowPlaying();
+
+    expect(
+      await screen.findByRole("button", {
+        name: "Lyrics unavailable for instrumental track",
+      }),
+    ).toBeDisabled();
+    expect(screen.queryByRole("heading", { name: "Lyrics" })).toBeNull();
+    expect(view.container.querySelector(".now-playing-layout")).toHaveAttribute(
+      "data-artwork-only",
+      "true",
+    );
+    expect(
+      window.localStorage.getItem("basis.now-playing.lyrics-visible"),
+    ).toBe("true");
+  });
 });
 
 function renderNowPlaying() {
@@ -175,7 +226,7 @@ function snapshot(): PlayerSnapshot {
     currentTrack: { queueId: "queue-1", track },
     positionMs: 1_500,
     durationMs: 120_000,
-    volume: 0.8,
+    volume: 80,
     shuffle: false,
     repeat: "off",
     error: null,

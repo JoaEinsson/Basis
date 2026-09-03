@@ -53,6 +53,7 @@ export const commands = {
 	playerSetVolume: (volume: number) => typedError<PlayerSnapshot, string>(__TAURI_INVOKE("player_set_volume", { volume })),
 	playerSetShuffle: (enabled: boolean) => typedError<PlayerSnapshot, string>(__TAURI_INVOKE("player_set_shuffle", { enabled })),
 	playerSetRepeat: (repeat: RepeatMode) => typedError<PlayerSnapshot, string>(__TAURI_INVOKE("player_set_repeat", { repeat })),
+	playerReorderQueue: (queueId: string, targetIndex: number) => typedError<PlayerSnapshot, string>(__TAURI_INVOKE("player_reorder_queue", { queueId, targetIndex })),
 	playlistsList: () => typedError<PlaylistCatalog, string>(__TAURI_INVOKE("playlists_list")),
 	playlistsCreate: (draft: PlaylistDraft) => typedError<Playlist, string>(__TAURI_INVOKE("playlists_create", { draft })),
 	playlistsUpdate: (playlist: Playlist) => typedError<Playlist, string>(__TAURI_INVOKE("playlists_update", { playlist })),
@@ -503,4 +504,3 @@ function makeEvent<T>(name: string, serialize?: (payload: T) => unknown, deseria
 
     return Object.assign(fn, base);
 }
-

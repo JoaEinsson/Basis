@@ -52,4 +52,18 @@ describe("visual regression fixture", () => {
       "Visual fixture does not implement Tauri command: unknown_command",
     );
   });
+
+  it("keeps the queue reorder fixture aligned with the desktop command", () => {
+    const before = handleFixtureCommand("player_get_state") as {
+      playOrder: string[];
+    };
+    const movedId = before.playOrder.at(-1)!;
+    const after = handleFixtureCommand("player_reorder_queue", {
+      queueId: movedId,
+      targetIndex: 1,
+    }) as { playOrder: string[]; volume: number };
+
+    expect(after.playOrder[1]).toBe(movedId);
+    expect(after.volume).toBeGreaterThan(1);
+  });
 });
