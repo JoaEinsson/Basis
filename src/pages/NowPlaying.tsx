@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   Eye,
@@ -30,6 +30,10 @@ export function NowPlaying() {
   const lyricsScrollRef = useRef<HTMLDivElement>(null);
   const programmaticScroll = useRef(false);
   const scrollTimer = useRef<number | null>(null);
+  const trackSectionRef = useRef<HTMLElement>(null);
+  const artworkPositionRef = useRef<DOMRect | null>(null);
+  const artworkTrackIdRef = useRef<string | null>(null);
+  const artworkAnimationRef = useRef<Animation | null>(null);
 
   useEffect(() => {
     const reload = () => setRequestVersion((version) => version + 1);
@@ -111,6 +115,64 @@ export function NowPlaying() {
     };
   }, [activeLine, following]);
 
+  const instrumental = resolution?.document?.instrumental === true;
+  const showLyrics = lyricsVisible && !instrumental;
+  const trackId = track?.id ?? null;
+
+  useLayoutEffect(() => {
+    const section = trackSectionRef.current;
+    const artwork = section?.querySelector<HTMLElement>(".now-playing-artwork");
+    if (!section || !artwork || !trackId) return;
+
+    const nextPosition = artwork.getBoundingClientRect();
+    const previousPosition = artworkPositionRef.current;
+    artworkPositionRef.current = nextPosition;
+
+    if (artworkTrackIdRef.current !== trackId) {
+      artworkTrackIdRef.current = trackId;
+      return;
+    }
+    if (!previousPosition || typeof section.animate !== "function") return;
+
+    const deltaX = previousPosition.left - nextPosition.left;
+    const deltaY = previousPosition.top - nextPosition.top;
+    if (Math.abs(deltaX) < 0.5 && Math.abs(deltaY) < 0.5) return;
+    if (
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      return;
+    }
+
+    artworkAnimationRef.current?.cancel();
+    const rootStyle = getComputedStyle(document.documentElement);
+    const animation = section.animate(
+      [
+        { transform: `translate(${deltaX}px, ${deltaY}px)` },
+        { transform: "translate(0, 0)" },
+      ],
+      {
+        duration: cssDurationMs(
+          rootStyle.getPropertyValue("--mv-motion-shared-artwork"),
+          320,
+        ),
+        easing:
+          rootStyle.getPropertyValue("--mv-motion-easing-spring-soft").trim() ||
+          "ease",
+      },
+    );
+    artworkAnimationRef.current = animation;
+    animation.addEventListener(
+      "finish",
+      () => {
+        if (artworkAnimationRef.current === animation) {
+          artworkAnimationRef.current = null;
+        }
+      },
+      { once: true },
+    );
+  }, [showLyrics, trackId]);
+
   if (!snapshot || !track) {
     return (
       <section className="page quiet-state">
@@ -124,8 +186,6 @@ export function NowPlaying() {
   }
 
   const title = displayTrackTitle(track.title, track.relPath);
-  const instrumental = resolution?.document?.instrumental === true;
-  const showLyrics = lyricsVisible && !instrumental;
   const setManualLyricsVisibility = (visible: boolean) => {
     setLyricsVisible(visible);
     writeLyricsPreference(visible);
@@ -179,6 +239,7 @@ export function NowPlaying() {
       >
         <section
           key={track.id}
+          ref={trackSectionRef}
           className="now-playing-track"
           aria-labelledby="now-playing-title"
         >
@@ -381,6 +442,13 @@ function readLyricsPreference() {
   } catch {
     return true;
   }
+}
+
+function cssDurationMs(value: string, fallback: number) {
+  const normalized = value.trim();
+  const amount = Number.parseFloat(normalized);
+  if (!Number.isFinite(amount)) return fallback;
+  return normalized.endsWith("ms") ? amount : amount * 1_000;
 }
 
 function writeLyricsPreference(visible: boolean) {

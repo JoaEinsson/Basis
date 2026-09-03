@@ -13,6 +13,7 @@ export type {
   LibraryChangeKind,
   LibraryChangedEvent,
   LibrarySummary,
+  LinuxDesktopIntegration,
   LyricsCandidate,
   LyricsDocument,
   LyricsLine,

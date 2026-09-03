@@ -110,7 +110,7 @@ export function PlayerBar() {
               <IconSwap
                 active={playing}
                 activeIcon={<Pause size={19} />}
-                inactiveIcon={<Play size={19} />}
+                inactiveIcon={<Play className="player-play-glyph" size={19} />}
               />
             )}
           </button>

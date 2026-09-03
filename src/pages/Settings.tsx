@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { AppearanceEditor } from "../components/settings/AppearanceEditor";
+import { LinuxDesktopIntegration } from "../components/settings/LinuxDesktopIntegration";
 import { UpdatePanel } from "../components/settings/UpdatePanel";
 import { useLibraryContext } from "../components/shell/LibraryContext";
 import { Button, Dialog, DialogActions } from "../components/ui";
@@ -16,8 +17,15 @@ import { deleteView, saveView, setPinnedViews } from "../lib/tauri";
 import type { ViewDefinition } from "../lib/types";
 
 export function Settings() {
-  const { library, views, refreshViews, chooseLibrary, choosingLibrary } =
-    useLibraryContext();
+  const {
+    library,
+    scan,
+    libraryError,
+    views,
+    refreshViews,
+    chooseLibrary,
+    choosingLibrary,
+  } = useLibraryContext();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [renaming, setRenaming] = useState<ViewDefinition | null>(null);
@@ -105,8 +113,23 @@ export function Settings() {
           <h1 id="settings-title">Settings</h1>
         </div>
       </div>
+      <nav className="settings-nav" aria-label="Settings sections">
+        <SettingsSectionButton target="settings-library">
+          Library
+        </SettingsSectionButton>
+        <SettingsSectionButton target="settings-appearance">
+          Appearance
+        </SettingsSectionButton>
+        <SettingsSectionButton target="settings-navigation">
+          Navigation
+        </SettingsSectionButton>
+        <SettingsSectionButton target="settings-updates">
+          Updates
+        </SettingsSectionButton>
+      </nav>
       <section
         className="settings-section"
+        id="settings-library"
         aria-labelledby="music-folder-settings"
       >
         <div className="settings-section-heading">
@@ -131,11 +154,26 @@ export function Settings() {
                 : "Add folder…"}
           </button>
         </div>
+        {scan && !scan.progress.complete && !scan.error && (
+          <div className="settings-scan-status" role="status">
+            <span>
+              Indexing {scan.progress.indexed} of {scan.progress.discovered}
+            </span>
+            {scan.progress.currentTitle && (
+              <small>{scan.progress.currentTitle}</small>
+            )}
+          </div>
+        )}
+        {libraryError && (
+          <p className="inline-error" role="alert">
+            {libraryError}
+          </p>
+        )}
       </section>
       <AppearanceEditor libraryReady={library !== null} />
-      <UpdatePanel />
       <section
         className="settings-section"
+        id="settings-navigation"
         aria-labelledby="navigation-settings"
       >
         <div>
@@ -228,6 +266,8 @@ export function Settings() {
           })}
         </div>
       </section>
+      <UpdatePanel />
+      <LinuxDesktopIntegration />
 
       {renaming && (
         <NameDialog
@@ -264,6 +304,35 @@ export function Settings() {
       )}
     </section>
   );
+}
+
+function SettingsSectionButton({
+  children,
+  target,
+}: {
+  children: string;
+  target: string;
+}) {
+  return (
+    <button
+      type="button"
+      aria-controls={target}
+      onClick={() => scrollToSettingsSection(target)}
+    >
+      {children}
+    </button>
+  );
+}
+
+export function scrollToSettingsSection(targetId: string) {
+  const target = document.getElementById(targetId);
+  const canvas = target?.closest<HTMLElement>(".main-canvas");
+  if (!target || !canvas) return;
+  const top =
+    target.getBoundingClientRect().top -
+    canvas.getBoundingClientRect().top +
+    canvas.scrollTop;
+  canvas.scrollTo({ top, behavior: "smooth" });
 }
 
 function NameDialog({

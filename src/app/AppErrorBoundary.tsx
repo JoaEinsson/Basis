@@ -26,11 +26,11 @@ export class AppErrorBoundary extends Component<
     if (this.state.error) {
       return (
         <main className="fatal-error" role="alert">
-          <p className="eyebrow">Basis could not render this screen</p>
-          <h1>Something went wrong.</h1>
-          <p>{this.state.error.message}</p>
+          <p className="eyebrow">Basis</p>
+          <h1>Could not open the app.</h1>
+          <p>Reload Basis to try again. Your library files are not changed.</p>
           <button type="button" onClick={() => window.location.reload()}>
-            Reload Basis
+            Reload
           </button>
         </main>
       );

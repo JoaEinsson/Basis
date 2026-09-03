@@ -9,6 +9,9 @@ export const commands = {
 	updaterPolicy: () => typedError<UpdatePolicy, string>(__TAURI_INVOKE("updater_policy")),
 	updaterBeginCheck: (manual: boolean) => typedError<UpdateCheckPermit, string>(__TAURI_INVOKE("updater_begin_check", { manual })),
 	updaterSetAutomaticChecks: (enabled: boolean) => typedError<UpdatePolicy, string>(__TAURI_INVOKE("updater_set_automatic_checks", { enabled })),
+	linuxDesktopIntegrationStatus: () => typedError<LinuxDesktopIntegration, string>(__TAURI_INVOKE("linux_desktop_integration_status")),
+	linuxDesktopIntegrationInstall: () => typedError<LinuxDesktopIntegration, string>(__TAURI_INVOKE("linux_desktop_integration_install")),
+	linuxDesktopIntegrationRemove: () => typedError<LinuxDesktopIntegration, string>(__TAURI_INVOKE("linux_desktop_integration_remove")),
 	libraryChooseRoot: () => typedError<{
 	libraryId: string,
 	rootInstanceHash: string,
@@ -196,6 +199,16 @@ export type LibrarySummary = {
 	rootPath: string,
 	trackCount: number,
 	status: LibraryStatus,
+};
+
+export type LinuxDesktopIntegration = {
+	supported: boolean,
+	installed: boolean,
+	canInstall: boolean,
+	pathConflict: boolean,
+	managedExecutablePath: string | null,
+	desktopEntryPath: string | null,
+	iconPath: string | null,
 };
 
 export type LyricsCandidate = {

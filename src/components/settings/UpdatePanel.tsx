@@ -11,9 +11,13 @@ export function UpdatePanel() {
 
   useEffect(() => {
     let active = true;
-    void getAppHealth().then((health) => {
-      if (active) setCurrentVersion(health.version);
-    });
+    void getAppHealth()
+      .then((health) => {
+        if (active) setCurrentVersion(health.version);
+      })
+      .catch(() => {
+        if (active) setCurrentVersion(null);
+      });
     return () => {
       active = false;
     };
@@ -27,7 +31,11 @@ export function UpdatePanel() {
     : null;
 
   return (
-    <section className="settings-section" aria-labelledby="update-settings">
+    <section
+      className="settings-section"
+      id="settings-updates"
+      aria-labelledby="update-settings"
+    >
       <div className="settings-section-heading">
         <div>
           <h2 id="update-settings">About and updates</h2>
@@ -62,7 +70,7 @@ export function UpdatePanel() {
         </p>
       )}
       {updater.status === "checking" && (
-        <p role="status">Checking the signed release channel…</p>
+        <p role="status">Checking for updates…</p>
       )}
       {updater.status === "upToDate" && (
         <p role="status">Basis is up to date.</p>
@@ -90,19 +98,19 @@ export function UpdatePanel() {
           {updater.status === "downloading" && (
             <div className="update-progress" role="status">
               <Progress
-                label="Downloading signed update"
+                label="Downloading update"
                 value={progress ?? undefined}
                 max={1}
               />
               <span>
                 {progress === null
-                  ? "Downloading signed update…"
+                  ? "Downloading update…"
                   : `Downloading ${Math.round(progress * 100)}%`}
               </span>
             </div>
           )}
           {updater.status === "installing" && (
-            <p role="status">Installing the verified update…</p>
+            <p role="status">Installing update…</p>
           )}
           {updater.status === "available" && (
             <button type="button" onClick={() => setConfirming(true)}>
@@ -110,6 +118,9 @@ export function UpdatePanel() {
             </button>
           )}
         </div>
+      )}
+      {updater.status === "installed" && (
+        <p role="status">Update installed. Restarting Basis…</p>
       )}
 
       {confirming && updater.available && (
@@ -122,8 +133,8 @@ export function UpdatePanel() {
             Install Basis {updater.available.version}?
           </h2>
           <p>
-            Basis will download the signed artifact, verify it, install it, and
-            relaunch. Playback will stop when installation begins.
+            Basis will close, install the update, and reopen. Playback will
+            stop.
           </p>
           <DialogActions>
             <Button onClick={() => setConfirming(false)}>Cancel</Button>

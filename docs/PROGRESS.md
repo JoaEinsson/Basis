@@ -19,15 +19,15 @@ the resolution.
 
 ## Current gate
 
-`M0–M8 complete — post-MVP UI/UX polish P0–P5 green; P6 implemented and awaiting the desktop smoke`
+`M0–M8 complete — post-MVP UI/UX polish P0–P5 green; P6–P7 implemented and awaiting packaged desktop smokes`
 
 The product owner accepted the packaged Arch/KDE result, library acquisition and
-indexing, and synchronization behavior on September 1, 2026. P1–P4 are green;
+indexing, and synchronization behavior on September 1, 2026. P1–P5 are green;
 the remaining packaged-platform portions of the P0/P2 matrix stay recorded for
-the system-wide P8 pass. The product owner accepted P5's deterministic
-featured-credit projection and complete library-surface pass against the real
-desktop library on September 2, 2026. P6 now owns PlayerBar, queue, playlists,
-Now Playing, lyrics, and their responsive/motion states.
+the system-wide P8 pass. P6 covers playback, queue, playlists, Now Playing, and
+lyrics. P7 covers Settings, appearance editing, updater feedback, recovery, and
+explicit per-user Linux desktop integration. Their packaged interaction smokes
+remain open for P8.
 
 ## Verification
 
@@ -720,6 +720,28 @@ overflow/theme-token CSS contract. Prettier, ESLint, TypeScript, all 66 frontend
 tests, production build, release validation, rustfmt, Clippy `-D warnings`, all
 62 Rust tests (60 passing plus 2 hardware smokes ignored), updater-signature
 integration, and `git diff --check` pass.
+
+2026-09-03 15:49 BRT — P7 Settings, recovery, updater, and Linux integration pass
+Result: PASS (automated and browser; packaged Linux integration smoke pending)
+Evidence: Settings now has main-canvas-only section navigation, quiet folder and
+indexing feedback, and a recoverable global library error. Appearance editing
+provides search in both modes, grouped previews, saved/dirty feedback, empty
+search feedback, and confirmation before reset, discard, or deletion. Updater
+copy and states cover idle, checking, available, downloading, installing,
+installed/relaunching, current, and error without release-internal wording.
+Linux exposes no automatic side effects: an explicit action copies the current
+AppImage to `~/.local/bin/Basis.AppImage`, honors absolute `XDG_DATA_HOME`,
+writes the user launcher and 256 px icon, preserves executable permission,
+marks owned files, refuses unknown path conflicts, refreshes installed files,
+and confirms removal while keeping the ownership marker until last for safe
+retry. Rust now provides a non-graphical debug binding-export command, and the
+checked-in TypeScript API was regenerated from the Rust command set. Paper and
+Nocturne browser fixtures verified hierarchy, theme isolation, sticky section
+navigation, unchanged hash route, and fixed toolbar/PlayerBar during scrolling.
+ESLint, TypeScript, Prettier, all 72 frontend tests, the production build,
+release validation, all 5 updater-manifest tests, rustfmt, Clippy `-D warnings`,
+all 63 Rust unit tests (61 passing plus 2 hardware smokes ignored), the updater
+signature integration test, and `git diff --check` pass.
 
 Format for new entries:
 

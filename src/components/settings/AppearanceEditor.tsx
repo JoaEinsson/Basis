@@ -30,6 +30,7 @@ import type {
 } from "../../lib/types";
 import { useTheme } from "../../theme/ThemeProvider";
 import {
+  Button,
   Checkbox,
   Dialog,
   DialogActions,
@@ -87,6 +88,9 @@ export function AppearanceEditor({ libraryReady }: { libraryReady: boolean }) {
     name: string;
     source: string;
   } | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [confirmingDiscard, setConfirmingDiscard] = useState(false);
+  const [confirmingReset, setConfirmingReset] = useState(false);
 
   useEffect(() => {
     if (!libraryReady) return;
@@ -172,10 +176,12 @@ export function AppearanceEditor({ libraryReady }: { libraryReady: boolean }) {
   async function save() {
     if (!editing) return;
     await perform(async () => {
-      await saveThemeEdits(editing.id, draftName, draftTokens);
+      const savedName = draftName.trim();
+      await saveThemeEdits(editing.id, savedName, draftTokens);
       theme.clearPreview();
       setEditing(null);
       await theme.refresh();
+      setNotice(`${savedName} saved.`);
     });
   }
 
@@ -188,11 +194,12 @@ export function AppearanceEditor({ libraryReady }: { libraryReady: boolean }) {
       await removeTheme(editing.id);
       theme.clearPreview();
       setEditing(null);
+      setConfirmingDelete(false);
       await theme.refresh();
       if (wasSelected) {
-        setNotice(
-          "The selected Theme was deleted. Basis restored Paper or Nocturne for its appearance slot.",
-        );
+        setNotice("Theme deleted. The built-in Theme is active again.");
+      } else {
+        setNotice("Theme deleted.");
       }
     });
   }
@@ -239,19 +246,30 @@ export function AppearanceEditor({ libraryReady }: { libraryReady: boolean }) {
 
   const previewTokens = { ...baseTokens, ...draftTokens };
   const contrast = contrastReport(previewTokens);
+  const dirty =
+    editing !== null &&
+    (draftName.trim() !== editing.name ||
+      !sameTokenMap(draftTokens, editing.tokens));
+
+  function closeEditor() {
+    if (dirty) {
+      setConfirmingDiscard(true);
+      return;
+    }
+    theme.clearPreview();
+    setEditing(null);
+  }
 
   return (
     <section
       className="settings-section appearance-settings"
+      id="settings-appearance"
       aria-labelledby="appearance-settings"
     >
       <div className="settings-section-heading">
         <div>
           <h2 id="appearance-settings">Appearance</h2>
-          <p>
-            Themes are portable data. They can change visual treatment without
-            changing Basis navigation or information structure.
-          </p>
+          <p>Choose a built-in Theme or customize a portable copy.</p>
         </div>
         <button
           type="button"
@@ -372,26 +390,23 @@ export function AppearanceEditor({ libraryReady }: { libraryReady: boolean }) {
               />
             </label>
             <div className="theme-editor-actions">
-              <button
-                type="button"
-                onClick={() => {
-                  theme.clearPreview();
-                  setEditing(null);
-                }}
-              >
+              <span className="theme-editor-state" role="status">
+                {dirty ? "Unsaved changes" : "Saved"}
+              </span>
+              <button type="button" onClick={closeEditor}>
                 <X aria-hidden="true" size={16} /> Close
               </button>
               <button
                 type="button"
                 disabled={busy}
-                onClick={() => void deleteCurrent()}
+                onClick={() => setConfirmingDelete(true)}
               >
                 <Trash2 aria-hidden="true" size={16} /> Delete
               </button>
               <button
                 className="primary-action"
                 type="button"
-                disabled={busy || !draftName.trim()}
+                disabled={busy || !draftName.trim() || !dirty}
                 onClick={() => void save()}
               >
                 <Save aria-hidden="true" size={16} /> Save
@@ -410,18 +425,20 @@ export function AppearanceEditor({ libraryReady }: { libraryReady: boolean }) {
                 { label: "Advanced", value: "advanced" },
               ]}
             />
-            {mode === "advanced" && (
-              <label className="theme-token-search">
-                <Search aria-hidden="true" size={16} />
-                <span className="sr-only">Search theme tokens</span>
-                <input
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Search tokens"
-                />
-              </label>
-            )}
-            <button type="button" onClick={() => setDraftTokens({})}>
+            <label className="theme-token-search">
+              <Search aria-hidden="true" size={16} />
+              <span className="sr-only">Search theme tokens</span>
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search tokens"
+              />
+            </label>
+            <button
+              type="button"
+              disabled={Object.keys(draftTokens).length === 0}
+              onClick={() => setConfirmingReset(true)}
+            >
               <RotateCcw aria-hidden="true" size={16} /> Reset all to base
             </button>
           </div>
@@ -435,6 +452,11 @@ export function AppearanceEditor({ libraryReady }: { libraryReady: boolean }) {
           </div>
 
           <div className="theme-token-sections">
+            {sections.length === 0 && (
+              <p className="theme-token-empty" role="status">
+                No matching theme tokens.
+              </p>
+            )}
             {sections.map(([category, descriptors]) => (
               <section className="theme-token-section" key={category}>
                 <div className="theme-token-section-heading">
@@ -512,7 +534,96 @@ export function AppearanceEditor({ libraryReady }: { libraryReady: boolean }) {
       {exported && (
         <ExportDialog exported={exported} onClose={() => setExported(null)} />
       )}
+      {confirmingDelete && editing && (
+        <Dialog
+          className="small-dialog"
+          ariaLabelledBy="delete-theme-title"
+          dismissible={!busy}
+          onClose={() => setConfirmingDelete(false)}
+        >
+          <h2 id="delete-theme-title">Delete “{editing.name}”?</h2>
+          <p>This removes the custom Theme file. Your music is not changed.</p>
+          {error && (
+            <p className="inline-error" role="alert">
+              {error}
+            </p>
+          )}
+          <DialogActions>
+            <button type="button" onClick={() => setConfirmingDelete(false)}>
+              Cancel
+            </button>
+            <Button
+              variant="destructive"
+              disabled={busy}
+              onClick={() => void deleteCurrent()}
+            >
+              Delete Theme
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
+      {confirmingDiscard && (
+        <Dialog
+          className="small-dialog"
+          ariaLabelledBy="discard-theme-title"
+          onClose={() => setConfirmingDiscard(false)}
+        >
+          <h2 id="discard-theme-title">Discard unsaved changes?</h2>
+          <p>Your saved Theme will not be changed.</p>
+          <DialogActions>
+            <button type="button" onClick={() => setConfirmingDiscard(false)}>
+              Keep editing
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setConfirmingDiscard(false);
+                theme.clearPreview();
+                setEditing(null);
+              }}
+            >
+              Discard changes
+            </button>
+          </DialogActions>
+        </Dialog>
+      )}
+      {confirmingReset && (
+        <Dialog
+          className="small-dialog"
+          ariaLabelledBy="reset-theme-title"
+          onClose={() => setConfirmingReset(false)}
+        >
+          <h2 id="reset-theme-title">Reset all tokens?</h2>
+          <p>All overrides in this draft will return to the base Theme.</p>
+          <DialogActions>
+            <button type="button" onClick={() => setConfirmingReset(false)}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setDraftTokens({});
+                setConfirmingReset(false);
+              }}
+            >
+              Reset all
+            </button>
+          </DialogActions>
+        </Dialog>
+      )}
     </section>
+  );
+}
+
+function sameTokenMap(
+  first: Record<string, ThemeTokenValue>,
+  second: Record<string, ThemeTokenValue>,
+) {
+  const firstKeys = Object.keys(first);
+  const secondKeys = Object.keys(second);
+  return (
+    firstKeys.length === secondKeys.length &&
+    firstKeys.every((key) => first[key] === second[key])
   );
 }
 
@@ -700,7 +811,7 @@ function JsonDialog({
         checked={replace}
         onChange={(event) => onReplace(event.target.checked)}
       >
-        Replace a custom Theme when its ID already exists
+        Replace a custom Theme with the same ID
       </Checkbox>
       <DialogActions>
         <button type="button" onClick={onCancel}>

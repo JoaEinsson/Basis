@@ -2430,6 +2430,10 @@ button.list-entity {
   color: var(--mv-color-on-accent);
 }
 
+.player-play-glyph {
+  transform: translateX(1px);
+}
+
 .player-loading-icon {
   animation: ui-spin 850ms linear infinite;
 }
@@ -2904,6 +2908,39 @@ button.list-entity {
   display: grid;
   gap: var(--mv-space-5);
   max-width: 64rem;
+  scroll-margin-top: var(--mv-space-6);
+}
+
+.settings-nav {
+  position: sticky;
+  z-index: 10;
+  top: 0;
+  display: flex;
+  width: fit-content;
+  max-width: 100%;
+  gap: var(--mv-space-1);
+  padding: var(--mv-space-1);
+  margin-bottom: var(--mv-space-10);
+  overflow-x: auto;
+  border: var(--mv-border-width) solid var(--mv-color-border);
+  border-radius: var(--mv-shape-radius-control);
+  background: var(--mv-color-bg-surface);
+  box-shadow: var(--mv-elevation-surface);
+}
+
+.settings-nav button {
+  min-height: var(--mv-control-height);
+  padding: var(--mv-space-2) var(--mv-space-3);
+  border-color: transparent;
+  border-radius: var(--mv-shape-radius-control);
+  background: transparent;
+  color: var(--mv-color-text-secondary);
+  white-space: nowrap;
+}
+
+.settings-nav button:hover:not(:disabled) {
+  background: var(--mv-color-bg-hover);
+  color: var(--mv-color-text-primary);
 }
 
 .settings-section + .settings-section {
@@ -2946,6 +2983,41 @@ button.list-entity {
 .update-progress progress {
   width: min(100%, 32rem);
   accent-color: var(--mv-color-accent);
+}
+
+.settings-scan-status {
+  display: grid;
+  gap: var(--mv-space-1);
+  color: var(--mv-color-text-secondary);
+}
+
+.settings-scan-status small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.integration-paths {
+  display: grid;
+  gap: var(--mv-space-2);
+  margin: 0;
+}
+
+.integration-paths > div {
+  display: grid;
+  grid-template-columns: minmax(5rem, auto) minmax(0, 1fr);
+  gap: var(--mv-space-3);
+}
+
+.integration-paths dt {
+  color: var(--mv-color-text-secondary);
+}
+
+.integration-paths dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--mv-font-mono);
+  font-size: var(--mv-font-size-sm);
 }
 
 .settings-section-heading,
@@ -3139,6 +3211,12 @@ button.list-entity {
 .theme-editor-actions,
 .theme-editor-toolbar {
   flex-wrap: wrap;
+}
+
+.theme-editor-state,
+.theme-token-empty {
+  color: var(--mv-color-text-secondary);
+  font-size: var(--mv-font-size-sm);
 }
 
 .theme-token-search {
@@ -3396,6 +3474,31 @@ button.list-entity {
   place-content: center;
 }
 
+.fatal-error-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--mv-space-3);
+}
+
+.fatal-error-actions a {
+  color: var(--mv-color-accent);
+}
+
+.shell-error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mv-space-4);
+  padding: var(--mv-space-3) var(--mv-space-page-inline);
+  border-bottom: var(--mv-border-width) solid var(--mv-color-error);
+  color: var(--mv-color-text-primary);
+}
+
+.shell-error-banner button {
+  flex: none;
+  padding-inline: var(--mv-space-3);
+}
+
 @media (max-width: 1199px) {
   .inline-scan-status,
   .cover-size-control,
@@ -3593,6 +3696,15 @@ button.list-entity {
   .settings-section-heading,
   .theme-editor-heading {
     display: grid;
+  }
+
+  .settings-nav {
+    width: 100%;
+  }
+
+  .integration-paths > div {
+    grid-template-columns: 1fr;
+    gap: var(--mv-space-1);
   }
 }
 

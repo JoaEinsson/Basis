@@ -21,12 +21,60 @@ use tauri_specta::{collect_commands, collect_events, Builder};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let bindings = Builder::<tauri::Wry>::new()
+    let bindings = api_builder();
+
+    #[cfg(debug_assertions)]
+    export_builder_bindings(&bindings, typescript_bindings_path())
+        .expect("Could not generate Basis TypeScript bindings");
+
+    tauri::Builder::default()
+        .manage(app_state::AppState::default())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }))
+        .invoke_handler(bindings.invoke_handler())
+        .setup(move |app| {
+            bindings.mount_events(app);
+            let app_data_dir = app
+                .path()
+                .app_data_dir()
+                .map_err(|error| format!("Could not resolve Basis application data: {error}"))?;
+            let player = player::service::PlayerService::load(&app_data_dir)?;
+            app.manage(Arc::clone(&player));
+            app.manage(Arc::new(lyrics::LyricsService::new()?));
+            if let Err(error) = library::service::restore_recent_library(app.handle()) {
+                eprintln!("Basis could not restore the recent library: {error}");
+            }
+            if let Some(active) = app.state::<app_state::AppState>().active_library()? {
+                player.attach_library(
+                    active.root,
+                    active.summary.library_id,
+                    active.summary.root_instance_hash,
+                    Some(active.database),
+                )?;
+            }
+            Ok(())
+        })
+        .run(tauri::generate_context!())
+        .expect("error while running Basis");
+}
+
+fn api_builder() -> Builder<tauri::Wry> {
+    Builder::<tauri::Wry>::new()
         .commands(collect_commands![
             commands::app::app_health,
             commands::app::updater_policy,
             commands::app::updater_begin_check,
             commands::app::updater_set_automatic_checks,
+            commands::app::linux_desktop_integration_status,
+            commands::app::linux_desktop_integration_install,
+            commands::app::linux_desktop_integration_remove,
             commands::library::library_choose_root,
             commands::library::library_status,
             commands::library::artwork_thumbnail,
@@ -78,47 +126,30 @@ pub fn run() {
             domain::player::PlayerTrackChangedEvent,
             domain::player::PlayerQueueChangedEvent,
             domain::player::PlayerErrorEvent,
-        ]);
+        ])
+}
 
-    #[cfg(debug_assertions)]
-    bindings
-        .export(Typescript::default(), "../src/lib/bindings.ts")
-        .expect("Could not generate Basis TypeScript bindings");
+#[cfg(debug_assertions)]
+pub fn export_typescript_bindings() -> Result<(), String> {
+    export_builder_bindings(&api_builder(), typescript_bindings_path())
+}
 
-    tauri::Builder::default()
-        .manage(app_state::AppState::default())
-        .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.show();
-                let _ = window.set_focus();
-            }
-        }))
-        .invoke_handler(bindings.invoke_handler())
-        .setup(move |app| {
-            bindings.mount_events(app);
-            let app_data_dir = app
-                .path()
-                .app_data_dir()
-                .map_err(|error| format!("Could not resolve Basis application data: {error}"))?;
-            let player = player::service::PlayerService::load(&app_data_dir)?;
-            app.manage(Arc::clone(&player));
-            app.manage(Arc::new(lyrics::LyricsService::new()?));
-            if let Err(error) = library::service::restore_recent_library(app.handle()) {
-                eprintln!("Basis could not restore the recent library: {error}");
-            }
-            if let Some(active) = app.state::<app_state::AppState>().active_library()? {
-                player.attach_library(
-                    active.root,
-                    active.summary.library_id,
-                    active.summary.root_instance_hash,
-                    Some(active.database),
-                )?;
-            }
-            Ok(())
-        })
-        .run(tauri::generate_context!())
-        .expect("error while running Basis");
+#[cfg(debug_assertions)]
+fn typescript_bindings_path() -> std::path::PathBuf {
+    std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../src/lib/bindings.ts")
+}
+
+#[cfg(debug_assertions)]
+fn export_builder_bindings(
+    builder: &Builder<tauri::Wry>,
+    destination: impl AsRef<std::path::Path>,
+) -> Result<(), String> {
+    let destination = destination.as_ref();
+    builder
+        .export(Typescript::default(), destination)
+        .map_err(|error| format!("Could not generate Basis TypeScript bindings: {error}"))?;
+    let generated = std::fs::read_to_string(destination)
+        .map_err(|error| format!("Could not read generated TypeScript bindings: {error}"))?;
+    std::fs::write(destination, format!("{}\n", generated.trim_end()))
+        .map_err(|error| format!("Could not normalize TypeScript bindings: {error}"))
 }

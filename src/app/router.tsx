@@ -1,4 +1,9 @@
-import { Navigate, createHashRouter, useRouteError } from "react-router-dom";
+import {
+  Link,
+  Navigate,
+  createHashRouter,
+  useRouteError,
+} from "react-router-dom";
 import { AppShell } from "../components/shell/AppShell";
 import { AlbumDetail } from "../pages/AlbumDetail";
 import { ArtistDetail } from "../pages/ArtistDetail";
@@ -12,14 +17,19 @@ import { Settings } from "../pages/Settings";
 
 function RouteErrorPage() {
   const error = useRouteError();
-  const message =
-    error instanceof Error ? error.message : "Unknown route error";
+  if (error instanceof Error) console.error("Basis route error", error);
 
   return (
     <main className="fatal-error" role="alert">
-      <p className="eyebrow">Navigation error</p>
-      <h1>Basis could not open this view.</h1>
-      <p>{message}</p>
+      <p className="eyebrow">Basis</p>
+      <h1>Could not open this view.</h1>
+      <p>Return to the library or reload this view.</p>
+      <div className="fatal-error-actions">
+        <Link to="/home">Go to library</Link>
+        <button type="button" onClick={() => window.location.reload()}>
+          Reload
+        </button>
+      </div>
     </main>
   );
 }

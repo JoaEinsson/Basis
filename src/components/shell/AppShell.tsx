@@ -137,12 +137,16 @@ export function AppShell() {
         if (!active) return;
         if (libraryResult.status === "fulfilled") {
           setLibrary(libraryResult.value);
+        } else {
+          setLibraryError("Could not restore the music folder.");
         }
         if (
           viewResult.status === "fulfilled" &&
           Array.isArray(viewResult.value)
         ) {
           setViews(viewResult.value);
+        } else if (viewResult.status === "rejected") {
+          setLibraryError("Could not load library navigation.");
         }
       },
     );
@@ -382,6 +386,18 @@ export function AppShell() {
 
             <div className="shell-workspace">
               <main className="main-canvas" ref={canvasRef} tabIndex={-1}>
+                {libraryError && location.pathname !== "/onboarding" && (
+                  <div className="shell-error-banner" role="alert">
+                    <span>{libraryError}</span>
+                    <button
+                      type="button"
+                      disabled={choosingLibrary}
+                      onClick={() => void chooseLibrary()}
+                    >
+                      Choose folder
+                    </button>
+                  </div>
+                )}
                 <div
                   className="route-stage"
                   data-direction={routeDirection}

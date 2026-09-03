@@ -9,6 +9,7 @@ import type {
   LibraryScanEvent,
   LibraryChangedEvent,
   LibrarySummary,
+  LinuxDesktopIntegration,
   PlayerErrorEvent,
   PlayerQueueChangedEvent,
   PlayerSnapshot,
@@ -56,6 +57,18 @@ export async function setAutomaticUpdateChecks(
   enabled: boolean,
 ): Promise<UpdatePolicy> {
   return unwrapResult(await commands.updaterSetAutomaticChecks(enabled));
+}
+
+export async function getLinuxDesktopIntegration(): Promise<LinuxDesktopIntegration> {
+  return unwrapResult(await commands.linuxDesktopIntegrationStatus());
+}
+
+export async function installLinuxDesktopIntegration(): Promise<LinuxDesktopIntegration> {
+  return unwrapResult(await commands.linuxDesktopIntegrationInstall());
+}
+
+export async function removeLinuxDesktopIntegration(): Promise<LinuxDesktopIntegration> {
+  return unwrapResult(await commands.linuxDesktopIntegrationRemove());
 }
 
 export async function chooseLibraryRoot(): Promise<LibrarySummary | null> {

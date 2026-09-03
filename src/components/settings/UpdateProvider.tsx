@@ -23,6 +23,7 @@ type UpdateStatus =
   | "available"
   | "downloading"
   | "installing"
+  | "installed"
   | "error";
 
 export interface AvailableUpdate {
@@ -126,6 +127,7 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
         }
         setStatus("installing");
       });
+      setStatus("installed");
       await relaunch();
     } catch {
       setStatus("error");
