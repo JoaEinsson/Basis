@@ -5,6 +5,7 @@ import { AlbumGrid } from "../components/library/AlbumGrid";
 import { TrackList } from "../components/library/TrackList";
 import { PlaylistPicker } from "../components/playlists/PlaylistPicker";
 import { usePlayer } from "../components/player/PlayerContext";
+import { EmptyState, LocalErrorState, Skeleton } from "../components/ui";
 import { getArtistDetail, setFavorite } from "../lib/tauri";
 import type { ArtistDetailDto, TrackDto } from "../lib/types";
 
@@ -28,6 +29,7 @@ export function ArtistDetail() {
   useEffect(() => {
     let active = true;
     setLoading(true);
+    setError(null);
     void getArtistDetail(artistKey)
       .then((next) => {
         if (active) setDetail(next);
@@ -51,18 +53,25 @@ export function ArtistDetail() {
 
   if (loading) {
     return (
-      <section className="page">
-        <p className="loading-state">Loading artist…</p>
+      <section
+        className="page detail-loading-state"
+        aria-label="Loading artist"
+      >
+        <Skeleton label="Loading artist details" />
+        <Skeleton label="Loading artist albums" />
+        <Skeleton label="Loading artist tracks" />
       </section>
     );
   }
   if (error || detail === null) {
     return (
-      <section className="page quiet-state" role="alert">
-        <h1>Artist unavailable</h1>
-        <p className="inline-error">
-          {error ?? "This artist is no longer in the index."}
-        </p>
+      <section className="page">
+        <LocalErrorState
+          title="Artist unavailable"
+          onRetry={() => setLibraryRevision((revision) => revision + 1)}
+        >
+          <p>{error ?? "This artist is no longer in the index."}</p>
+        </LocalErrorState>
       </section>
     );
   }
@@ -111,6 +120,7 @@ export function ArtistDetail() {
           <h2 id="artist-tracks">Tracks</h2>
           <TrackList
             tracks={detail.tracks}
+            playingTrackId={player.snapshot?.currentTrack?.track.id}
             onPlayTrack={(track) => void playArtist(track.id)}
             onPlayNext={(track) =>
               void player.playCollection([track.id], track.id, "next")
@@ -122,6 +132,11 @@ export function ArtistDetail() {
             onFavorite={(track, value) => void setFavorite(track.id, value)}
           />
         </section>
+      )}
+      {detail.albums.length === 0 && detail.tracks.length === 0 && (
+        <EmptyState title="No indexed music">
+          <p>This artist no longer has albums or tracks in the library.</p>
+        </EmptyState>
       )}
       {playlistTracks && (
         <PlaylistPicker

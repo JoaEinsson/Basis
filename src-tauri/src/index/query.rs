@@ -1443,6 +1443,67 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 
+    #[test]
+    fn album_projection_merges_correlated_feature_credit_without_rewriting_track_credit() {
+        let root = temporary_root();
+        let database = IndexDatabase::open(root.join("index.sqlite3")).unwrap();
+        let library_id = Uuid::new_v4();
+        let session = database.scan_session(1).unwrap();
+        session
+            .upsert_track(&track(
+                library_id,
+                "Bullet/Fever/01.flac",
+                "Your Betrayal",
+                "Bullet For My Valentine",
+                "Fever",
+                1,
+            ))
+            .unwrap();
+        let mut featured = track(
+            library_id,
+            "Bullet/Fever/02.flac",
+            "Road to Nowhere",
+            "Bullet For My Valentine ft. Lindemann",
+            "Fever",
+            2,
+        );
+        featured.artists = vec!["Bullet For My Valentine".to_owned(), "Lindemann".to_owned()];
+        featured.album_artist = Some("Bullet For My Valentine ft. Lindemann".to_owned());
+        session.upsert_track(&featured).unwrap();
+        session.finish().unwrap();
+        database.reproject_album_identities(library_id).unwrap();
+
+        let albums = database
+            .execute_query(
+                library_id,
+                QueryRequest {
+                    entity: EntityKind::Album,
+                    query: Expr::Predicate {
+                        field: QueryField::Album,
+                        op: QueryOperator::Eq,
+                        value: QueryValue::Text("Fever".to_owned()),
+                    },
+                    sort: Vec::new(),
+                    page: 0,
+                    page_size: 100,
+                },
+            )
+            .unwrap();
+        let QueryItems::Albums(albums) = albums.items else {
+            panic!("expected albums")
+        };
+        assert_eq!(albums.len(), 1);
+        assert_eq!(albums[0].album_artist, "Bullet For My Valentine");
+
+        let detail = database.album_detail(albums[0].album_key).unwrap().unwrap();
+        assert_eq!(detail.tracks.len(), 2);
+        assert!(detail.tracks.iter().any(|track| {
+            track.artist.as_deref() == Some("Bullet For My Valentine ft. Lindemann")
+                && track.artists == ["Bullet For My Valentine", "Lindemann"]
+        }));
+        fs::remove_dir_all(root).unwrap();
+    }
+
     fn search_track_count(database: &IndexDatabase, library_id: Uuid, query: &str) -> usize {
         database
             .global_search(

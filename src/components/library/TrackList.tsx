@@ -1,5 +1,5 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { MoreHorizontal } from "lucide-react";
+import { AudioLines, MoreHorizontal } from "lucide-react";
 import { useRef, useState } from "react";
 import type { QueryField, TrackDto, ViewDensity } from "../../lib/types";
 import { useTheme } from "../../theme/ThemeProvider";
@@ -19,6 +19,7 @@ type TrackListProps = {
   onAddToQueue?: (track: TrackDto) => void;
   onAddToPlaylist?: (track: TrackDto) => void;
   onFavorite?: (track: TrackDto, value: boolean) => void;
+  playingTrackId?: string | null;
 };
 
 export function TrackList({
@@ -33,9 +34,11 @@ export function TrackList({
   onAddToQueue,
   onAddToPlaylist,
   onFavorite,
+  playingTrackId,
 }: TrackListProps) {
   const { tokens } = useTheme();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const selectionAnchorRef = useRef<number | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     trackId: string;
     x: number;
@@ -50,10 +53,27 @@ export function TrackList({
   });
   const selected = new Set(selectedIds);
 
-  function toggleSelection(id: string, additive: boolean) {
+  function toggleSelection(
+    index: number,
+    id: string,
+    additive: boolean,
+    range: boolean,
+  ) {
     if (!onSelectionChange) {
       return;
     }
+    if (range) {
+      const anchor = selectionAnchorRef.current ?? index;
+      const first = Math.min(anchor, index);
+      const last = Math.max(anchor, index);
+      const next = additive ? new Set(selected) : new Set<string>();
+      for (let cursor = first; cursor <= last; cursor += 1) {
+        next.add(tracks[cursor].id);
+      }
+      onSelectionChange([...next]);
+      return;
+    }
+    selectionAnchorRef.current = index;
     if (!additive) {
       onSelectionChange(selected.has(id) && selected.size === 1 ? [] : [id]);
       return;
@@ -82,13 +102,16 @@ export function TrackList({
         {virtualizer.getVirtualItems().map((virtualRow) => {
           const track = tracks[virtualRow.index];
           const isSelected = selected.has(track.id);
+          const isPlaying = playingTrackId === track.id;
           return (
             <div
               className="track-row"
               data-selected={isSelected || undefined}
+              data-playing={isPlaying || undefined}
               key={track.id}
               role="option"
               aria-selected={isSelected}
+              aria-current={isPlaying ? "true" : undefined}
               onContextMenu={(event) => {
                 if (
                   !onSelectionChange &&
@@ -131,7 +154,12 @@ export function TrackList({
                 }}
                 onClick={(event) => {
                   if (onSelectionChange) {
-                    toggleSelection(track.id, event.ctrlKey || event.metaKey);
+                    toggleSelection(
+                      virtualRow.index,
+                      track.id,
+                      event.ctrlKey || event.metaKey,
+                      event.shiftKey,
+                    );
                   } else {
                     onPlayTrack?.(track);
                   }
@@ -140,7 +168,13 @@ export function TrackList({
                   if (onSelectionChange) onPlayTrack?.(track);
                 }}
               >
-                <span className="track-index">{virtualRow.index + 1}</span>
+                <span className="track-index">
+                  {isPlaying ? (
+                    <AudioLines aria-label="Now playing" size={16} />
+                  ) : (
+                    virtualRow.index + 1
+                  )}
+                </span>
                 <span className="track-primary">
                   <span className="entity-title">
                     {displayTrackTitle(track.title, track.relPath)}

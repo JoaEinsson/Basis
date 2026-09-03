@@ -152,6 +152,7 @@ export function SearchView() {
             <ResultSection title="Tracks" count={results.tracks.length}>
               <TrackList
                 tracks={results.tracks}
+                playingTrackId={player.snapshot?.currentTrack?.track.id}
                 selectedIds={selectedTrackIds}
                 onSelectionChange={(ids) =>
                   saveSearchSelection(location.key, ids)

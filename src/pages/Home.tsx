@@ -4,6 +4,7 @@ import { TrackList } from "../components/library/TrackList";
 import { PlaylistPicker } from "../components/playlists/PlaylistPicker";
 import { usePlayer } from "../components/player/PlayerContext";
 import { useLibraryContext } from "../components/shell/LibraryContext";
+import { EmptyState, LocalErrorState, Skeleton } from "../components/ui";
 import { executeLibraryQuery, setFavorite } from "../lib/tauri";
 import type { QueryItems, TrackDto, ViewDefinition } from "../lib/types";
 
@@ -74,6 +75,7 @@ function HomeSection({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [playlistTracks, setPlaylistTracks] = useState<TrackDto[] | null>(null);
+  const [retryRevision, setRetryRevision] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -106,7 +108,7 @@ function HomeSection({
     return () => {
       active = false;
     };
-  }, [revision, view]);
+  }, [retryRevision, revision, view]);
 
   async function play(track: TrackDto) {
     const started = await player.playCollection(
@@ -129,26 +131,36 @@ function HomeSection({
         </button>
       </div>
       {loading && tracks.length === 0 && (
-        <p className="loading-state">Loading {view.name.toLowerCase()}…</p>
+        <div className="home-section-loading">
+          <Skeleton label={`Loading ${view.name}`} />
+          <Skeleton label={`Loading ${view.name}`} />
+          <Skeleton label={`Loading ${view.name}`} />
+        </div>
       )}
       {error && (
-        <p className="inline-error" role="alert">
-          {error}
-        </p>
+        <LocalErrorState
+          title={`${view.name} could not be loaded`}
+          onRetry={() => setRetryRevision((value) => value + 1)}
+        >
+          <p>{error}</p>
+        </LocalErrorState>
       )}
       {!loading && !error && tracks.length === 0 && (
-        <p className="quiet-inline-state">
-          {view.id === "builtin:favorites"
-            ? "Favorite tracks appear here."
-            : view.id === "builtin:recently-played"
-              ? "Listening history appears here."
-              : "No indexed tracks yet."}
-        </p>
+        <EmptyState className="home-empty-state" title={`No ${view.name}`}>
+          <p>
+            {view.id === "builtin:favorites"
+              ? "Favorite tracks appear here."
+              : view.id === "builtin:recently-played"
+                ? "Listening history appears here."
+                : "No indexed tracks yet."}
+          </p>
+        </EmptyState>
       )}
       {tracks.length > 0 && (
         <TrackList
           tracks={tracks}
-          compact
+          density="compact"
+          playingTrackId={player.snapshot?.currentTrack?.track.id}
           onPlayTrack={(track) => void play(track)}
           onPlayNext={(track) =>
             void player.playCollection([track.id], track.id, "next")

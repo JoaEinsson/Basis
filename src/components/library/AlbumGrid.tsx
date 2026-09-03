@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { ArrowUpRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { AlbumDto, ViewDensity } from "../../lib/types";
 import { ArtworkPlaceholder } from "./ArtworkPlaceholder";
@@ -19,12 +20,18 @@ export function AlbumGrid({
     : undefined;
 
   return (
-    <div className="album-grid" data-density={density} style={style}>
-      {albums.map((album) => (
+    <div
+      className="album-grid"
+      data-density={density}
+      data-short-collection={albums.length <= 12 || undefined}
+      style={style}
+    >
+      {albums.map((album, index) => (
         <Link
           className="album-tile"
           to={`/albums/${album.albumKey}`}
           key={album.albumKey}
+          style={{ "--mv-collection-item-index": index } as CSSProperties}
         >
           <ArtworkPlaceholder
             className="album-artwork"
@@ -38,6 +45,9 @@ export function AlbumGrid({
           <span className="entity-subtitle" title={album.albumArtist}>
             {album.albumArtist}
             {album.year === null ? "" : ` · ${album.year}`}
+          </span>
+          <span className="entity-card-action" aria-hidden="true">
+            Open album <ArrowUpRight size={15} />
           </span>
         </Link>
       ))}

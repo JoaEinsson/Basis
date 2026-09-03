@@ -38,11 +38,14 @@ import {
   Checkbox,
   Dialog,
   DialogActions,
+  EmptyState,
   FilterChip,
+  LocalErrorState,
   Popover,
   RangeInput,
   SegmentedControl,
   SelectInput,
+  Skeleton,
   TextInput,
 } from "../components/ui";
 import {
@@ -320,10 +323,15 @@ export function GenericView() {
         <button
           className="back-context"
           type="button"
-          onClick={() => navigate(-1)}
+          onClick={() => navigate({ pathname: location.pathname })}
         >
           Back to {facetSelection.kind === "folder" ? "Folders" : "Genres"}
         </button>
+        <FacetBreadcrumb
+          selection={facetSelection}
+          onRoot={() => navigate({ pathname: location.pathname })}
+          onOpen={(value) => openFacet(facetSelection.kind, value)}
+        />
         <div className="page-heading">
           <div>
             <p className="page-kicker">{facetSelection.kind}</p>
@@ -334,14 +342,23 @@ export function GenericView() {
             </p>
           </div>
         </div>
-        {error && (
+        {error && tracks.length > 0 && (
           <p className="inline-error" role="alert">
             {error}
           </p>
         )}
-        {loading && tracks.length === 0 ? (
-          <p className="loading-state">Loading tracks…</p>
-        ) : (
+        {error && tracks.length === 0 && (
+          <LocalErrorState
+            title="Tracks could not be loaded"
+            onRetry={() => setProjectionRevision((revision) => revision + 1)}
+          >
+            <p>{error}</p>
+          </LocalErrorState>
+        )}
+        {loading && tracks.length === 0 && (
+          <ViewLoadingState label="Loading tracks" />
+        )}
+        {tracks.length > 0 && (
           <PlayableTracks
             tracks={tracks}
             entry={{
@@ -353,10 +370,9 @@ export function GenericView() {
           />
         )}
         {!loading && tracks.length === 0 && !error && (
-          <div className="quiet-state">
-            <h2>No tracks</h2>
+          <EmptyState title="No tracks">
             <p>This {facetSelection.kind} has no indexed tracks.</p>
-          </div>
+          </EmptyState>
         )}
         {hasMore && (
           <button
@@ -554,10 +570,18 @@ export function GenericView() {
         />
       </div>
 
-      {error && (
+      {error && itemCount > 0 && (
         <p className="inline-error" role="alert">
           {error}
         </p>
+      )}
+      {error && itemCount === 0 && (
+        <LocalErrorState
+          title={`${view.name} could not be loaded`}
+          onRetry={() => setProjectionRevision((revision) => revision + 1)}
+        >
+          <p>{error}</p>
+        </LocalErrorState>
       )}
       {items && (
         <ViewItems
@@ -568,15 +592,12 @@ export function GenericView() {
         />
       )}
       {!loading && items && itemCount === 0 && (
-        <div className="quiet-state">
-          <h2>No results</h2>
+        <EmptyState title="No results">
           <p>This View does not match any indexed music.</p>
-        </div>
+        </EmptyState>
       )}
-      {loading && itemCount === 0 && (
-        <p className="loading-state">
-          Loading {view.name.toLocaleLowerCase()}…
-        </p>
+      {loading && itemCount === 0 && !error && (
+        <ViewLoadingState label={`Loading ${view.name.toLocaleLowerCase()}`} />
       )}
       {hasMore && (
         <button
@@ -996,6 +1017,7 @@ function PlayableTracks({
   const navigate = useNavigate();
   const player = usePlayer();
   const [playlistTracks, setPlaylistTracks] = useState<TrackDto[] | null>(null);
+  const [selectionAnchor, setSelectionAnchor] = useState<number | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     trackId: string;
     x: number;
@@ -1013,30 +1035,88 @@ function PlayableTracks({
     if (started) navigate("/now-playing");
   }
 
+  async function playSelection(ids: string[]) {
+    const started = await player.playCollection(ids, ids[0]);
+    if (started) navigate("/now-playing");
+  }
+
+  function selectTrack(
+    index: number,
+    trackId: string,
+    event: MouseEvent<HTMLButtonElement>,
+  ) {
+    if (event.shiftKey) {
+      const anchor = selectionAnchor ?? index;
+      const first = Math.min(anchor, index);
+      const last = Math.max(anchor, index);
+      const next =
+        event.ctrlKey || event.metaKey
+          ? new Set(entry.selectedIds)
+          : new Set<string>();
+      for (let cursor = first; cursor <= last; cursor += 1) {
+        next.add(tracks[cursor].id);
+      }
+      onSelectionChange([...next]);
+      return;
+    }
+    setSelectionAnchor(index);
+    const selected = entry.selectedIds.includes(trackId);
+    if (event.ctrlKey || event.metaKey) {
+      onSelectionChange(
+        selected
+          ? entry.selectedIds.filter((id) => id !== trackId)
+          : [...entry.selectedIds, trackId],
+      );
+      return;
+    }
+    onSelectionChange(
+      selected && entry.selectedIds.length === 1 ? [] : [trackId],
+    );
+  }
+
+  function renderSelectionActions() {
+    if (selectedTracks.length === 0) return null;
+    const ids = selectedTracks.map((track) => track.id);
+    return (
+      <div className="selection-actions" aria-label="Selection actions">
+        <span>{selectedTracks.length} selected</span>
+        <button type="button" onClick={() => void playSelection(ids)}>
+          Play selected
+        </button>
+        <button
+          type="button"
+          onClick={() => void player.playCollection(ids, ids[0], "append")}
+        >
+          Add to queue
+        </button>
+        <button type="button" onClick={() => setPlaylistTracks(selectedTracks)}>
+          Add to playlist
+        </button>
+        <button type="button" onClick={() => onSelectionChange([])}>
+          Clear
+        </button>
+      </div>
+    );
+  }
+
   if (entry.layout === "grid") {
     return (
       <>
-        {selectedTracks.length > 0 && (
-          <div className="selection-actions" aria-label="Selection actions">
-            <span>{selectedTracks.length} selected</span>
-            <button
-              type="button"
-              onClick={() => setPlaylistTracks(selectedTracks)}
-            >
-              Add to playlist
-            </button>
-          </div>
-        )}
+        {renderSelectionActions()}
         <div className="track-grid" data-density={entry.density}>
-          {tracks.map((track) => {
+          {tracks.map((track, index) => {
             const selected = entry.selectedIds.includes(track.id);
+            const playing =
+              player.snapshot?.currentTrack?.track.id === track.id;
             return (
               <div
                 className="track-tile"
                 data-selected={selected || undefined}
+                data-playing={playing || undefined}
                 key={track.id}
                 role="option"
                 aria-selected={selected}
+                aria-current={playing ? "true" : undefined}
                 onContextMenu={(event) => {
                   event.preventDefault();
                   if (!selected) onSelectionChange([track.id]);
@@ -1052,13 +1132,7 @@ function PlayableTracks({
                   type="button"
                   draggable
                   onDragStart={(event) => setTrackDragData(event, track)}
-                  onClick={() =>
-                    onSelectionChange(
-                      selected
-                        ? entry.selectedIds.filter((id) => id !== track.id)
-                        : [...entry.selectedIds, track.id],
-                    )
-                  }
+                  onClick={(event) => selectTrack(index, track.id, event)}
                   onDoubleClick={() => void playNow(track.id)}
                 >
                   <ArtworkPlaceholder
@@ -1123,19 +1197,10 @@ function PlayableTracks({
 
   return (
     <>
-      {selectedTracks.length > 0 && (
-        <div className="selection-actions" aria-label="Selection actions">
-          <span>{selectedTracks.length} selected</span>
-          <button
-            type="button"
-            onClick={() => setPlaylistTracks(selectedTracks)}
-          >
-            Add to playlist
-          </button>
-        </div>
-      )}
+      {renderSelectionActions()}
       <TrackList
         tracks={tracks}
+        playingTrackId={player.snapshot?.currentTrack?.track.id}
         density={entry.density}
         layout={entry.layout}
         visibleFields={
@@ -1333,6 +1398,55 @@ function LibraryRequired() {
         </p>
       )}
     </section>
+  );
+}
+
+function FacetBreadcrumb({
+  selection,
+  onRoot,
+  onOpen,
+}: {
+  selection: FacetSelection;
+  onRoot: () => void;
+  onOpen: (value: string) => void;
+}) {
+  const segments =
+    selection.kind === "folder"
+      ? selection.value.split("/").filter(Boolean)
+      : [selection.value];
+  return (
+    <nav className="facet-breadcrumb" aria-label={`${selection.kind} path`}>
+      <button type="button" onClick={onRoot}>
+        {selection.kind === "folder" ? "Folders" : "Genres"}
+      </button>
+      {segments.map((segment, index) => {
+        const value = segments.slice(0, index + 1).join("/");
+        const current = index === segments.length - 1;
+        return (
+          <span key={value || segment}>
+            <span aria-hidden="true">/</span>
+            <button
+              type="button"
+              aria-current={current ? "page" : undefined}
+              disabled={current}
+              onClick={() => onOpen(value)}
+            >
+              {segment || "Library root"}
+            </button>
+          </span>
+        );
+      })}
+    </nav>
+  );
+}
+
+function ViewLoadingState({ label }: { label: string }) {
+  return (
+    <div className="view-loading-state" aria-label={label}>
+      <Skeleton label={label} />
+      <Skeleton label={label} />
+      <Skeleton label={label} />
+    </div>
   );
 }
 

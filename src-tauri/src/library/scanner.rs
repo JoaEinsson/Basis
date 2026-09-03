@@ -133,6 +133,7 @@ where
     }
 
     session.finish()?;
+    database.reproject_album_identities(library_id)?;
     progress.complete = true;
     progress.current_path = None;
     progress.current_title = None;

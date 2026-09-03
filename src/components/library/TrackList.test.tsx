@@ -49,13 +49,51 @@ describe("TrackList actions", () => {
       screen.getByRole("menuitem", { name: "Add to playlist" }),
     ).toBeInTheDocument();
   });
+
+  it("selects a contiguous keyboard-style range with Shift", () => {
+    const onSelectionChange = vi.fn();
+    render(
+      <TrackList
+        tracks={[
+          fixtureTrack("track-1", "One"),
+          fixtureTrack("track-2", "Two"),
+          fixtureTrack("track-3", "Three"),
+        ]}
+        selectedIds={[]}
+        onSelectionChange={onSelectionChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /One/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Three/ }), {
+      shiftKey: true,
+    });
+
+    expect(onSelectionChange).toHaveBeenLastCalledWith([
+      "track-1",
+      "track-2",
+      "track-3",
+    ]);
+  });
+
+  it("announces and styles the current playing track", () => {
+    render(
+      <TrackList
+        tracks={[fixtureTrack("track-id", "Song")]}
+        playingTrackId="track-id"
+      />,
+    );
+
+    expect(screen.getByRole("option")).toHaveAttribute("aria-current", "true");
+    expect(screen.getByLabelText("Now playing")).toBeInTheDocument();
+  });
 });
 
-function fixtureTrack(): TrackDto {
+function fixtureTrack(id = "track-id", title = "Song"): TrackDto {
   return {
-    id: "track-id",
-    relPath: "Artist/Album/01.flac",
-    title: "Song",
+    id,
+    relPath: `Artist/Album/${id}.flac`,
+    title,
     artist: "Artist",
     artists: ["Artist"],
     albumArtist: "Artist",

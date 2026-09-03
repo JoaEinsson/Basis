@@ -3,9 +3,11 @@ use std::{fs, path::PathBuf};
 use rusqlite::{params, Connection, OptionalExtension};
 
 use crate::domain::{
-    metadata::{album_key, comparison_key},
+    metadata::{album_key, comparison_key, resolve_album_identities, AlbumCreditObservation},
     track::IndexedTrack,
 };
+
+const ALBUM_IDENTITY_PROJECTION_VERSION: &str = "1";
 
 #[derive(Debug, Clone)]
 pub struct IndexDatabase {
@@ -51,7 +53,23 @@ impl IndexDatabase {
     pub fn open_for_library(path: PathBuf, library_id: uuid::Uuid) -> Result<Self, String> {
         let database = Self::open(path)?;
         database.hydrate_migrated_album_keys(library_id)?;
+        if database.album_identity_projection_is_stale()? {
+            database.reproject_album_identities(library_id)?;
+        }
         Ok(database)
+    }
+
+    fn album_identity_projection_is_stale(&self) -> Result<bool, String> {
+        let connection = self.connect()?;
+        let current = connection
+            .query_row(
+                "SELECT value FROM index_metadata WHERE key = 'album_identity_projection'",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()
+            .map_err(sql_error)?;
+        Ok(current.as_deref() != Some(ALBUM_IDENTITY_PROJECTION_VERSION))
     }
 
     #[cfg(test)]
@@ -209,6 +227,82 @@ impl IndexDatabase {
         transaction.commit().map_err(sql_error)
     }
 
+    pub fn reproject_album_identities(&self, library_id: uuid::Uuid) -> Result<(), String> {
+        let mut connection = self.connect()?;
+        let observations = {
+            let mut statement = connection
+                .prepare(
+                    r#"
+                    SELECT rel_path, raw_album_artist, artists_text, album, year, compilation
+                    FROM tracks
+                    ORDER BY rel_path
+                    "#,
+                )
+                .map_err(sql_error)?;
+            let rows = statement
+                .query_map([], |row| {
+                    let artists = row.get::<_, String>(2)?;
+                    Ok(AlbumCreditObservation {
+                        rel_path: row.get(0)?,
+                        raw_album_artist: row.get(1)?,
+                        artists: artists
+                            .split('\n')
+                            .filter(|artist| !artist.trim().is_empty())
+                            .map(str::to_owned)
+                            .collect(),
+                        album: row.get(3)?,
+                        year: row.get(4)?,
+                        compilation: row.get::<_, i64>(5)? != 0,
+                    })
+                })
+                .map_err(sql_error)?
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(sql_error)?;
+            rows
+        };
+        let identities = resolve_album_identities(library_id, &observations);
+        let transaction = connection.transaction().map_err(sql_error)?;
+        {
+            let mut update = transaction
+                .prepare(
+                    r#"
+                    UPDATE tracks
+                    SET album_key = ?1, album_artist = ?2, album_artist_search = ?3
+                    WHERE rel_path = ?4
+                      AND (
+                        album_key <> ?1
+                        OR album_artist IS NOT ?2
+                        OR album_artist_search IS NOT ?3
+                      )
+                    "#,
+                )
+                .map_err(sql_error)?;
+            for identity in identities {
+                let album_artist_search = identity.album_artist.as_deref().map(comparison_key);
+                update
+                    .execute(params![
+                        identity.album_key.to_string(),
+                        identity.album_artist,
+                        album_artist_search,
+                        identity.rel_path,
+                    ])
+                    .map_err(sql_error)?;
+            }
+        }
+        transaction.commit().map_err(sql_error)?;
+        connection
+            .execute(
+                r#"
+                INSERT INTO index_metadata (key, value)
+                VALUES ('album_identity_projection', ?1)
+                ON CONFLICT(key) DO UPDATE SET value = excluded.value
+                "#,
+                [ALBUM_IDENTITY_PROJECTION_VERSION],
+            )
+            .map_err(sql_error)?;
+        Ok(())
+    }
+
     pub(crate) fn connect(&self) -> Result<Connection, String> {
         let connection = Connection::open(&self.path).map_err(sql_error)?;
         connection
@@ -286,13 +380,13 @@ impl IndexScanSession {
                     duration_ms, codec, container, sample_rate, bit_depth, channels, bitrate,
                     file_size, mtime_ns, artwork_key, added_at, scanned_at, compilation,
                     title_search, album_artist_search, album_search, composer_search,
-                    codec_search, path_search
+                    codec_search, path_search, raw_album_artist
                 ) VALUES (
                     ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8,
                     ?9, ?10, ?11, ?12, ?13, ?14, ?15,
                     ?16, ?17, ?18, ?19, ?20, ?21, ?22,
                     ?23, ?24, ?25, ?26, ?27, ?28,
-                    ?29, ?30, ?31, ?32, ?33, ?34
+                    ?29, ?30, ?31, ?32, ?33, ?34, ?35
                 )
                 ON CONFLICT(rel_path) DO UPDATE SET
                     id = excluded.id,
@@ -326,7 +420,8 @@ impl IndexScanSession {
                     album_search = excluded.album_search,
                     composer_search = excluded.composer_search,
                     codec_search = excluded.codec_search,
-                    path_search = excluded.path_search
+                    path_search = excluded.path_search,
+                    raw_album_artist = excluded.raw_album_artist
                 "#,
                 params![
                     track.id.to_string(),
@@ -363,6 +458,7 @@ impl IndexScanSession {
                     track.composer.as_deref().map(comparison_key),
                     track.codec.as_deref().map(comparison_key),
                     comparison_key(&track.rel_path),
+                    track.album_artist,
                 ],
             )
             .map_err(sql_error)?;
@@ -496,7 +592,7 @@ fn migrate(connection: &mut Connection) -> Result<(), String> {
     let version: i64 = connection
         .query_row("PRAGMA user_version", [], |row| row.get(0))
         .map_err(sql_error)?;
-    if version > 3 {
+    if version > 4 {
         return Err(format!(
             "Local index schema version {version} is newer than Basis supports"
         ));
@@ -671,6 +767,33 @@ fn migrate(connection: &mut Connection) -> Result<(), String> {
             .map_err(sql_error)?;
         transaction.commit().map_err(sql_error)?;
     }
+    if version < 4 {
+        let transaction = connection.transaction().map_err(sql_error)?;
+        transaction
+            .execute_batch(
+                r#"
+                ALTER TABLE tracks ADD COLUMN raw_album_artist TEXT;
+                UPDATE tracks SET raw_album_artist = album_artist;
+                CREATE TABLE IF NOT EXISTS index_metadata (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                );
+                PRAGMA user_version = 4;
+                "#,
+            )
+            .map_err(sql_error)?;
+        transaction.commit().map_err(sql_error)?;
+    }
+    connection
+        .execute_batch(
+            r#"
+            CREATE TABLE IF NOT EXISTS index_metadata (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
+            "#,
+        )
+        .map_err(sql_error)?;
     Ok(())
 }
 

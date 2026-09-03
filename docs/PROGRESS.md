@@ -19,13 +19,14 @@ the resolution.
 
 ## Current gate
 
-`M0–M8 complete — post-MVP UI/UX polish P0–P4 implemented; P5 is next`
+`M0–M8 complete — post-MVP UI/UX polish P0–P4 green; P5 implemented and awaiting the real-library desktop smoke`
 
 The product owner accepted the packaged Arch/KDE result, library acquisition and
 indexing, and synchronization behavior on September 1, 2026. P1–P4 are green;
 the remaining packaged-platform portions of the P0/P2 matrix stay recorded for
-the system-wide P8 pass. D89's featured-credit grouping correction was
-explicitly removed from M8 and belongs to the next P5 library-surface pass.
+the system-wide P8 pass. P5 now includes D89's deterministic featured-credit
+projection and the complete library-surface pass; its final gate is the
+real-library desktop observation after the one-time local index reprojection.
 
 ## Verification
 
@@ -673,6 +674,30 @@ frontend tests, the production build, Prettier, rustfmt, Clippy `-D warnings`,
 57 Rust unit tests plus the updater-signature integration test,
 `git diff --check`, `pnpm audit --prod`, and `cargo audit` pass; RustSec reports
 only the 18 dependency-chain warnings already allowed by the repository policy.
+
+2026-09-02 22:34 BRT — P4 packaged restart acceptance and P5 library/discovery pass
+Result: PASS (automated and browser; real-library desktop smoke pending)
+Evidence: the product owner confirmed the corrected artwork, restored timeline
+fill, and persisted playback position after a real restart, closing P4's manual
+smoke. P5 now gives album/artist cards bounded stagger, hover lift and action
+reveal; artwork fades from a stable deterministic placeholder; TrackList exposes
+the active track, Shift range selection, bulk play/queue/playlist/clear actions,
+responsive columns, and action reveal; Home, Views, facets, and detail routes use
+shared skeleton/error/empty states; folder/genre facets expose breadcrumbs.
+D89 preserves raw AlbumArtist and TrackArtists, recognizes only trailing
+`feat.`/`ft.`/`featuring`, requires same album/year corroboration, leaves
+ambiguous credits separate, and versions the disposable SQLite reprojection so
+startup work runs once rather than on every launch. Rust tests cover structured,
+single-string, ambiguous, and different-year cases plus a real DB/query
+regression that verifies one album without rewriting the track credit. Browser
+fixtures verified Paper card motion/action reveal, Nocturne playing/selected
+states, three-item Shift selection and bulk actions, folder breadcrumbs, and
+zero horizontal overflow at 720 px; that check also exposed and corrected
+over-spaced narrow View controls. An artwork regression verifies that the
+deterministic placeholder remains visible until the decoded image fires its
+load event. `pnpm lint`, all 57 frontend tests,
+`pnpm build`, rustfmt, all 61 Rust tests (59 passing plus 2 hardware smokes
+ignored), and the updater-signature integration test pass.
 
 Format for new entries:
 

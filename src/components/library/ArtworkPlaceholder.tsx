@@ -16,6 +16,7 @@ export function ArtworkPlaceholder({
   className = "",
 }: ArtworkPlaceholderProps) {
   const [source, setSource] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
   const letters = title
     .split(/\s+/)
     .filter(Boolean)
@@ -24,6 +25,7 @@ export function ArtworkPlaceholder({
     .join("");
 
   useEffect(() => {
+    setLoaded(false);
     if (!artworkKey) {
       setSource(null);
       return;
@@ -41,7 +43,8 @@ export function ArtworkPlaceholder({
     <ArtworkFrame
       className={`artwork-placeholder ${className}`.trim()}
       data-artwork-key={artworkKey ?? undefined}
-      hasArtwork={Boolean(source)}
+      data-loading={Boolean(source && !loaded) || undefined}
+      hasArtwork={Boolean(source && loaded)}
       style={
         {
           "--mv-artwork-seed-angle": `${seedAngle(seed ?? artworkKey ?? title)}deg`,
@@ -49,7 +52,19 @@ export function ArtworkPlaceholder({
       }
       aria-hidden="true"
     >
-      {source ? <img alt="" src={source} /> : <span>{letters || "B"}</span>}
+      <span>{letters || "B"}</span>
+      {source && (
+        <img
+          alt=""
+          src={source}
+          data-loaded={loaded || undefined}
+          onLoad={() => setLoaded(true)}
+          onError={() => {
+            setLoaded(false);
+            setSource(null);
+          }}
+        />
+      )}
     </ArtworkFrame>
   );
 }

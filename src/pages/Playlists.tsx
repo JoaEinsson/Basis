@@ -712,6 +712,7 @@ function SmartPlaylistTracks({
     <>
       <TrackList
         tracks={tracks}
+        playingTrackId={player.snapshot?.currentTrack?.track.id}
         onPlayTrack={onPlay}
         onPlayNext={(track) =>
           void player.playCollection([track.id], track.id, "next")

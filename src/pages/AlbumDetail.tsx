@@ -6,6 +6,7 @@ import { formatDuration } from "../components/library/format";
 import { TrackList } from "../components/library/TrackList";
 import { PlaylistPicker } from "../components/playlists/PlaylistPicker";
 import { usePlayer } from "../components/player/PlayerContext";
+import { EmptyState, LocalErrorState, Skeleton } from "../components/ui";
 import { getAlbumDetail, setFavorite } from "../lib/tauri";
 import type { AlbumDetailDto, TrackDto } from "../lib/types";
 
@@ -29,6 +30,7 @@ export function AlbumDetail() {
   useEffect(() => {
     let active = true;
     setLoading(true);
+    setError(null);
     void getAlbumDetail(albumKey)
       .then((next) => {
         if (active) setDetail(next);
@@ -52,18 +54,22 @@ export function AlbumDetail() {
 
   if (loading) {
     return (
-      <section className="page">
-        <p className="loading-state">Loading album…</p>
+      <section className="page detail-loading-state" aria-label="Loading album">
+        <Skeleton label="Loading album artwork" />
+        <Skeleton label="Loading album details" />
+        <Skeleton label="Loading album tracks" />
       </section>
     );
   }
   if (error || detail === null) {
     return (
-      <section className="page quiet-state" role="alert">
-        <h1>Album unavailable</h1>
-        <p className="inline-error">
-          {error ?? "This album is no longer in the index."}
-        </p>
+      <section className="page">
+        <LocalErrorState
+          title="Album unavailable"
+          onRetry={() => setLibraryRevision((revision) => revision + 1)}
+        >
+          <p>{error ?? "This album is no longer in the index."}</p>
+        </LocalErrorState>
       </section>
     );
   }
@@ -123,18 +129,25 @@ export function AlbumDetail() {
       </header>
       <section className="detail-section" aria-labelledby="album-tracks">
         <h2 id="album-tracks">Tracks</h2>
-        <TrackList
-          tracks={detail.tracks}
-          onPlayTrack={(track) => void startAlbum(track.id)}
-          onPlayNext={(track) =>
-            void player.playCollection([track.id], track.id, "next")
-          }
-          onAddToQueue={(track) =>
-            void player.playCollection([track.id], track.id, "append")
-          }
-          onAddToPlaylist={(track) => setPlaylistTracks([track])}
-          onFavorite={(track, value) => void setFavorite(track.id, value)}
-        />
+        {detail.tracks.length > 0 ? (
+          <TrackList
+            tracks={detail.tracks}
+            playingTrackId={player.snapshot?.currentTrack?.track.id}
+            onPlayTrack={(track) => void startAlbum(track.id)}
+            onPlayNext={(track) =>
+              void player.playCollection([track.id], track.id, "next")
+            }
+            onAddToQueue={(track) =>
+              void player.playCollection([track.id], track.id, "append")
+            }
+            onAddToPlaylist={(track) => setPlaylistTracks([track])}
+            onFavorite={(track, value) => void setFavorite(track.id, value)}
+          />
+        ) : (
+          <EmptyState title="No tracks">
+            <p>This album has no indexed tracks.</p>
+          </EmptyState>
+        )}
       </section>
       {playlistTracks && (
         <PlaylistPicker

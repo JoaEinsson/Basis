@@ -259,6 +259,14 @@ fn process_paths(
     if kinds.is_empty() {
         return Ok(());
     }
+    if kinds.contains(&LibraryChangeKind::Audio) {
+        if let Err(error) = active
+            .database
+            .reproject_album_identities(active.summary.library_id)
+        {
+            first_error.get_or_insert(error);
+        }
+    }
     if projection_changed {
         if let Err(error) = rebuild_projection(&active.root, &active.database) {
             first_error.get_or_insert(error);
