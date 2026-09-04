@@ -2425,9 +2425,20 @@ button.list-entity {
 }
 
 .transport-buttons .primary-transport {
+  padding: 0;
   border-color: var(--mv-color-accent);
   background: var(--mv-color-accent);
   color: var(--mv-color-on-accent);
+}
+
+.transport-buttons .primary-transport .ui-icon-swap > span {
+  display: grid;
+  line-height: 0;
+  place-items: center;
+}
+
+.transport-buttons .primary-transport .ui-icon-swap svg {
+  display: block;
 }
 
 .player-play-glyph {
