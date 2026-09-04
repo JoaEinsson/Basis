@@ -236,10 +236,10 @@ The main engineering references are:
 
 ## Project status and scope
 
-The `0.1.0` MVP gates M0–M8 are complete. Version `0.2.0` contains the first
-post-MVP UI/UX polish release through P4. Current non-goals include EQ/DSP, exclusive or verified
-bit-perfect output, manual output-device selection, cloud accounts, automatic
-metadata enrichment, word-by-word lyrics, and recommendation radio.
+The `0.1.0` MVP gates M0–M8 are complete. Version `0.3.0` contains the post-MVP
+UI/UX polish work through P7. Current non-goals include EQ/DSP, exclusive or
+verified bit-perfect output, manual output-device selection, cloud accounts,
+automatic metadata enrichment, word-by-word lyrics, and recommendation radio.
 
 ## Contributing
 

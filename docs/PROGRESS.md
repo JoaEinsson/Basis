@@ -743,6 +743,16 @@ release validation, all 5 updater-manifest tests, rustfmt, Clippy `-D warnings`,
 all 63 Rust unit tests (61 passing plus 2 hardware smokes ignored), the updater
 signature integration test, and `git diff --check` pass.
 
+2026-09-04 16:08 BRT — P7 v0.3.0 release-candidate preparation
+Result: PASS (automated; packaged Arch/KDE integration smoke pending)
+Evidence: the Node, Tauri, Cargo, and Cargo lock versions are aligned at 0.3.0;
+`release:validate` passes with the simulated `v0.3.0` tag, including the fixed
+`Basis.AppImage` contract. All 5 updater-manifest tests, ESLint, TypeScript,
+Prettier, all 72 frontend tests, rustfmt, Clippy `-D warnings`, all 63 Rust unit
+tests (61 passing plus 2 hardware smokes ignored), the updater-signature test,
+`pnpm audit --prod`, `cargo audit`, and `git diff --check` pass. RustSec reports
+only the 18 dependency-chain warnings already allowed by repository policy.
+
 Format for new entries:
 
 ```text
