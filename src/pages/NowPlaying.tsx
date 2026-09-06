@@ -245,6 +245,7 @@ export function NowPlaying() {
         >
           <ArtworkPlaceholder
             className="now-playing-artwork"
+            dimension={512}
             title={title}
             artworkKey={track.artworkKey}
             seed={track.relPath}

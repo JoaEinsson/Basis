@@ -86,6 +86,7 @@ export function AlbumDetail() {
       <header className="album-header">
         <ArtworkPlaceholder
           className="detail-artwork"
+          dimension={512}
           title={detail.album.title}
           artworkKey={detail.album.artworkKey}
           seed={detail.album.albumKey}

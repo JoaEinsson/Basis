@@ -47,6 +47,17 @@ describe("visual regression fixture", () => {
     expect(nocturne.tokens["motion.duration.route"]).toBe(240);
   });
 
+  it("uses one deterministic artwork accent for Chromatic regression", () => {
+    const chromatic = handleFixtureCommand("theme_resolve", {
+      id: "builtin:chromatic",
+      artworkKey: "artwork:fixed-regression-accent",
+    }) as { tokens: Record<string, unknown> };
+
+    expect(chromatic.tokens["color.accent.primary"]).toBe("#ff4f9a");
+    expect(chromatic.tokens["color.player.progress"]).toBe("#ff4f9a");
+    expect(chromatic.tokens["effects.ambientGlowStrength"]).toBe(0.45);
+  });
+
   it("fails loudly when a new Tauri command is missing from the fixture", () => {
     expect(() => handleFixtureCommand("unknown_command")).toThrow(
       "Visual fixture does not implement Tauri command: unknown_command",

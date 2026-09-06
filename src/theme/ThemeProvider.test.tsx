@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getThemeSelection: vi.fn(),
@@ -51,6 +51,8 @@ describe("ThemeProvider", () => {
       }),
     );
   });
+
+  afterEach(() => vi.unstubAllGlobals());
 
   it("switches all built-ins live while preserving the navigation DOM", async () => {
     const { container } = render(
@@ -104,6 +106,28 @@ describe("ThemeProvider", () => {
       document.documentElement.style.getPropertyValue("--mv-color-accent"),
     ).toBe("#ffb000");
     expect(container.querySelector("nav")).toBe(navigation);
+  });
+
+  it("applies the complete reduced-motion mode when the OS requests it", async () => {
+    const media = mediaQuery(true);
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) =>
+        query === "(prefers-reduced-motion: reduce)"
+          ? media
+          : mediaQuery(false),
+      ),
+    );
+
+    render(
+      <ThemeProvider enabled>
+        <Harness />
+      </ThemeProvider>,
+    );
+
+    await waitFor(() =>
+      expect(document.documentElement.dataset.themeReducedMotion).toBe("true"),
+    );
   });
 });
 
@@ -178,5 +202,18 @@ function resolved(id: string): ResolvedTheme {
       "type.scale": 1,
     },
     warnings: [],
+  };
+}
+
+function mediaQuery(matches: boolean): MediaQueryList {
+  return {
+    matches,
+    media: "",
+    onchange: null,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    dispatchEvent: vi.fn(),
   };
 }

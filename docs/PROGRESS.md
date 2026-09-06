@@ -19,15 +19,15 @@ the resolution.
 
 ## Current gate
 
-`M0–M8 complete — post-MVP UI/UX polish P0–P5 green; P6–P7 implemented and awaiting packaged desktop smokes`
+`M0–M8 and post-MVP P0–P7 green; P8 automated/browser verification green, final packaged-update matrix open`
 
-The product owner accepted the packaged Arch/KDE result, library acquisition and
-indexing, and synchronization behavior on September 1, 2026. P1–P5 are green;
-the remaining packaged-platform portions of the P0/P2 matrix stay recorded for
-the system-wide P8 pass. P6 covers playback, queue, playlists, Now Playing, and
-lyrics. P7 covers Settings, appearance editing, updater feedback, recovery, and
-explicit per-user Linux desktop integration. Their packaged interaction smokes
-remain open for P8.
+The product owner accepted the packaged Windows chrome on September 2 and the
+packaged Arch/KDE application, indexing, playback, and synchronization behavior
+again on September 5. P0–P7 are green. P8 has deterministic theme, interaction,
+fallback, contrast, overflow, high-DPI artwork, release-contract, and browser
+evidence. The final P8 artifacts still need the complete packaged Windows/Arch
+interaction pass and an older-to-newer signed Arch update through the stable
+per-user integration path; see `docs/P8_VERIFICATION.md`.
 
 ## Verification
 
@@ -752,6 +752,24 @@ Prettier, all 72 frontend tests, rustfmt, Clippy `-D warnings`, all 63 Rust unit
 tests (61 passing plus 2 hardware smokes ignored), the updater-signature test,
 `pnpm audit --prod`, `cargo audit`, and `git diff --check` pass. RustSec reports
 only the 18 dependency-chain warnings already allowed by repository policy.
+
+2026-09-05 21:14 BRT — P7 packaged acceptance and P8 deterministic verification
+Result: PASS (automated and browser; final packaged-update matrix pending)
+Evidence: the product owner reports the v0.3.0 Arch/KDE application, indexing,
+playback, and synchronization are functioning normally; slower cold library
+startup on an i3-6006U with 4 GB is retained as a performance observation. P8
+adds deterministic Chromatic accent coverage, complete reduced-motion coverage,
+animation completion/interruption coverage, an instrumental-to-vocal lyric-mode
+regression, and separate 512 px hero artwork requests without increasing dense
+collection thumbnail cost. Browser inspection verified Paper, Nocturne,
+Chromatic, plain, instrumental, and provider-error states; keyboard menu/palette
+behavior; 24 px minimum visible targets; zero page overflow at 1440, 1000, and
+720 CSS px; and effective Paper lyric contrast of 15.01:1 active, 4.61:1 past,
+and 6.50:1 upcoming. Prettier, ESLint, TypeScript, all 77 frontend tests, the
+production build, release validation, all 5 updater-manifest tests, rustfmt,
+Clippy `-D warnings`, all 63 Rust unit tests (61 passing plus 2 hardware smokes
+ignored), the updater-signature integration test, and `git diff --check` pass.
+The explicit remaining checks are recorded in `docs/P8_VERIFICATION.md`.
 
 Format for new entries:
 

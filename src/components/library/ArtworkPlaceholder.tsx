@@ -7,6 +7,7 @@ type ArtworkPlaceholderProps = {
   artworkKey?: string | null;
   seed?: string;
   className?: string;
+  dimension?: 64 | 128 | 256 | 512;
 };
 
 export function ArtworkPlaceholder({
@@ -14,6 +15,7 @@ export function ArtworkPlaceholder({
   artworkKey,
   seed,
   className = "",
+  dimension = 256,
 }: ArtworkPlaceholderProps) {
   const [source, setSource] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -31,13 +33,13 @@ export function ArtworkPlaceholder({
       return;
     }
     let active = true;
-    void loadThumbnail(artworkKey).then((next) => {
+    void loadThumbnail(artworkKey, dimension).then((next) => {
       if (active) setSource(next);
     });
     return () => {
       active = false;
     };
-  }, [artworkKey]);
+  }, [artworkKey, dimension]);
 
   return (
     <ArtworkFrame
@@ -71,11 +73,12 @@ export function ArtworkPlaceholder({
 
 const thumbnailCache = new Map<string, Promise<string | null>>();
 
-function loadThumbnail(key: string) {
-  const cached = thumbnailCache.get(key);
+function loadThumbnail(key: string, dimension: 64 | 128 | 256 | 512) {
+  const cacheKey = `${key}:${dimension}`;
+  const cached = thumbnailCache.get(cacheKey);
   if (cached) return cached;
-  const request = getArtworkThumbnail(key, 256).catch(() => null);
-  thumbnailCache.set(key, request);
+  const request = getArtworkThumbnail(key, dimension).catch(() => null);
+  thumbnailCache.set(cacheKey, request);
   return request;
 }
 

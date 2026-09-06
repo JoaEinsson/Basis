@@ -14,6 +14,7 @@ import type {
 } from "../lib/types";
 import nocturneTheme from "../../src-tauri/themes/nocturne.json";
 import paperTheme from "../../src-tauri/themes/paper.json";
+import chromaticTheme from "../../src-tauri/themes/chromatic.json";
 
 type FixtureMode =
   "library" | "synced" | "plain" | "instrumental" | "lyrics-error";
@@ -168,14 +169,20 @@ const smartPlaylist: Playlist = {
 
 let activeMode: FixtureMode = "library";
 let playerSnapshot = snapshotFor("library");
+let activeThemeId = "builtin:nocturne";
 
 export async function installVisualFixture(requestedMode: string) {
   const { mockIPC, mockWindows } = await import("@tauri-apps/api/mocks");
-  const fixture = requestedMode.replace(/^(paper|nocturne)-/, "");
+  const fixture = requestedMode.replace(/^(chromatic|paper|nocturne)-/, "");
   if (requestedMode.startsWith("paper-")) {
     window.localStorage.setItem("basis.theme.manualAppearance", "light");
+    activeThemeId = "builtin:paper";
+  } else if (requestedMode.startsWith("chromatic-")) {
+    window.localStorage.setItem("basis.theme.manualAppearance", "dark");
+    activeThemeId = "builtin:chromatic";
   } else if (requestedMode.startsWith("nocturne-")) {
     window.localStorage.setItem("basis.theme.manualAppearance", "dark");
+    activeThemeId = "builtin:nocturne";
   }
   window.localStorage.setItem("basis.now-playing.lyrics-visible", "true");
   activeMode = isFixtureMode(fixture) ? fixture : "library";
@@ -317,25 +324,39 @@ export function handleFixtureCommand(
         themes: [
           theme("builtin:nocturne", "Nocturne", "dark"),
           theme("builtin:paper", "Paper", "light"),
+          theme("builtin:chromatic", "Chromatic", "dark"),
         ],
         warnings: [],
       };
     case "theme_selection":
       return {
         lightSelection: "builtin:paper",
-        darkSelection: "builtin:nocturne",
+        darkSelection:
+          activeThemeId === "builtin:chromatic"
+            ? "builtin:chromatic"
+            : "builtin:nocturne",
         followSystemAppearance: false,
       };
     case "theme_resolve": {
       const id = String(payload.id ?? "builtin:nocturne");
       const paper = id === "builtin:paper";
+      const chromatic = id === "builtin:chromatic";
       return {
         id,
-        name: paper ? "Paper" : "Nocturne",
+        name: paper ? "Paper" : chromatic ? "Chromatic" : "Nocturne",
         appearance: paper ? "light" : "dark",
         tokens: {
           ...fixtureThemeDefaults,
-          ...(paper ? paperTheme.tokens : nocturneTheme.tokens),
+          ...(paper
+            ? paperTheme.tokens
+            : chromatic
+              ? {
+                  ...nocturneTheme.tokens,
+                  ...chromaticTheme.tokens,
+                  "color.accent.primary": "#ff4f9a",
+                  "color.player.progress": "#ff4f9a",
+                }
+              : nocturneTheme.tokens),
         },
         warnings: [],
       };

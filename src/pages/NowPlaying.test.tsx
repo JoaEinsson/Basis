@@ -1,12 +1,23 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PlayerProvider } from "../components/player/PlayerContext";
-import type { PlayerSnapshot } from "../lib/types";
+import type { PlayerSnapshot, PlayerTrackChangedEvent } from "../lib/types";
 
 const mocks = vi.hoisted(() => ({
   resolveLyrics: vi.fn(),
   chooseLyricsCandidate: vi.fn(),
+  getPlayerState: vi.fn(),
+  onPlayerError: vi.fn(),
+  onPlayerQueueChanged: vi.fn(),
+  onPlayerState: vi.fn(),
+  onPlayerTrackChanged: vi.fn(),
   seekPlayback: vi.fn(),
 }));
 
@@ -14,11 +25,11 @@ vi.mock("../lib/tauri", () => ({
   resolveLyrics: mocks.resolveLyrics,
   chooseLyricsCandidate: mocks.chooseLyricsCandidate,
   seekPlayback: mocks.seekPlayback,
-  getPlayerState: vi.fn(),
-  onPlayerState: vi.fn(),
-  onPlayerTrackChanged: vi.fn(),
-  onPlayerQueueChanged: vi.fn(),
-  onPlayerError: vi.fn(),
+  getPlayerState: mocks.getPlayerState,
+  onPlayerState: mocks.onPlayerState,
+  onPlayerTrackChanged: mocks.onPlayerTrackChanged,
+  onPlayerQueueChanged: mocks.onPlayerQueueChanged,
+  onPlayerError: mocks.onPlayerError,
   pausePlayback: vi.fn(),
   resumePlayback: vi.fn(),
   nextTrack: vi.fn(),
@@ -50,6 +61,11 @@ describe("Now Playing lyrics", () => {
       candidates: [],
       message: null,
     });
+    mocks.getPlayerState.mockResolvedValue(snapshot());
+    mocks.onPlayerError.mockResolvedValue(vi.fn());
+    mocks.onPlayerQueueChanged.mockResolvedValue(vi.fn());
+    mocks.onPlayerState.mockResolvedValue(vi.fn());
+    mocks.onPlayerTrackChanged.mockResolvedValue(vi.fn());
     mocks.seekPlayback.mockResolvedValue(snapshot());
   });
 
@@ -179,23 +195,140 @@ describe("Now Playing lyrics", () => {
       window.localStorage.getItem("basis.now-playing.lyrics-visible"),
     ).toBe("true");
   });
+
+  it("restores the manual lyric mode after an instrumental track changes back to vocals", async () => {
+    let publishTrack: ((event: PlayerTrackChangedEvent) => void) | undefined;
+    const initial = snapshot();
+    const instrumental = snapshot(
+      "00000000-0000-0000-0000-000000000002",
+      "Instrumental",
+    );
+    const vocal = snapshot(
+      "00000000-0000-0000-0000-000000000003",
+      "Vocals return",
+    );
+    window.localStorage.setItem("basis.now-playing.lyrics-visible", "true");
+    mocks.getPlayerState.mockResolvedValue(initial);
+    mocks.onPlayerTrackChanged.mockImplementationOnce((listener) => {
+      publishTrack = listener;
+      return Promise.resolve(vi.fn());
+    });
+    mocks.resolveLyrics
+      .mockResolvedValueOnce(syncedLyrics("Opening line"))
+      .mockResolvedValueOnce(instrumentalLyrics())
+      .mockResolvedValueOnce(syncedLyrics("Lyrics restored"));
+
+    const view = renderNowPlaying({ connect: true, initialSnapshot: initial });
+    expect(await screen.findByText("Opening line")).toBeInTheDocument();
+
+    act(() => publishTrack?.({ currentTrack: instrumental.currentTrack }));
+    expect(
+      await screen.findByRole("button", {
+        name: "Lyrics unavailable for instrumental track",
+      }),
+    ).toBeDisabled();
+    expect(view.container.querySelector(".now-playing-layout")).toHaveAttribute(
+      "data-artwork-only",
+      "true",
+    );
+
+    act(() => publishTrack?.({ currentTrack: vocal.currentTrack }));
+    expect(await screen.findByText("Lyrics restored")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hide lyrics" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(
+      view.container.querySelector(".now-playing-layout"),
+    ).not.toHaveAttribute("data-artwork-only");
+    expect(
+      window.localStorage.getItem("basis.now-playing.lyrics-visible"),
+    ).toBe("true");
+  });
+
+  it("completes and interrupts artwork recomposition without delaying lyric visibility", async () => {
+    const animateDescriptor = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      "animate",
+    );
+    const rectSpy = vi
+      .spyOn(Element.prototype, "getBoundingClientRect")
+      .mockImplementation(function () {
+        const artworkOnly =
+          this instanceof HTMLElement &&
+          this.classList.contains("now-playing-artwork") &&
+          this.closest(".now-playing-layout")?.hasAttribute(
+            "data-artwork-only",
+          );
+        return layoutRect(artworkOnly ? 420 : 120);
+      });
+    const animations = Array.from({ length: 3 }, () => fakeAnimation());
+    const animate = vi
+      .fn()
+      .mockReturnValueOnce(animations[0].animation)
+      .mockReturnValueOnce(animations[1].animation)
+      .mockReturnValueOnce(animations[2].animation);
+    Object.defineProperty(HTMLElement.prototype, "animate", {
+      configurable: true,
+      value: animate,
+    });
+
+    try {
+      renderNowPlaying();
+      expect(await screen.findByText("First line")).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: "Hide lyrics" }));
+      expect(screen.queryByText("First line")).not.toBeInTheDocument();
+      expect(animate).toHaveBeenCalledTimes(1);
+      animations[0].finish();
+
+      fireEvent.click(screen.getByRole("button", { name: "Show lyrics" }));
+      expect(await screen.findByText("First line")).toBeInTheDocument();
+      expect(animations[0].cancel).not.toHaveBeenCalled();
+      expect(animate).toHaveBeenCalledTimes(2);
+
+      fireEvent.click(screen.getByRole("button", { name: "Hide lyrics" }));
+      expect(animations[1].cancel).toHaveBeenCalledOnce();
+      expect(animate).toHaveBeenCalledTimes(3);
+    } finally {
+      rectSpy.mockRestore();
+      if (animateDescriptor) {
+        Object.defineProperty(
+          HTMLElement.prototype,
+          "animate",
+          animateDescriptor,
+        );
+      } else {
+        delete (HTMLElement.prototype as Partial<HTMLElement>).animate;
+      }
+    }
+  });
 });
 
-function renderNowPlaying() {
+function renderNowPlaying({
+  connect = false,
+  initialSnapshot = snapshot(),
+}: {
+  connect?: boolean;
+  initialSnapshot?: PlayerSnapshot;
+} = {}) {
   return render(
     <MemoryRouter>
-      <PlayerProvider connect={false} initialSnapshot={snapshot()}>
+      <PlayerProvider connect={connect} initialSnapshot={initialSnapshot}>
         <NowPlaying />
       </PlayerProvider>
     </MemoryRouter>,
   );
 }
 
-function snapshot(): PlayerSnapshot {
+function snapshot(
+  id = "00000000-0000-0000-0000-000000000001",
+  title = "Track",
+): PlayerSnapshot {
   const track = {
-    id: "00000000-0000-0000-0000-000000000001",
-    relPath: "Artist/Album/Track.flac",
-    title: "Track",
+    id,
+    relPath: `Artist/Album/${title}.flac`,
+    title,
     artist: "Artist",
     artists: ["Artist"],
     albumArtist: "Artist",
@@ -232,4 +365,58 @@ function snapshot(): PlayerSnapshot {
     error: null,
     outputDevice: null,
   };
+}
+
+function syncedLyrics(text: string) {
+  return {
+    document: {
+      source: "lrclib" as const,
+      synced: true,
+      instrumental: false,
+      lines: [{ timestampMs: 1_000, text }],
+      plainText: null,
+    },
+    candidates: [],
+    message: null,
+  };
+}
+
+function instrumentalLyrics() {
+  return {
+    document: {
+      source: "embedded" as const,
+      synced: false,
+      instrumental: true,
+      lines: [],
+      plainText: null,
+    },
+    candidates: [],
+    message: null,
+  };
+}
+
+function layoutRect(left: number): DOMRect {
+  return {
+    bottom: 384,
+    height: 384,
+    left,
+    right: left + 384,
+    top: 0,
+    width: 384,
+    x: left,
+    y: 0,
+    toJSON: () => ({}),
+  };
+}
+
+function fakeAnimation() {
+  let finish: (() => void) | undefined;
+  const cancel = vi.fn();
+  const animation = {
+    addEventListener: vi.fn((type: string, listener: EventListener) => {
+      if (type === "finish") finish = () => listener(new Event("finish"));
+    }),
+    cancel,
+  } as unknown as Animation;
+  return { animation, cancel, finish: () => finish?.() };
 }
