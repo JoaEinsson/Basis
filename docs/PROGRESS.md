@@ -771,6 +771,14 @@ Clippy `-D warnings`, all 63 Rust unit tests (61 passing plus 2 hardware smokes
 ignored), the updater-signature integration test, and `git diff --check` pass.
 The explicit remaining checks are recorded in `docs/P8_VERIFICATION.md`.
 
+2026-09-05 21:24 BRT — P8 patch release preparation
+Result: PASS
+Evidence: package, Tauri, Cargo, and the root Cargo lock package are aligned at
+0.3.1. `release:validate` accepts the simulated `v0.3.1` tag; all 5 updater-
+manifest tests, Prettier, ESLint, TypeScript, all 77 frontend tests, the
+production build, `cargo check --locked`, and `git diff --check` pass. Historical
+v0.3.0 evidence remains unchanged.
+
 Format for new entries:
 
 ```text

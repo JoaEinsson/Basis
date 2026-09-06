@@ -1,6 +1,6 @@
 [package]
 name = "basis"
-version = "0.3.0"
+version = "0.3.1"
 description = "A local-first, data-driven music player"
 authors = ["JoaEinsson"]
 license = "Apache-2.0"
