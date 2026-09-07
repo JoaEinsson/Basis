@@ -236,7 +236,8 @@ Record only IDs/versions/results, never key material.
 - the Linux release contains exactly `Basis.AppImage` and
   `Basis.AppImage.sig`, and any enabled XDG/KDE integration survives a signed
   update without changing its executable path;
-- valid and negative tests have evidence in `PROGRESS.md`;
+- valid and negative tests have current evidence in `STATUS.md` (historical
+  evidence is preserved in `legacy/history/PROGRESS_M0_P8.md`);
 - update failure was tested during playback and did not interrupt audio;
 - README/release notes explain which secrets a maintainer must configure and how
   to create a release tag, without including real values;

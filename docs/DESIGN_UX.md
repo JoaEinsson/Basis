@@ -37,7 +37,11 @@ This contract does not:
 - add structural scripting to themes;
 - change any portable, offline, release, or security rule.
 
-The accepted post-MVP extension is `UI_UX_POLISH_PLAN.md`. It specifies a
+The accepted P0–P8 extension is archived in
+[UI_UX_POLISH_PLAN.md](legacy/polish-p0-p8/UI_UX_POLISH_PLAN.md). Its interface
+contracts remain applicable; its execution checklist is historical. Current
+scope and sequencing are in [PRODUCT_CONTRACT.md](PRODUCT_CONTRACT.md) and
+[ROADMAP.md](ROADMAP.md). The extension specifies a
 unified custom Windows/Linux window/application toolbar, Signal Cyan Nocturne
 identity, shared interaction primitives, and an expressive but controlled
 system-wide motion language without retroactively opening the M0-M8 gate or

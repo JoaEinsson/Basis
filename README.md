@@ -220,19 +220,17 @@ docs/                Product decisions, architecture, UX, acceptance, and eviden
 
 The main engineering references are:
 
-- [`DATA_DRIVEN_MUSIC_PLAYER_SPEC.md`](DATA_DRIVEN_MUSIC_PLAYER_SPEC.md) —
-  canonical product specification;
-- [`docs/DECISIONS.md`](docs/DECISIONS.md) — locked product and engineering
-  decisions;
+- [`docs/PRODUCT_CONTRACT.md`](docs/PRODUCT_CONTRACT.md) — current product
+  invariants and detailed-contract reference routing;
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) — next development cycles and exit gates;
+- [`docs/STATUS.md`](docs/STATUS.md) — current baseline and outstanding checks;
 - [`docs/DESIGN_UX.md`](docs/DESIGN_UX.md) — navigation, composition, and
   responsive interaction contract;
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — system boundaries and data
   ownership;
-- [`docs/ACCEPTANCE.md`](docs/ACCEPTANCE.md) and
-  [`docs/PROGRESS.md`](docs/PROGRESS.md) — verification matrix and current
-  evidence;
-- [`docs/UI_UX_POLISH_PLAN.md`](docs/UI_UX_POLISH_PLAN.md) — accepted post-MVP
-  polish program.
+- [`docs/RELEASE_AND_SIGNING.md`](docs/RELEASE_AND_SIGNING.md) — release operations;
+- [`docs/legacy/README.md`](docs/legacy/README.md) — archived MVP specification,
+  decisions, P0–P8 plans, and verification evidence (consult as needed).
 
 ## Project status and scope
 

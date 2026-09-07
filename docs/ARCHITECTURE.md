@@ -2,7 +2,8 @@
 
 This document resolves decisions that the specification leaves optional. They
 may be changed only for a technical reason observed during implementation and
-recorded in `PROGRESS.md`.
+recorded in [STATUS.md](STATUS.md); historical implementation evidence is in
+[the M0–P8 record](legacy/history/PROGRESS_M0_P8.md).
 
 The locked identity is **Basis**, package `basis`, bundle identifier
 `io.github.joaeinsson.basis`, version `0.1.0`, and repository
