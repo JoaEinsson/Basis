@@ -13,6 +13,25 @@ const MAX_MATERIALIZED_TRACKS: usize = 10_000;
 
 #[tauri::command]
 #[specta::specta]
+pub fn player_set_muted(
+    app: AppHandle,
+    player: State<'_, Arc<PlayerService>>,
+    muted: bool,
+) -> Result<PlayerSnapshot, String> {
+    player.set_muted(&app, muted)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn player_clear_upcoming(
+    app: AppHandle,
+    player: State<'_, Arc<PlayerService>>,
+) -> Result<PlayerSnapshot, String> {
+    player.clear_upcoming(&app)
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn player_play_collection(
     app: AppHandle,
     state: State<'_, AppState>,

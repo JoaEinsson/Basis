@@ -5,19 +5,99 @@ import type { PlayerSnapshot, TrackDto } from "../../lib/types";
 
 const mocks = vi.hoisted(() => ({
   reorderPlaybackQueue: vi.fn(),
+  clearUpcomingPlayback: vi.fn(),
+  setPlaybackMuted: vi.fn(),
+  createPlaylist: vi.fn(),
+  nextTrack: vi.fn(),
+  resumePlayback: vi.fn(),
 }));
 
 vi.mock("../../lib/tauri", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../lib/tauri")>()),
   reorderPlaybackQueue: mocks.reorderPlaybackQueue,
+  clearUpcomingPlayback: mocks.clearUpcomingPlayback,
+  setPlaybackMuted: mocks.setPlaybackMuted,
+  createPlaylist: mocks.createPlaylist,
+  nextTrack: mocks.nextTrack,
+  resumePlayback: mocks.resumePlayback,
 }));
 
 import { PlayerBar } from "./PlayerBar";
-import { PlayerProvider } from "./PlayerContext";
+import { PlayerProvider, PlayerKeyboardShortcuts } from "./PlayerContext";
 import { QueuePane } from "./QueuePane";
 
 describe("QueuePane", () => {
   beforeEach(() => vi.clearAllMocks());
+
+  it("mutes without replacing the chosen volume", async () => {
+    const initial = snapshot();
+    mocks.setPlaybackMuted
+      .mockResolvedValueOnce({ ...initial, muted: true })
+      .mockResolvedValueOnce(initial);
+    renderQueue(initial);
+    fireEvent.click(screen.getByRole("button", { name: "Mute" }));
+    const unmute = await screen.findByRole("button", { name: "Unmute" });
+    expect(screen.getByRole("slider", { name: "Volume" })).toHaveValue("80");
+    fireEvent.click(unmute);
+    await waitFor(() =>
+      expect(mocks.setPlaybackMuted).toHaveBeenLastCalledWith(false),
+    );
+  });
+
+  it("clears upcoming items without removing history or the current item", async () => {
+    const initial = snapshot();
+    mocks.clearUpcomingPlayback.mockResolvedValue({
+      ...initial,
+      queue: initial.queue.slice(0, 2),
+      playOrder: initial.playOrder.slice(0, 2),
+    });
+    renderQueue(initial);
+    fireEvent.click(screen.getByRole("button", { name: "Open queue" }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear upcoming" }));
+    await screen.findByText("Upcoming tracks cleared.");
+    expect(screen.getByText("Track 1")).toBeInTheDocument();
+    expect(screen.queryByText("Track 3")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Clear upcoming" }),
+    ).toBeDisabled();
+  });
+
+  it("saves a new playlist in displayed order, retaining repeated tracks", async () => {
+    const initial = snapshot();
+    initial.queue[3].track = initial.queue[1].track;
+    initial.playOrder = ["queue-1", "queue-2", "queue-4", "queue-3"];
+    mocks.createPlaylist.mockResolvedValue({});
+    renderQueue(initial);
+    fireEvent.click(screen.getByRole("button", { name: "Open queue" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save as playlist" }));
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "New static playlist" }),
+      { target: { value: "My queue" } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Save playlist" }));
+    await waitFor(() =>
+      expect(mocks.createPlaylist).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "My queue",
+          type: "static",
+          items: [
+            expect.objectContaining({ path: initial.queue[0].track.relPath }),
+            expect.objectContaining({ path: initial.queue[1].track.relPath }),
+            expect.objectContaining({ path: initial.queue[1].track.relPath }),
+            expect.objectContaining({ path: initial.queue[2].track.relPath }),
+          ],
+        }),
+      ),
+    );
+  });
+
+  it("does not redispatch native media keys in the webview", () => {
+    renderQueue(snapshot());
+    fireEvent.keyDown(window, { key: "MediaTrackNext" });
+    fireEvent.keyDown(window, { key: "MediaPlayPause" });
+    expect(mocks.nextTrack).not.toHaveBeenCalled();
+    expect(mocks.resumePlayback).not.toHaveBeenCalled();
+  });
 
   it("distinguishes history, current and upcoming tracks and reorders upcoming items", async () => {
     const initial = snapshot();
@@ -86,6 +166,7 @@ function renderQueue(initial: PlayerSnapshot) {
   return render(
     <MemoryRouter>
       <PlayerProvider connect={false} initialSnapshot={initial}>
+        <PlayerKeyboardShortcuts />
         <PlayerBar />
         <QueuePane />
       </PlayerProvider>
@@ -107,6 +188,7 @@ function snapshot(): PlayerSnapshot {
     positionMs: 15_000,
     durationMs: 120_000,
     volume: 80,
+    muted: false,
     shuffle: false,
     repeat: "off",
     error: null,

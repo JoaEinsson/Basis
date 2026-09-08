@@ -47,6 +47,9 @@ pub fn run() {
                 .map_err(|error| format!("Could not resolve Basis application data: {error}"))?;
             let player = player::service::PlayerService::load(&app_data_dir)?;
             app.manage(Arc::clone(&player));
+            if let Err(error) = player::media_controls::start(app.handle(), &player) {
+                eprintln!("Basis system media controls are unavailable: {error}");
+            }
             app.manage(Arc::new(lyrics::LyricsService::new()?));
             if let Err(error) = library::service::restore_recent_library(app.handle()) {
                 eprintln!("Basis could not restore the recent library: {error}");
@@ -98,6 +101,8 @@ fn api_builder() -> Builder<tauri::Wry> {
             commands::player::player_next,
             commands::player::player_previous,
             commands::player::player_set_volume,
+            commands::player::player_set_muted,
+            commands::player::player_clear_upcoming,
             commands::player::player_set_shuffle,
             commands::player::player_set_repeat,
             commands::player::player_reorder_queue,

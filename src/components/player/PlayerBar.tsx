@@ -40,7 +40,11 @@ export function PlayerBar() {
   const playing = snapshot.status === "playing";
   const loading = snapshot.status === "loading";
   const VolumeIcon =
-    snapshot.volume === 0 ? VolumeX : snapshot.volume < 50 ? Volume1 : Volume2;
+    snapshot.muted || snapshot.volume === 0
+      ? VolumeX
+      : snapshot.volume < 50
+        ? Volume1
+        : Volume2;
 
   const commitSeek = () => {
     if (scrubbing === null) return;
@@ -153,9 +157,16 @@ export function PlayerBar() {
       </div>
 
       <div className="player-secondary-controls">
-        <label className="volume-control">
-          <VolumeIcon aria-hidden="true" size={18} />
-          <span className="sr-only">Volume</span>
+        <div className="volume-control">
+          <button
+            type="button"
+            aria-label={snapshot.muted ? "Unmute" : "Mute"}
+            title={snapshot.muted ? "Unmute" : "Mute"}
+            aria-pressed={snapshot.muted}
+            onClick={() => void player.setMuted(!snapshot.muted)}
+          >
+            <VolumeIcon aria-hidden="true" size={18} />
+          </button>
           <RangeInput
             aria-label="Volume"
             min="0"
@@ -167,7 +178,7 @@ export function PlayerBar() {
               void player.setVolume(Number(event.target.value))
             }
           />
-        </label>
+        </div>
         <button
           type="button"
           aria-label={player.queueOpen ? "Close queue" : "Open queue"}

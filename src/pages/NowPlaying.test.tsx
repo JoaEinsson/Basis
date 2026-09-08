@@ -360,6 +360,7 @@ function snapshot(
     positionMs: 1_500,
     durationMs: 120_000,
     volume: 80,
+    muted: false,
     shuffle: false,
     repeat: "off",
     error: null,

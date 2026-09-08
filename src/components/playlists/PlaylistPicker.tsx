@@ -6,9 +6,14 @@ import { Dialog, DialogActions } from "../ui";
 type PlaylistPickerProps = {
   tracks: TrackDto[];
   onClose: () => void;
+  createOnly?: boolean;
 };
 
-export function PlaylistPicker({ tracks, onClose }: PlaylistPickerProps) {
+export function PlaylistPicker({
+  tracks,
+  onClose,
+  createOnly = false,
+}: PlaylistPickerProps) {
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(true);
@@ -16,6 +21,10 @@ export function PlaylistPicker({ tracks, onClose }: PlaylistPickerProps) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (createOnly) {
+      setLoading(false);
+      return;
+    }
     let active = true;
     void listPlaylists()
       .then((catalog) => {
@@ -36,7 +45,7 @@ export function PlaylistPicker({ tracks, onClose }: PlaylistPickerProps) {
     return () => {
       active = false;
     };
-  }, []);
+  }, [createOnly]);
 
   async function addTo(playlist: Playlist) {
     if (playlist.type !== "static") return;
@@ -70,6 +79,7 @@ export function PlaylistPicker({ tracks, onClose }: PlaylistPickerProps) {
         name: trimmed,
         items: tracks.map(itemFromTrack),
       });
+      window.dispatchEvent(new Event("basis:playlists-changed"));
       onClose();
     } catch (cause) {
       setError(
@@ -93,29 +103,31 @@ export function PlaylistPicker({ tracks, onClose }: PlaylistPickerProps) {
       onClose={onClose}
     >
       <h2 id="playlist-picker-title">
-        Add {tracks.length === 1 ? "track" : `${tracks.length} tracks`} to
-        playlist
+        {createOnly
+          ? "Save queue as playlist"
+          : `Add ${tracks.length === 1 ? "track" : `${tracks.length} tracks`} to playlist`}
       </h2>
-      {loading ? (
-        <p className="loading-state">Loading playlists…</p>
-      ) : (
-        <div className="playlist-picker-list">
-          {staticPlaylists.map((playlist) => (
-            <button
-              type="button"
-              key={playlist.id}
-              disabled={saving}
-              onClick={() => void addTo(playlist)}
-            >
-              <span>{playlist.name}</span>
-              <small>{playlist.items.length} tracks</small>
-            </button>
-          ))}
-          {staticPlaylists.length === 0 && (
-            <p>No static playlists yet. Create the first one below.</p>
-          )}
-        </div>
-      )}
+      {!createOnly &&
+        (loading ? (
+          <p className="loading-state">Loading playlists…</p>
+        ) : (
+          <div className="playlist-picker-list">
+            {staticPlaylists.map((playlist) => (
+              <button
+                type="button"
+                key={playlist.id}
+                disabled={saving}
+                onClick={() => void addTo(playlist)}
+              >
+                <span>{playlist.name}</span>
+                <small>{playlist.items.length} tracks</small>
+              </button>
+            ))}
+            {staticPlaylists.length === 0 && (
+              <p>No static playlists yet. Create the first one below.</p>
+            )}
+          </div>
+        ))}
       <form
         className="playlist-create-inline"
         onSubmit={(event) => {
@@ -133,7 +145,7 @@ export function PlaylistPicker({ tracks, onClose }: PlaylistPickerProps) {
           />
         </label>
         <button type="submit" disabled={saving || !name.trim()}>
-          Create and add
+          {createOnly ? "Save playlist" : "Create and add"}
         </button>
       </form>
       {error && (

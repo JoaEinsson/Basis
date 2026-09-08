@@ -83,6 +83,16 @@ here before implementation; listing it in the roadmap does not silently change i
 - Follow [RELEASE_AND_SIGNING.md](RELEASE_AND_SIGNING.md) for supported bundles,
   validation, signing, publication, and native smoke tests.
 
+## V1.2 scoped decisions (2026-09-07)
+
+V1.1 is deferred, not a prerequisite for V1.2. Preserve the user's confirmed
+paused suspension behavior. Output loss must pause playback and require explicit
+Play rather than resume unexpectedly on another output (scoped extension to D44).
+Mute preserves the selected volume and persists locally. Clearing upcoming items
+preserves current playback and history. Native media commands share PlayerService
+and never navigate/focus the app. Saving the displayed queue, including repeats,
+as a named independent playlist is optional only if existing code makes it small.
+
 ## Documentation maintenance
 
 Keep this contract and STATUS concise. ARCHITECTURE describes the implemented

@@ -1,6 +1,6 @@
 # Current status
 
-Updated: 2026-09-07. Repository baseline: tag `v0.3.1`.
+Updated: 2026-09-08. Repository baseline: tag `v0.3.1` plus uncommitted V1.2 work.
 
 ## Delivered baseline
 
@@ -34,18 +34,37 @@ browser fixtures and unit tests cannot substitute for them.
 
 ## Current task and next work
 
-Documentation reorganization: historical documents moved unchanged to
-[legacy](legacy/README.md); active contracts, roadmap, and task-reading guidance
-replace the mandatory full-history reading list. No application feature,
-dependency, release workflow, or version is changed by this task.
+V1.1 performance work is deferred: the reported slow reference machine has an
+old HDD, and the product owner chose not to open an optimization program without
+evidence of a general product problem.
 
-Verification for this documentation-only change: all eight moved files retained
-their SHA-256 hashes; 37 local file links across nine active/index documents
-resolved; `git diff --check` passed. Application tests were not rerun because
-runtime code was unchanged.
+V1.2 source implementation is ready for native smoke testing:
 
-Next implementation priority: [V1.1 startup performance and reliability](ROADMAP.md#v11--startup-performance-and-reliability).
-V1.1–V1.5 are planned, not implemented by the documentation approval.
+- Linux MPRIS and Windows SMTC use the same PlayerService as in-app controls for
+  play, pause/toggle, stop, previous/next, bounded seek, and volume on MPRIS;
+- system metadata carries title, artist, album, duration, position, and a bounded
+  local artwork cache with Basis fallback;
+- WebView media-key listeners were removed to prevent double dispatch;
+- mute persists separately from the selected volume;
+- output loss or successful rebind pauses and requires explicit Play;
+- Clear upcoming retains history/current playback; Save as playlist reuses the
+  static-playlist flow and preserves displayed order and repeated tracks;
+- Ubuntu release jobs install the DBus development dependency required by MPRIS.
+
+Evidence on 2026-09-08: 23 frontend suites/81 tests passed; Rust all-targets
+passed with 65 library tests, 2 hardware tests ignored, and the updater-signature
+integration test; production frontend build, TypeScript, ESLint, Clippy with
+warnings denied, release configuration/manifest tests, `git diff --check`, and
+RustSec audit passed. RustSec reported the same 18 explicitly allowed upstream
+warnings and no new blocking vulnerability. Browser inspection verified the mute
+state, queue actions, playlist dialog, retained current item after clearing, and
+no console warning/error. Version remains 0.3.1 and no release was published.
+
+Open V1.2 evidence: on packaged Windows, verify SMTC metadata/artwork and every
+media key while unfocused; on packaged Arch/KDE, verify MPRIS using the panel and
+`playerctl`; on both, disconnect/change the default output while playing, confirm
+it remains paused at the preserved position, then press Play and confirm recovery.
+Also repeat restart mute persistence and queue/playlist actions with real audio.
 
 Keep this file as a current snapshot: replace stale entries, add concrete
 commands/results to completed checks, and archive closed-cycle detail. Never

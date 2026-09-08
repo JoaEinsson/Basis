@@ -63,6 +63,7 @@ struct PlayerCore {
     position_ms: f64,
     duration_ms: f64,
     volume: u8,
+    muted: bool,
     shuffle: bool,
     repeat: RepeatMode,
     shuffle_seed: Uuid,
@@ -71,6 +72,7 @@ struct PlayerCore {
     output_device: Option<String>,
     listened_ms: f64,
     history_closed: bool,
+    manual_play_required: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -85,6 +87,8 @@ struct PersistedPlayerSession {
     #[serde(default)]
     duration_ms: f64,
     volume: u8,
+    #[serde(default)]
+    muted: bool,
     shuffle: bool,
     repeat: RepeatMode,
     shuffle_seed: Uuid,
@@ -123,6 +127,7 @@ impl PlayerService {
         let same_library = core.library_id == Some(library_id)
             && core.root_instance_hash.as_deref() == Some(&root_instance_hash);
         let fallback_volume = core.volume;
+        let fallback_muted = core.muted;
         drop(core);
         if !same_library {
             self.persist()?;
@@ -142,6 +147,7 @@ impl PlayerService {
             if !belongs_to_library {
                 restored = PlayerCore::default();
                 restored.volume = fallback_volume;
+                restored.muted = fallback_muted;
             }
             restored.library_id = Some(library_id);
             restored.root_instance_hash = Some(root_instance_hash);
@@ -166,6 +172,37 @@ impl PlayerService {
             core.apply_engine_state(state);
         }
         Ok(core.snapshot())
+    }
+
+    pub(super) fn media_state(&self) -> Result<super::media_controls::MediaState, String> {
+        let core = self.core()?;
+        Ok(super::media_controls::MediaState {
+            track: core.current_item().map(|item| item.track.clone()),
+            status: core.status,
+            position_ms: core.position_ms,
+            duration_ms: core.duration_ms,
+            volume: if core.muted {
+                0.0
+            } else {
+                f64::from(core.volume) / 100.0
+            },
+        })
+    }
+
+    pub(super) fn stop(&self, app: &AppHandle) -> Result<PlayerSnapshot, String> {
+        if let Some(engine) = self.engine()?.as_ref() {
+            engine.stop()?;
+        }
+        self.engine_generation.fetch_add(1, Ordering::SeqCst);
+        self.engine()?.take();
+        let mut core = self.core()?;
+        core.status = PlaybackStatus::Idle;
+        core.position_ms = 0.0;
+        core.primed_queue_id = None;
+        drop(core);
+        self.persist()?;
+        self.emit_state(app);
+        self.snapshot()
     }
 
     pub fn play_collection(
@@ -222,10 +259,17 @@ impl PlayerService {
     pub fn resume(self: &Arc<Self>, app: &AppHandle) -> Result<PlayerSnapshot, String> {
         let engine = self.ensure_engine(app)?;
         let state = engine.state()?;
+        let (recovering, position) = {
+            let core = self.core()?;
+            (core.manual_play_required, core.position_ms)
+        };
         if state.active {
+            if recovering {
+                engine.seek(position / 1000.0)?;
+            }
             engine.play()?;
+            self.core()?.manual_play_required = false;
         } else {
-            let position = self.core()?.position_ms;
             self.start_current(app, position, true)?;
         }
         self.emit_state(app);
@@ -236,16 +280,18 @@ impl PlayerService {
         if !position_ms.is_finite() {
             return Err("Playback position must be finite".to_owned());
         }
-        let engine = self
-            .engine()?
-            .clone()
-            .ok_or_else(|| "No track is loaded".to_owned())?;
+        let engine = self.engine()?.clone();
+        if self.core()?.current_item().is_none() {
+            return Err("No track is loaded".to_owned());
+        }
         let duration = self.core()?.duration_ms;
         let position_ms =
             position_ms
                 .max(0.0)
                 .min(if duration > 0.0 { duration } else { f64::MAX });
-        engine.seek(position_ms / 1000.0)?;
+        if let Some(engine) = engine {
+            engine.seek(position_ms / 1000.0)?;
+        }
         self.core()?.position_ms = position_ms;
         self.persist()?;
         self.emit_state(app);
@@ -301,10 +347,28 @@ impl PlayerService {
         let volume = volume.min(100);
         self.core()?.volume = volume;
         if let Some(engine) = self.engine()?.as_ref() {
-            engine.set_volume(volume_to_linear(volume))?;
+            engine.set_volume(self.core()?.effective_gain())?;
         }
         self.persist()?;
         self.emit_state(app);
+        self.snapshot()
+    }
+
+    pub fn set_muted(&self, app: &AppHandle, muted: bool) -> Result<PlayerSnapshot, String> {
+        self.core()?.muted = muted;
+        if let Some(engine) = self.engine()?.as_ref() {
+            engine.set_volume(self.core()?.effective_gain())?;
+        }
+        self.persist()?;
+        self.emit_state(app);
+        self.snapshot()
+    }
+
+    pub fn clear_upcoming(&self, app: &AppHandle) -> Result<PlayerSnapshot, String> {
+        self.core()?.clear_upcoming();
+        self.reprime(app);
+        self.persist()?;
+        self.emit_queue(app);
         self.snapshot()
     }
 
@@ -358,9 +422,12 @@ impl PlayerService {
             let item = core
                 .current_item()
                 .ok_or_else(|| "The queue has no current track".to_owned())?;
-            (self.resolve_track_path(&item.track.rel_path)?, core.volume)
+            (
+                self.resolve_track_path(&item.track.rel_path)?,
+                core.effective_gain(),
+            )
         };
-        engine.set_volume(volume_to_linear(volume))?;
+        engine.set_volume(volume)?;
         if let Err(error) = engine.load_and_play(&path) {
             self.fail(app, error.clone(), true);
             return Err(error);
@@ -373,6 +440,7 @@ impl PlayerService {
             if !preserve_listening {
                 core.reset_listening();
             }
+            core.manual_play_required = false;
             core.status = PlaybackStatus::Playing;
             core.position_ms = position_ms;
             core.error = None;
@@ -430,12 +498,13 @@ impl PlayerService {
         let engine: Arc<dyn AudioEngine> = match VoxioEngine::open() {
             Ok(engine) => Arc::new(engine),
             Err(error) => {
+                drop(engine_slot);
                 self.fail(app, error.clone(), true);
                 return Err(error);
             }
         };
-        let volume = self.core()?.volume;
-        engine.set_volume(volume_to_linear(volume))?;
+        let volume = self.core()?.effective_gain();
+        engine.set_volume(volume)?;
         *engine_slot = Some(Arc::clone(&engine));
         drop(engine_slot);
         let generation = self.engine_generation.fetch_add(1, Ordering::SeqCst) + 1;
@@ -449,6 +518,20 @@ impl PlayerService {
     }
 
     fn handle_engine_event(self: &Arc<Self>, app: &AppHandle, event: AudioEngineEvent) {
+        if self
+            .core()
+            .map(|core| core.manual_play_required)
+            .unwrap_or(false)
+            && matches!(
+                event,
+                AudioEngineEvent::TrackStarted { .. }
+                    | AudioEngineEvent::TrackEnded { .. }
+                    | AudioEngineEvent::Stopped
+                    | AudioEngineEvent::StateChanged { paused: false }
+            )
+        {
+            return;
+        }
         match event {
             AudioEngineEvent::TrackStarted {
                 duration_ms,
@@ -520,24 +603,28 @@ impl PlayerService {
                 recoverable,
             } => self.fail(app, message, recoverable),
             AudioEngineEvent::DeviceChanged { name } => {
+                // Voxio emits this only after a rebind, never for initial open.
+                // Pause even when names match (two endpoints can share a name).
+                self.pause_for_device_change(app);
                 if let Ok(mut core) = self.core() {
                     core.output_device = Some(name);
                     core.error = None;
                 }
             }
             AudioEngineEvent::DeviceLost { name, error } => {
+                self.pause_for_device_change(app);
                 if let Ok(mut core) = self.core() {
-                    core.output_device = Some(name.clone());
+                    core.output_device = Some(name);
                 }
                 self.fail(
                     app,
-                    format!("Audio device {name} is unavailable; Basis is retrying: {error}"),
+                    format!("Audio output unavailable. Press Play to retry: {error}"),
                     true,
                 );
             }
             AudioEngineEvent::StateChanged { paused } => {
                 if let Ok(mut core) = self.core() {
-                    core.status = if paused {
+                    core.status = if paused || core.manual_play_required {
                         PlaybackStatus::Paused
                     } else {
                         PlaybackStatus::Playing
@@ -546,6 +633,23 @@ impl PlayerService {
             }
         }
         self.emit_state(app);
+    }
+
+    fn pause_for_device_change(&self, app: &AppHandle) {
+        // Pause the existing adapter on reported output loss or rebind.
+        // The latch prevents delayed state/events from restoring Playing.
+        if let Ok(mut core) = self.core() {
+            core.manual_play_required = true;
+            if core.current_item().is_some() {
+                core.status = PlaybackStatus::Paused;
+            }
+        }
+        if let Some(engine) = self.engine().ok().and_then(|slot| slot.clone()) {
+            if let Err(error) = engine.pause() {
+                self.fail(app, error, true);
+            }
+        }
+        let _ = self.persist();
     }
 
     fn update_progress(&self) {
@@ -632,6 +736,7 @@ impl PlayerService {
                 position_ms: snapshot.position_ms,
                 duration_ms: snapshot.duration_ms,
                 volume: snapshot.volume,
+                muted: snapshot.muted,
                 shuffle: snapshot.shuffle,
                 repeat: snapshot.repeat,
                 error: snapshot.error,
@@ -959,7 +1064,26 @@ impl PlayerCore {
         self.queue.iter().find(|item| item.queue_id == queue_id)
     }
 
+    fn effective_gain(&self) -> f32 {
+        if self.muted {
+            0.0
+        } else {
+            volume_to_linear(self.volume)
+        }
+    }
+
+    fn clear_upcoming(&mut self) {
+        let keep = self.cursor.map_or(0, |cursor| cursor + 1);
+        self.play_order.truncate(keep);
+        let retained: HashSet<_> = self.play_order.iter().copied().collect();
+        self.queue.retain(|item| retained.contains(&item.queue_id));
+        self.primed_queue_id = None;
+    }
+
     fn apply_engine_state(&mut self, state: AudioEngineState) {
+        if self.manual_play_required {
+            return;
+        }
         self.position_ms = finite_nonnegative(state.position_ms);
         if state.duration_ms > 0.0 {
             self.duration_ms = finite_nonnegative(state.duration_ms);
@@ -983,6 +1107,7 @@ impl PlayerCore {
             position_ms: finite_nonnegative(self.position_ms),
             duration_ms: finite_nonnegative(self.duration_ms),
             volume: self.volume,
+            muted: self.muted,
             shuffle: self.shuffle,
             repeat: self.repeat,
             error: self.error.clone(),
@@ -1001,6 +1126,7 @@ impl PlayerCore {
             position_ms: finite_nonnegative(self.position_ms),
             duration_ms: finite_nonnegative(self.duration_ms),
             volume: self.volume,
+            muted: self.muted,
             shuffle: self.shuffle,
             repeat: self.repeat,
             shuffle_seed: self.shuffle_seed,
@@ -1022,6 +1148,7 @@ impl Default for PlayerCore {
             position_ms: 0.0,
             duration_ms: 0.0,
             volume: 80,
+            muted: false,
             shuffle: false,
             repeat: RepeatMode::Off,
             shuffle_seed: Uuid::new_v4(),
@@ -1030,6 +1157,7 @@ impl Default for PlayerCore {
             output_device: None,
             listened_ms: 0.0,
             history_closed: false,
+            manual_play_required: false,
         }
     }
 }
@@ -1091,6 +1219,7 @@ impl TryFrom<PersistedPlayerSession> for PlayerCore {
             position_ms: session.position_ms,
             duration_ms,
             volume: session.volume,
+            muted: session.muted,
             shuffle: session.shuffle,
             repeat: session.repeat,
             shuffle_seed: session.shuffle_seed,
@@ -1099,6 +1228,7 @@ impl TryFrom<PersistedPlayerSession> for PlayerCore {
             output_device: None,
             listened_ms: session.listened_ms,
             history_closed: session.history_closed,
+            manual_play_required: false,
         })
     }
 }
@@ -1188,6 +1318,76 @@ mod tests {
     };
 
     use super::{volume_to_linear, PersistedPlayerSession, PlayerCore, PlayerService};
+
+    #[test]
+    fn mute_roundtrips_without_changing_selected_volume_and_legacy_defaults_off() {
+        let mut core = PlayerCore {
+            volume: 37,
+            muted: true,
+            ..PlayerCore::default()
+        };
+        assert_eq!(core.effective_gain(), 0.0);
+        let restored = PlayerCore::try_from(core.persisted()).unwrap();
+        assert!(restored.muted);
+        assert_eq!(restored.volume, 37);
+        core.muted = false;
+        assert_eq!(core.effective_gain(), volume_to_linear(37));
+        let mut legacy = serde_json::to_value(core.persisted()).unwrap();
+        legacy.as_object_mut().unwrap().remove("muted");
+        let restored =
+            PlayerCore::try_from(serde_json::from_value::<PersistedPlayerSession>(legacy).unwrap())
+                .unwrap();
+        assert!(!restored.muted);
+        assert_eq!(restored.volume, 37);
+    }
+
+    #[test]
+    fn clearing_upcoming_preserves_current_history_position_and_shuffle_restore() {
+        let tracks = (0..5).map(track).collect::<Vec<_>>();
+        let mut core = PlayerCore::default();
+        core.insert_tracks(tracks.clone(), tracks[1].id, QueueInsertMode::Replace)
+            .unwrap();
+        core.set_shuffle(true);
+        core.position_ms = 420.0;
+        core.status = PlaybackStatus::Playing;
+        let cursor = core.cursor.unwrap();
+        let retained = core.play_order[..=cursor].to_vec();
+        let current = core.current_item().unwrap().queue_id;
+        core.clear_upcoming();
+        assert_eq!(core.play_order, retained);
+        assert_eq!(core.current_item().unwrap().queue_id, current);
+        assert_eq!(core.position_ms, 420.0);
+        assert_eq!(core.status, PlaybackStatus::Playing);
+        let mut restored = PlayerCore::try_from(core.persisted()).unwrap();
+        restored.set_shuffle(false);
+        assert_eq!(restored.queue.len(), retained.len());
+        assert_eq!(restored.current_item().unwrap().queue_id, current);
+        let mut empty = PlayerCore::default();
+        empty.clear_upcoming();
+        assert!(empty.queue.is_empty());
+    }
+
+    #[test]
+    fn output_recovery_cannot_overwrite_paused_position_until_explicit_play() {
+        let mut core = PlayerCore {
+            manual_play_required: true,
+            status: PlaybackStatus::Paused,
+            position_ms: 4200.0,
+            ..PlayerCore::default()
+        };
+        let recovering = super::AudioEngineState {
+            active: true,
+            paused: false,
+            position_ms: 0.0,
+            duration_ms: 10000.0,
+        };
+        core.apply_engine_state(recovering);
+        assert_eq!(core.status, PlaybackStatus::Paused);
+        assert_eq!(core.position_ms, 4200.0);
+        core.manual_play_required = false;
+        core.apply_engine_state(recovering);
+        assert_eq!(core.status, PlaybackStatus::Playing);
+    }
 
     #[test]
     fn queue_replace_next_append_shuffle_and_repeat_are_deterministic() {

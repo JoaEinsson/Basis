@@ -279,6 +279,13 @@ contract, but shell components must not use them to render permanent navigation.
 React stores only a snapshot received through events. No Voxio type crosses the
 `AudioEngine` trait.
 
+The native media-control bridge is a projection of `PlayerService`: Linux MPRIS
+and Windows SMTC callbacks enqueue bounded commands back into that same service,
+while metadata, playback state, position, volume where supported, and sanitized
+cached artwork flow outward. It never changes routes or focuses the window.
+Browser-level media-key handling is intentionally absent so one physical key
+cannot dispatch both through WebView and the operating-system bridge.
+
 When playing a collection:
 
 - `replace`: replace the queue and start at the selected item;
@@ -290,6 +297,11 @@ service materializes the ordered selection into queue items.
 
 Queue ordering, previous/repeat behavior, paused session restore, volume mapping,
 default-device recovery, and the Rodio fallback are fixed by D38–D45.
+Mute is persisted in the local player session independently from the selected
+volume. Clearing upcoming queue entries retains playback history and the current
+item. A device-loss/rebind event latches playback paused until an explicit Play;
+the recovered adapter is repositioned before resuming. Saving a queue materializes
+its displayed order into an independent static playlist, including repetitions.
 
 ## Lyrics and network
 

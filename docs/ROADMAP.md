@@ -1,7 +1,7 @@
 # Basis roadmap
 
 Baseline: 0.3.1, after MVP M0–M8 and polish P0–P8.
-Status: planned; no feature work is started by this document.
+Status: V1.2 implemented in source; native Windows/Arch verification remains.
 
 The next program improves everyday playback, lyrics, and desktop integration
 without sacrificing local-first behavior or responsiveness on modest hardware.
@@ -17,7 +17,8 @@ verified release cut is ready; do not bump versions just for this roadmap.
 
 ### V1.1 — Startup performance and reliability
 
-First implementation priority.
+Deferred by the product owner: the reference notebook uses an old HDD. Do not
+start an optimization program or make this cycle a prerequisite for V1.2.
 
 - Measure cold/warm launch, time to responsive shell and usable library,
   database open/query/projection work, peak memory, and UI stalls separately.
@@ -36,7 +37,11 @@ from a browser fixture or a different machine.
 
 ### V1.2 — Player and operating-system controls
 
-Depends on the responsive startup baseline.
+Current implementation priority; V1.1 dependency waived by the product owner.
+Preserve the already-working paused suspension restoration. On output loss,
+pause and wait for explicit Play after recovery. Mute preserves volume and local
+state. Saving the queue as a playlist is optional and only enters this cycle if
+existing infrastructure keeps the implementation small.
 
 - Audit and complete Linux MPRIS and Windows SMTC: playback state, title,
   artist, artwork, transport/media keys, and seek where the platform supports it.
@@ -44,6 +49,11 @@ Depends on the responsive startup baseline.
 - Complete mute behavior and queue actions: clear upcoming, save as playlist,
   and consistent session restoration, reusing existing implementations.
 - Ensure external controls and in-app controls use the same playback state.
+
+Source implementation includes MPRIS/SMTC projection and commands, sanitized
+artwork metadata, persistent mute, safe output-change pause, clearing upcoming
+items, and the small queue-to-static-playlist reuse. Automated and browser checks
+are green. Keep this cycle open until the native exit matrix below passes.
 
 Exit: native Windows and Arch/KDE tests cover controls while the window is
 unfocused, paused restoration without autoplay, track changes, suspend/resume,

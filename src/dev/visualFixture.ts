@@ -264,6 +264,23 @@ export function handleFixtureCommand(
     case "player_set_shuffle":
       playerSnapshot = { ...playerSnapshot, shuffle: Boolean(payload.enabled) };
       return playerSnapshot;
+    case "player_set_muted":
+      playerSnapshot = { ...playerSnapshot, muted: Boolean(payload.muted) };
+      return playerSnapshot;
+    case "player_clear_upcoming": {
+      const playOrder = playerSnapshot.playOrder.slice(
+        0,
+        (playerSnapshot.currentIndex ?? -1) + 1,
+      );
+      playerSnapshot = {
+        ...playerSnapshot,
+        playOrder,
+        queue: playerSnapshot.queue.filter((item) =>
+          playOrder.includes(item.queueId),
+        ),
+      };
+      return playerSnapshot;
+    }
     case "player_set_repeat":
       playerSnapshot = {
         ...playerSnapshot,
@@ -488,6 +505,7 @@ function snapshotFor(mode: FixtureMode): PlayerSnapshot {
     positionMs: 74_000,
     durationMs: activeTrack.durationMs,
     volume: 72,
+    muted: false,
     shuffle: false,
     repeat: "off",
     error: null,

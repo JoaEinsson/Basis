@@ -2548,7 +2548,15 @@ button.list-entity {
   margin-bottom: 0;
 }
 
-.queue-pane > .ui-inline-status {
+.queue-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mv-space-2);
+  padding: var(--mv-space-3) var(--mv-space-5);
+}
+
+.queue-actions > .ui-inline-status {
+  flex-basis: 100%;
   padding: var(--mv-space-3) var(--mv-space-5);
   border-bottom: var(--mv-border-width) solid var(--mv-color-border);
 }

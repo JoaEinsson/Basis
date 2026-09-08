@@ -23,6 +23,8 @@ import {
   setPlaybackRepeat,
   setPlaybackShuffle,
   setPlaybackVolume,
+  setPlaybackMuted,
+  clearUpcomingPlayback,
 } from "../../lib/tauri";
 import type {
   PlayerSnapshot,
@@ -46,6 +48,8 @@ type PlayerContextValue = {
   next: () => Promise<void>;
   previous: () => Promise<void>;
   setVolume: (volume: number) => Promise<void>;
+  setMuted: (muted: boolean) => Promise<void>;
+  clearUpcoming: () => Promise<boolean>;
   setShuffle: (enabled: boolean) => Promise<void>;
   setRepeat: (repeat: RepeatMode) => Promise<void>;
   reorderQueue: (queueId: string, targetIndex: number) => Promise<boolean>;
@@ -92,6 +96,7 @@ export function PlayerProvider({
                 positionMs: event.positionMs,
                 durationMs: event.durationMs,
                 volume: event.volume,
+                muted: event.muted,
                 shuffle: event.shuffle,
                 repeat: event.repeat,
                 error: event.error,
@@ -186,6 +191,10 @@ export function PlayerProvider({
       setVolume: async (volume) => {
         await perform(() => setPlaybackVolume(volume));
       },
+      setMuted: async (muted) => {
+        await perform(() => setPlaybackMuted(muted));
+      },
+      clearUpcoming: () => perform(clearUpcomingPlayback),
       setShuffle: async (enabled) => {
         await perform(() => setPlaybackShuffle(enabled));
       },
@@ -225,17 +234,13 @@ export function PlayerKeyboardShortcuts() {
       ) {
         return;
       }
-      if (event.code === "Space" || event.key === "MediaPlayPause") {
+      // OS media keys are handled by the native bridge, including while focused.
+      // Handling them here as well would dispatch a second toggle/skip.
+      if (event.code === "Space") {
         event.preventDefault();
         void (current.snapshot.status === "playing"
           ? current.pause()
           : current.resume());
-      } else if (event.key === "MediaTrackNext") {
-        event.preventDefault();
-        void current.next();
-      } else if (event.key === "MediaTrackPrevious") {
-        event.preventDefault();
-        void current.previous();
       }
     }
     window.addEventListener("keydown", handleKey);

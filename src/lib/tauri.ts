@@ -280,6 +280,16 @@ export async function setPlaybackShuffle(
   return unwrapResult(await commands.playerSetShuffle(enabled));
 }
 
+export async function setPlaybackMuted(
+  muted: boolean,
+): Promise<PlayerSnapshot> {
+  return unwrapResult(await commands.playerSetMuted(muted));
+}
+
+export async function clearUpcomingPlayback(): Promise<PlayerSnapshot> {
+  return unwrapResult(await commands.playerClearUpcoming());
+}
+
 export async function setPlaybackRepeat(
   repeat: RepeatMode,
 ): Promise<PlayerSnapshot> {

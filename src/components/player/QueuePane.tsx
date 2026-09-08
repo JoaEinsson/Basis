@@ -10,6 +10,8 @@ import {
   ScrollRegion,
 } from "../ui";
 import { usePlayer } from "./PlayerContext";
+import { PlaylistPicker } from "../playlists/PlaylistPicker";
+import type { TrackDto } from "../../lib/types";
 
 export function QueuePane() {
   const player = usePlayer();
@@ -19,6 +21,7 @@ export function QueuePane() {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
   const [announcement, setAnnouncement] = useState("");
+  const [savingTracks, setSavingTracks] = useState<TrackDto[] | null>(null);
 
   useEffect(() => {
     if (!player.queueOpen) return;
@@ -61,6 +64,7 @@ export function QueuePane() {
         className="queue-pane"
         aria-labelledby="queue-title"
         onKeyDown={(event) => {
+          if (savingTracks) return;
           if (event.key === "Escape") {
             event.preventDefault();
             close();
@@ -76,9 +80,36 @@ export function QueuePane() {
             <X aria-hidden="true" size={18} />
           </IconButton>
         </header>
-        {snapshot.error && (
-          <InlineStatus tone="error">{snapshot.error}</InlineStatus>
-        )}
+        <div className="queue-actions">
+          <button
+            type="button"
+            disabled={ordered.length <= currentIndex + 1}
+            onClick={() =>
+              void player.clearUpcoming().then((cleared) => {
+                if (cleared) setAnnouncement("Upcoming tracks cleared.");
+              })
+            }
+          >
+            Clear upcoming
+          </button>
+          <button
+            type="button"
+            disabled={ordered.length === 0}
+            onClick={() => setSavingTracks(ordered.map((item) => item.track))}
+          >
+            Save as playlist
+          </button>
+          {savingTracks && (
+            <PlaylistPicker
+              createOnly
+              tracks={savingTracks}
+              onClose={() => setSavingTracks(null)}
+            />
+          )}
+          {snapshot.error && (
+            <InlineStatus tone="error">{snapshot.error}</InlineStatus>
+          )}
+        </div>
         {ordered.length === 0 ? (
           <EmptyState title="Queue is empty">
             Start an album, playlist, or track to build this local session.
