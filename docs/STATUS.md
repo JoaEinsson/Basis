@@ -1,6 +1,7 @@
 # Current status
 
-Updated: 2026-09-09. Repository baseline: tag `v0.3.1` plus uncommitted V1.2/V1.3 work.
+Updated: 2026-09-24. Published baseline: `v0.3.1`. The source is prepared as
+`0.4.0` for the V1.2/V1.3 release candidate; it is not tagged or published.
 
 ## Delivered baseline
 
@@ -89,6 +90,15 @@ warnings denied, release configuration/manifest tests, and `git diff --check`
 passed. The remaining manual gate is a packaged online/offline LRCLIB smoke:
 choose a nonautomatic version, adjust timing, restart/reindex, confirm offline
 reuse, then enable prefetch and rapidly change/reorder the next queue item.
+
+The next release uses `0.4.0` because it adds player and lyrics features since
+`0.3.1`; `0.3.2` would describe a fixes-only release. The three manifests and
+the Basis entry in Cargo.lock have been aligned. On 2026-09-24,
+`cargo metadata --locked --offline`, release configuration validation with
+`GITHUB_REF_NAME=v0.4.0`, the five updater-manifest tests, Prettier, and
+`git diff --check` passed. The remote has no `v0.4.0` tag. Before tagging,
+complete the packaged V1.2/V1.3 smoke tests above and repeat the full quality
+matrix against the release commit.
 
 Keep this file as a current snapshot: replace stale entries, add concrete
 commands/results to completed checks, and archive closed-cycle detail. Never

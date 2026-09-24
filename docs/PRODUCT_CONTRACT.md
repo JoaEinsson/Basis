@@ -1,7 +1,8 @@
 # Current product contract
 
-Baseline: Basis 0.3.1. This is the active summary, not a new specification or
-permission to implement every roadmap item.
+Published baseline: Basis 0.3.1; next source release candidate: 0.4.0. This is
+the active summary, not a new specification or permission to implement every
+roadmap item.
 
 ## Authority and scope
 

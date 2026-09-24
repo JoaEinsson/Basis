@@ -137,8 +137,8 @@ cargo test --manifest-path src-tauri/Cargo.toml --all-targets
 Create exactly the matching stable tag and push it:
 
 ```powershell
-git tag v0.3.1
-git push origin v0.3.1
+git tag v0.4.0
+git push origin v0.4.0
 ```
 
 The tag is the only release trigger. `release:validate` rejects a tag whose

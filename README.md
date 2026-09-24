@@ -234,8 +234,11 @@ The main engineering references are:
 
 ## Project status and scope
 
-The `0.1.0` MVP gates M0–M8 are complete. Version `0.3.1` contains the post-MVP
-UI/UX polish work through the P8 system-verification pass. Current non-goals
+The `0.1.0` MVP gates M0–M8 are complete. The published `0.3.1` release contains
+the post-MVP UI/UX polish work through P8. The `0.4.0` source release candidate
+adds desktop media controls, queue actions, manual LRCLIB selection, per-track
+lyric timing, and optional next-track prefetch; packaged native checks remain
+open. Current non-goals
 include EQ/DSP, exclusive or verified bit-perfect output, manual output-device
 selection, cloud accounts, automatic metadata enrichment, word-by-word lyrics,
 and recommendation radio.

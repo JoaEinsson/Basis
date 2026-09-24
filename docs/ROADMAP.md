@@ -1,6 +1,7 @@
 # Basis roadmap
 
-Baseline: 0.3.1, after MVP M0–M8 and polish P0–P8.
+Published baseline: 0.3.1; next source release candidate: 0.4.0, after MVP
+M0–M8 and polish P0–P8.
 Status: V1.2 and V1.3 implemented in source; native/live-provider verification remains.
 
 The next program improves everyday playback, lyrics, and desktop integration
