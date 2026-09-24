@@ -4,16 +4,30 @@ import {
   Eye,
   EyeOff,
   LocateFixed,
+  Minus,
   Music2,
+  Plus,
   RefreshCw,
+  RotateCcw,
+  Search,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ArtworkPlaceholder } from "../components/library/ArtworkPlaceholder";
 import { displayTrackTitle } from "../components/library/format";
 import { usePlayer } from "../components/player/PlayerContext";
 import { Button, InlineStatus } from "../components/ui";
-import { chooseLyricsCandidate, resolveLyrics } from "../lib/tauri";
-import type { LyricsCandidate, LyricsResolution } from "../lib/types";
+import {
+  chooseLyricsCandidate,
+  clearLyricsSelection,
+  resolveLyrics,
+  searchLyrics,
+  setLyricsOffset,
+} from "../lib/tauri";
+import type {
+  LyricsCandidate,
+  LyricsResolution,
+  LyricsSearchQuery,
+} from "../lib/types";
 
 export function NowPlaying() {
   const navigate = useNavigate();
@@ -24,6 +38,14 @@ export function NowPlaying() {
   const [lyricsError, setLyricsError] = useState<string | null>(null);
   const [loadingLyrics, setLoadingLyrics] = useState(false);
   const [requestVersion, setRequestVersion] = useState(0);
+  const [manualResults, setManualResults] = useState<LyricsResolution | null>(
+    null,
+  );
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [lyricsActionBusy, setLyricsActionBusy] = useState(false);
+  const [lyricsActionError, setLyricsActionError] = useState<string | null>(
+    null,
+  );
   const [following, setFollowing] = useState(true);
   const [lyricsVisible, setLyricsVisible] = useState(readLyricsPreference);
   const lineRefs = useRef(new Map<number, HTMLButtonElement>());
@@ -52,6 +74,9 @@ export function NowPlaying() {
     setLoadingLyrics(true);
     setLyricsError(null);
     setResolution(null);
+    setManualResults(null);
+    setSearchOpen(false);
+    setLyricsActionError(null);
     setFollowing(true);
     void resolveLyrics(track.id, true)
       .then((next) => {
@@ -70,14 +95,14 @@ export function NowPlaying() {
 
   const activeLine = useMemo(() => {
     const lines = resolution?.document?.lines ?? [];
-    const position = snapshot?.positionMs ?? 0;
+    const position = (snapshot?.positionMs ?? 0) - (resolution?.offsetMs ?? 0);
     let active = -1;
     for (let index = 0; index < lines.length; index += 1) {
       if (lines[index].timestampMs > position) break;
       active = index;
     }
     return active;
-  }, [resolution?.document?.lines, snapshot?.positionMs]);
+  }, [resolution?.document?.lines, resolution?.offsetMs, snapshot?.positionMs]);
 
   useEffect(() => {
     if (!following || activeLine < 0) return;
@@ -190,6 +215,55 @@ export function NowPlaying() {
     setLyricsVisible(visible);
     writeLyricsPreference(visible);
   };
+  const chooseCandidate = async (candidateId: number) => {
+    setLyricsActionBusy(true);
+    setLyricsActionError(null);
+    try {
+      const next = await chooseLyricsCandidate(track.id, candidateId);
+      setResolution(next);
+      setManualResults(null);
+      setSearchOpen(false);
+      setFollowing(true);
+    } catch (cause) {
+      setLyricsActionError(messageFrom(cause));
+    } finally {
+      setLyricsActionBusy(false);
+    }
+  };
+  const changeOffset = async (offsetMs: number) => {
+    setLyricsActionBusy(true);
+    setLyricsActionError(null);
+    try {
+      const preference = await setLyricsOffset(track.id, offsetMs);
+      setResolution((current) =>
+        current
+          ? {
+              ...current,
+              offsetMs: preference.offsetMs,
+              selection: preference.selection,
+            }
+          : current,
+      );
+      setFollowing(true);
+    } catch (cause) {
+      setLyricsActionError(messageFrom(cause));
+    } finally {
+      setLyricsActionBusy(false);
+    }
+  };
+  const resetSelection = async () => {
+    setLyricsActionBusy(true);
+    setLyricsActionError(null);
+    try {
+      setResolution(await clearLyricsSelection(track.id));
+      setManualResults(null);
+      setFollowing(true);
+    } catch (cause) {
+      setLyricsActionError(messageFrom(cause));
+    } finally {
+      setLyricsActionBusy(false);
+    }
+  };
 
   return (
     <article className="page now-playing-view">
@@ -270,12 +344,92 @@ export function NowPlaying() {
           >
             <div className="lyrics-heading">
               <h2 id="lyrics-title">Lyrics</h2>
-              {!following && resolution?.document?.synced && (
-                <button type="button" onClick={() => setFollowing(true)}>
-                  <LocateFixed aria-hidden="true" size={16} /> Resume follow
+              <div className="lyrics-heading-actions">
+                {!following && resolution?.document?.synced && (
+                  <button type="button" onClick={() => setFollowing(true)}>
+                    <LocateFixed aria-hidden="true" size={16} /> Resume follow
+                  </button>
+                )}
+                <button
+                  type="button"
+                  aria-expanded={searchOpen}
+                  onClick={() => {
+                    setSearchOpen((open) => !open);
+                    setManualResults(null);
+                    setLyricsActionError(null);
+                  }}
+                >
+                  <Search aria-hidden="true" size={16} /> Find lyrics
                 </button>
-              )}
+              </div>
             </div>
+            {resolution?.document?.synced && (
+              <LyricsOffsetControls
+                offsetMs={resolution.offsetMs ?? 0}
+                busy={lyricsActionBusy}
+                onChange={(offsetMs) => void changeOffset(offsetMs)}
+              />
+            )}
+            {resolution?.selection && (
+              <div className="lyrics-selection-status">
+                <span>
+                  Selected LRCLIB match: {resolution.selection.trackName} ·{" "}
+                  {resolution.selection.artistName}
+                </span>
+                <button
+                  type="button"
+                  disabled={lyricsActionBusy}
+                  onClick={() => void resetSelection()}
+                >
+                  <RotateCcw aria-hidden="true" size={15} /> Use automatic match
+                </button>
+              </div>
+            )}
+            {searchOpen && (
+              <LyricsSearchForm
+                trackName={track.title ?? title}
+                artistName={track.artist ?? ""}
+                albumName={track.album ?? ""}
+                durationSeconds={
+                  track.durationMs ? track.durationMs / 1000 : null
+                }
+                busy={lyricsActionBusy}
+                onSearch={async (query) => {
+                  setLyricsActionBusy(true);
+                  setLyricsActionError(null);
+                  try {
+                    setManualResults(await searchLyrics(track.id, query));
+                  } catch (cause) {
+                    setLyricsActionError(messageFrom(cause));
+                  } finally {
+                    setLyricsActionBusy(false);
+                  }
+                }}
+              />
+            )}
+            {searchOpen && manualResults && (
+              <div className="lyrics-manual-results">
+                {manualResults.candidates.length ? (
+                  <LyricsCandidates
+                    candidates={manualResults.candidates}
+                    message={manualResults.message}
+                    disabled={lyricsActionBusy}
+                    onChoose={(candidateId) =>
+                      void chooseCandidate(candidateId)
+                    }
+                  />
+                ) : (
+                  <LyricsQuietState
+                    message={manualResults.message ?? "No results found"}
+                  />
+                )}
+              </div>
+            )}
+            {lyricsActionError && (
+              <p className="inline-error lyrics-action-error" role="alert">
+                {lyricsActionError}
+              </p>
+            )}
             <div
               className="lyrics-scroll"
               ref={lyricsScrollRef}
@@ -309,7 +463,17 @@ export function NowPlaying() {
                         else lineRefs.current.delete(index);
                       }}
                       type="button"
-                      onClick={() => void player.seek(line.timestampMs)}
+                      onClick={() =>
+                        void player.seek(
+                          Math.max(
+                            0,
+                            Math.min(
+                              snapshot.durationMs,
+                              line.timestampMs + (resolution.offsetMs ?? 0),
+                            ),
+                          ),
+                        )
+                      }
                     >
                       {line.text || "♪"}
                     </button>
@@ -324,16 +488,10 @@ export function NowPlaying() {
                     <LyricsCandidates
                       candidates={resolution.candidates}
                       message={resolution.message}
-                      onChoose={(candidateId) => {
-                        setLoadingLyrics(true);
-                        setLyricsError(null);
-                        void chooseLyricsCandidate(track.id, candidateId)
-                          .then(setResolution)
-                          .catch((cause: unknown) =>
-                            setLyricsError(messageFrom(cause)),
-                          )
-                          .finally(() => setLoadingLyrics(false));
-                      }}
+                      disabled={lyricsActionBusy}
+                      onChoose={(candidateId) =>
+                        void chooseCandidate(candidateId)
+                      }
                     />
                   )}
                 </div>
@@ -341,16 +499,8 @@ export function NowPlaying() {
                 <LyricsCandidates
                   candidates={resolution.candidates}
                   message={resolution.message}
-                  onChoose={(candidateId) => {
-                    setLoadingLyrics(true);
-                    setLyricsError(null);
-                    void chooseLyricsCandidate(track.id, candidateId)
-                      .then(setResolution)
-                      .catch((cause: unknown) =>
-                        setLyricsError(messageFrom(cause)),
-                      )
-                      .finally(() => setLoadingLyrics(false));
-                  }}
+                  disabled={lyricsActionBusy}
+                  onChoose={(candidateId) => void chooseCandidate(candidateId)}
                 />
               ) : (
                 <LyricsQuietState
@@ -373,14 +523,140 @@ export function NowPlaying() {
   );
 }
 
+function LyricsOffsetControls({
+  offsetMs,
+  busy,
+  onChange,
+}: {
+  offsetMs: number;
+  busy: boolean;
+  onChange: (offsetMs: number) => void;
+}) {
+  return (
+    <div className="lyrics-offset-controls">
+      <span>Timing: {formatOffset(offsetMs)}</span>
+      <div role="group" aria-label="Lyrics synchronization timing">
+        <button
+          type="button"
+          aria-label="Show lyrics half a second earlier"
+          disabled={busy || offsetMs <= -15_000}
+          onClick={() => onChange(Math.max(-15_000, offsetMs - 500))}
+        >
+          <Minus aria-hidden="true" size={15} /> Earlier
+        </button>
+        <button
+          type="button"
+          disabled={busy || offsetMs === 0}
+          onClick={() => onChange(0)}
+        >
+          <RotateCcw aria-hidden="true" size={15} /> Reset
+        </button>
+        <button
+          type="button"
+          aria-label="Show lyrics half a second later"
+          disabled={busy || offsetMs >= 15_000}
+          onClick={() => onChange(Math.min(15_000, offsetMs + 500))}
+        >
+          <Plus aria-hidden="true" size={15} /> Later
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function LyricsSearchForm({
+  trackName,
+  artistName,
+  albumName,
+  durationSeconds,
+  busy,
+  onSearch,
+}: {
+  trackName: string;
+  artistName: string;
+  albumName: string;
+  durationSeconds: number | null;
+  busy: boolean;
+  onSearch: (query: LyricsSearchQuery) => void;
+}) {
+  const [title, setTitle] = useState(trackName);
+  const [artist, setArtist] = useState(artistName);
+  const [album, setAlbum] = useState(albumName);
+  const [duration, setDuration] = useState(
+    durationSeconds === null ? "" : String(Math.round(durationSeconds)),
+  );
+  return (
+    <form
+      className="lyrics-search-form"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const parsedDuration = duration.trim() ? Number(duration) : null;
+        onSearch({
+          trackName: title,
+          artistName: artist,
+          albumName: album.trim() || null,
+          durationSeconds:
+            parsedDuration !== null && Number.isFinite(parsedDuration)
+              ? parsedDuration
+              : null,
+        });
+      }}
+    >
+      <label>
+        Track title
+        <input
+          value={title}
+          maxLength={256}
+          required
+          onChange={(event) => setTitle(event.target.value)}
+        />
+      </label>
+      <label>
+        Artist
+        <input
+          value={artist}
+          maxLength={256}
+          required
+          onChange={(event) => setArtist(event.target.value)}
+        />
+      </label>
+      <label>
+        Album <small>optional</small>
+        <input
+          value={album}
+          maxLength={256}
+          onChange={(event) => setAlbum(event.target.value)}
+        />
+      </label>
+      <label>
+        Duration in seconds <small>for comparison</small>
+        <input
+          type="number"
+          min={0}
+          max={86_400}
+          step="0.1"
+          value={duration}
+          onChange={(event) => setDuration(event.target.value)}
+        />
+      </label>
+      <button type="submit" disabled={busy || !title.trim() || !artist.trim()}>
+        <Search aria-hidden="true" size={16} />
+        {busy ? "Searching…" : "Search LRCLIB"}
+      </button>
+    </form>
+  );
+}
+
 function LyricsCandidates({
   candidates,
   message,
   onChoose,
+  disabled = false,
 }: {
   candidates: LyricsCandidate[];
   message: string | null;
   onChoose: (candidateId: number) => void;
+  disabled?: boolean;
 }) {
   return (
     <div className="lyrics-candidates">
@@ -389,6 +665,7 @@ function LyricsCandidates({
         <button
           type="button"
           key={candidate.id}
+          disabled={disabled}
           onClick={() => onChoose(candidate.id)}
         >
           <span className="lyrics-candidate-heading">
@@ -401,7 +678,14 @@ function LyricsCandidates({
           </span>
           <span>
             {candidate.artistName} · {candidate.albumName}
-            {candidate.hasSyncedLyrics ? " · Synced" : " · Plain"}
+            {candidate.instrumental
+              ? " · Instrumental"
+              : candidate.hasSyncedLyrics
+                ? " · Synced"
+                : " · Plain"}
+            {Number.isFinite(candidate.durationSeconds) && (
+              <> · {formatDuration(candidate.durationSeconds ?? 0)}</>
+            )}
           </span>
           <span className="lyrics-candidate-reasons">
             {candidate.reasons.join(" · ")}
@@ -410,6 +694,18 @@ function LyricsCandidates({
       ))}
     </div>
   );
+}
+
+function formatOffset(offsetMs: number) {
+  if (offsetMs === 0) return "On time";
+  const seconds = Math.abs(offsetMs / 1000).toFixed(1);
+  return offsetMs > 0 ? `+${seconds} s (later)` : `-${seconds} s (earlier)`;
+}
+
+function formatDuration(seconds: number) {
+  const minutes = Math.floor(seconds / 60);
+  const remainder = Math.round(seconds % 60);
+  return `${minutes}:${String(remainder).padStart(2, "0")}`;
 }
 
 function LyricsQuietState({

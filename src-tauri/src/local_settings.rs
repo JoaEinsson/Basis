@@ -9,7 +9,7 @@ use specta::Type;
 use time::{format_description::well_known::Rfc3339, Duration, OffsetDateTime};
 use uuid::Uuid;
 
-use crate::portable::workspace::write_atomic_json;
+use crate::{domain::lyrics::LyricsPrefetchPolicy, portable::workspace::write_atomic_json};
 
 const SETTINGS_SCHEMA_VERSION: u32 = 1;
 const SETTINGS_FILE_LIMIT: u64 = 256 * 1024;
@@ -17,6 +17,8 @@ const MAX_RECENT_ROOTS: usize = 10;
 const DEVICE_SCHEMA_VERSION: u32 = 1;
 const DEVICE_FILE_LIMIT: u64 = 4 * 1024;
 const UPDATE_CHECK_INTERVAL: Duration = Duration::hours(24);
+pub const LYRICS_CACHE_ENTRY_LIMIT: u32 = 64;
+pub const LYRICS_CACHE_BYTES_LIMIT: u32 = 8 * 1024 * 1024;
 
 #[derive(Debug, Clone, Deserialize, Serialize, Type, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -43,6 +45,8 @@ struct LocalSettings {
     automatic_update_checks: bool,
     #[serde(default)]
     last_update_check: Option<String>,
+    #[serde(default)]
+    lyrics_prefetch_enabled: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -181,6 +185,28 @@ pub fn begin_update_check(app_data_dir: &Path, manual: bool) -> Result<UpdateChe
     })
 }
 
+pub fn lyrics_prefetch_policy(app_data_dir: &Path) -> Result<LyricsPrefetchPolicy, String> {
+    Ok(LyricsPrefetchPolicy {
+        enabled: read_settings(app_data_dir)?.lyrics_prefetch_enabled,
+        cache_entry_limit: LYRICS_CACHE_ENTRY_LIMIT,
+        cache_bytes_limit: LYRICS_CACHE_BYTES_LIMIT,
+    })
+}
+
+pub fn set_lyrics_prefetch(
+    app_data_dir: &Path,
+    enabled: bool,
+) -> Result<LyricsPrefetchPolicy, String> {
+    let mut settings = read_settings(app_data_dir)?;
+    settings.lyrics_prefetch_enabled = enabled;
+    write_atomic_json(&settings_path(app_data_dir), &settings)?;
+    Ok(LyricsPrefetchPolicy {
+        enabled,
+        cache_entry_limit: LYRICS_CACHE_ENTRY_LIMIT,
+        cache_bytes_limit: LYRICS_CACHE_BYTES_LIMIT,
+    })
+}
+
 fn policy_from_settings(
     settings: &LocalSettings,
     now: OffsetDateTime,
@@ -216,6 +242,7 @@ fn read_settings(app_data_dir: &Path) -> Result<LocalSettings, String> {
             device_id: None,
             automatic_update_checks: automatic_checks_default(),
             last_update_check: None,
+            lyrics_prefetch_enabled: false,
         });
     }
     let metadata = fs::metadata(&path)
@@ -256,8 +283,9 @@ mod tests {
     };
 
     use super::{
-        begin_update_check, device_id, recent_library_roots, remember_library_root,
-        set_automatic_update_checks, update_policy, MAX_RECENT_ROOTS,
+        begin_update_check, device_id, lyrics_prefetch_policy, recent_library_roots,
+        remember_library_root, set_automatic_update_checks, set_lyrics_prefetch, update_policy,
+        MAX_RECENT_ROOTS,
     };
 
     #[test]
@@ -320,6 +348,21 @@ mod tests {
         assert!(!disabled.automatic_checks_enabled);
         assert!(!begin_update_check(&app_data, false).unwrap().allowed);
         assert!(begin_update_check(&app_data, true).unwrap().allowed);
+        fs::remove_dir_all(app_data).unwrap();
+    }
+
+    #[test]
+    fn lyric_prefetch_is_explicit_local_and_disabled_by_default() {
+        let app_data =
+            std::env::temp_dir().join(format!("basis-lyrics-settings-{}", uuid::Uuid::new_v4()));
+        let initial = lyrics_prefetch_policy(&app_data).unwrap();
+        assert!(!initial.enabled);
+        assert_eq!(initial.cache_entry_limit, 64);
+        assert_eq!(initial.cache_bytes_limit, 8 * 1024 * 1024);
+
+        let enabled = set_lyrics_prefetch(&app_data, true).unwrap();
+        assert!(enabled.enabled);
+        assert!(lyrics_prefetch_policy(&app_data).unwrap().enabled);
         fs::remove_dir_all(app_data).unwrap();
     }
 }

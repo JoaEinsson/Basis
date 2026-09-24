@@ -310,9 +310,27 @@ export function handleFixtureCommand(
       return playerSnapshot;
     }
     case "lyrics_resolve":
+    case "lyrics_search":
     case "lyrics_choose_candidate":
+    case "lyrics_clear_selection":
       if (activeMode === "lyrics-error") throw "Lyrics provider unavailable.";
       return lyricsFor(activeMode);
+    case "lyrics_set_offset":
+      return { offsetMs: Number(payload.offsetMs ?? 0), selection: null };
+    case "lyrics_prefetch_policy":
+      return {
+        enabled: false,
+        cacheEntryLimit: 64,
+        cacheBytesLimit: 8 * 1024 * 1024,
+      };
+    case "lyrics_set_prefetch":
+      return {
+        enabled: Boolean(payload.enabled),
+        cacheEntryLimit: 64,
+        cacheBytesLimit: 8 * 1024 * 1024,
+      };
+    case "lyrics_prefetch":
+      return false;
     case "playlists_list":
       return {
         playlists: [staticPlaylist, smartPlaylist],
@@ -525,6 +543,8 @@ function lyricsFor(mode: FixtureMode): LyricsResolution {
       },
       candidates: [],
       message: null,
+      offsetMs: 0,
+      selection: null,
     };
   }
   if (mode === "plain") {
@@ -539,6 +559,8 @@ function lyricsFor(mode: FixtureMode): LyricsResolution {
       },
       candidates: [],
       message: "Plain lyrics",
+      offsetMs: 0,
+      selection: null,
     };
   }
   return {
@@ -569,6 +591,8 @@ function lyricsFor(mode: FixtureMode): LyricsResolution {
     },
     candidates: [],
     message: null,
+    offsetMs: 0,
+    selection: null,
   };
 }
 

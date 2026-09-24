@@ -305,17 +305,35 @@ its displayed order into an independent static playlist, including repetitions.
 
 ## Lyrics and network
 
-Resolution order: `.lrc` sidecar -> convenient embedded lyrics -> prior portable
+Resolution order: an explicit portable user selection -> `.lrc` sidecar ->
+convenient embedded lyrics -> portable LRC mirror -> bounded app-data provider
 cache -> LRCLIB. The request uses metadata and duration; the response is bounded,
-untrusted text and is never rendered as HTML. Synchronized lyrics are written
-atomically beside the audio when writable; otherwise they mirror the relative
-path under `.musiclib/lyrics/`. Matching and persistence follow D55–D59.
+untrusted text and is never rendered as HTML. Automatically selected synchronized
+lyrics are written atomically beside the audio when writable; otherwise they
+mirror the relative path under `.musiclib/lyrics/`.
+
+V1.3 user choices use schema-v1 JSON at
+`.musiclib/lyrics/preferences/<relative-audio-path>.json`. Each document carries
+the relative path, local recording metadata/duration identity, selected provider
+recording identity and safe rendered document, plus a ±15-second line offset.
+The stored track UUID is evidence, not the only lookup key, so a disposable index
+rebuild does not lose the choice. Invalid/newer documents are not overwritten.
+Resetting a manual selection preserves its offset; neither action rewrites audio.
+
+LRCLIB query payloads are disposable app-data at
+`basis/lyrics/provider-cache.json`, capped at 64 entries and 8 MiB. The optional
+device-local setting is off by default. When enabled, the player requests only
+the next play-order item while playback is active; a new queue target invalidates
+the previous generation and stale results cannot enter the cache. An in-flight
+HTTP operation remains bounded by D60 and never blocks playback. Matching and
+persistence follow D55–D60 plus their scoped V1.3 extensions.
 
 Network calls originate in Rust, with the official updater plugin as the only
 separate stack. Apply the D60 timeouts and response limit. LRCLIB and updater
 calls have cancellation and non-fatal errors. No
 network is required for scanning, search, playback, views, playlists, themes, or
-already saved lyrics.
+already saved lyrics. Manual search may present rejected automatic candidates for
+deliberate confirmation, but it does not alter the conservative automatic matcher.
 
 Metadata normalization is always local and offline. MusicBrainz Web Service 2
 is selected only as a future, opt-in enrichment provider; it never participates

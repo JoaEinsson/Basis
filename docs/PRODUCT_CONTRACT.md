@@ -64,8 +64,15 @@ here before implementation; listing it in the roadmap does not silently change i
   valid synchronized lyrics for the correct recording, not merely the first
   result. Live/remix/acoustic mismatches must not win on availability. Keep safe
   plaintext and review/error states; do not hardcode individual songs.
-- Current lyric requests are panel/user driven (D55). General background
-  prefetch, persistent manual offsets, and new providers are future scoped changes.
+- D55 is narrowly extended for V1.3: an explicit device-local setting may
+  prefetch only the next item in the active queue. It is disabled by default,
+  cancels/discards stale targets, uses a bounded disposable app-data cache, and
+  never walks the library or writes an automatic choice into portable state.
+- D59 is narrowly extended for V1.3: a user may store a bounded per-recording
+  line-timing offset with reset. Manual LRCLIB selections and offsets are
+  portable authored data under `.musiclib`; provider responses remain an
+  app-data cache. Neither operation rewrites an audio file or weakens automatic
+  recording matching. New providers remain separately scoped.
 
 ## Identity and distribution
 

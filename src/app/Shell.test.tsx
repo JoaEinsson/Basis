@@ -35,6 +35,8 @@ const mocks = vi.hoisted(() => ({
   onPlayerQueueChanged: vi.fn(),
   onPlayerError: vi.fn(),
   pausePlayback: vi.fn(),
+  getLyricsPrefetchPolicy: vi.fn(),
+  prefetchLyrics: vi.fn(),
 }));
 
 vi.mock("../lib/tauri", () => ({
@@ -50,6 +52,8 @@ vi.mock("../lib/tauri", () => ({
   onPlayerQueueChanged: mocks.onPlayerQueueChanged,
   onPlayerError: mocks.onPlayerError,
   pausePlayback: mocks.pausePlayback,
+  getLyricsPrefetchPolicy: mocks.getLyricsPrefetchPolicy,
+  prefetchLyrics: mocks.prefetchLyrics,
   resumePlayback: vi.fn(),
   seekPlayback: vi.fn(),
   nextTrack: vi.fn(),
@@ -111,6 +115,12 @@ describe("Basis definitive shell", () => {
     mocks.onPlayerQueueChanged.mockResolvedValue(vi.fn());
     mocks.onPlayerError.mockResolvedValue(vi.fn());
     mocks.pausePlayback.mockResolvedValue(emptyPlayerSnapshot());
+    mocks.getLyricsPrefetchPolicy.mockResolvedValue({
+      enabled: false,
+      cacheEntryLimit: 64,
+      cacheBytesLimit: 8 * 1024 * 1024,
+    });
+    mocks.prefetchLyrics.mockResolvedValue(false);
   });
 
   it("refreshes the active library when the filesystem watcher publishes a change", async () => {

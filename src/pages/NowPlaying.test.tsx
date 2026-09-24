@@ -19,11 +19,21 @@ const mocks = vi.hoisted(() => ({
   onPlayerState: vi.fn(),
   onPlayerTrackChanged: vi.fn(),
   seekPlayback: vi.fn(),
+  searchLyrics: vi.fn(),
+  setLyricsOffset: vi.fn(),
+  clearLyricsSelection: vi.fn(),
+  getLyricsPrefetchPolicy: vi.fn(),
+  prefetchLyrics: vi.fn(),
 }));
 
 vi.mock("../lib/tauri", () => ({
   resolveLyrics: mocks.resolveLyrics,
   chooseLyricsCandidate: mocks.chooseLyricsCandidate,
+  searchLyrics: mocks.searchLyrics,
+  setLyricsOffset: mocks.setLyricsOffset,
+  clearLyricsSelection: mocks.clearLyricsSelection,
+  getLyricsPrefetchPolicy: mocks.getLyricsPrefetchPolicy,
+  prefetchLyrics: mocks.prefetchLyrics,
   seekPlayback: mocks.seekPlayback,
   getPlayerState: mocks.getPlayerState,
   onPlayerState: mocks.onPlayerState,
@@ -67,6 +77,12 @@ describe("Now Playing lyrics", () => {
     mocks.onPlayerState.mockResolvedValue(vi.fn());
     mocks.onPlayerTrackChanged.mockResolvedValue(vi.fn());
     mocks.seekPlayback.mockResolvedValue(snapshot());
+    mocks.getLyricsPrefetchPolicy.mockResolvedValue({
+      enabled: false,
+      cacheEntryLimit: 64,
+      cacheBytesLimit: 8 * 1024 * 1024,
+    });
+    mocks.prefetchLyrics.mockResolvedValue(false);
   });
 
   it("highlights the current synchronized line and seeks from timestamps", async () => {
@@ -302,6 +318,89 @@ describe("Now Playing lyrics", () => {
         delete (HTMLElement.prototype as Partial<HTMLElement>).animate;
       }
     }
+  });
+
+  it("persists a per-track offset and applies it to lyric seeking", async () => {
+    mocks.setLyricsOffset.mockResolvedValue({ offsetMs: 500, selection: null });
+    renderNowPlaying();
+
+    expect(await screen.findByText("First line")).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Show lyrics half a second later",
+      }),
+    );
+    await waitFor(() =>
+      expect(mocks.setLyricsOffset).toHaveBeenCalledWith(
+        "00000000-0000-0000-0000-000000000001",
+        500,
+      ),
+    );
+    expect(
+      await screen.findByText("Timing: +0.5 s (later)"),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Second line" }));
+    await waitFor(() => expect(mocks.seekPlayback).toHaveBeenCalledWith(2_500));
+  });
+
+  it("searches deliberately and persists a manually selected recording", async () => {
+    mocks.searchLyrics.mockResolvedValue({
+      document: null,
+      candidates: [
+        {
+          id: 91,
+          trackName: "Track (Live)",
+          artistName: "Artist",
+          albumName: "Live Album",
+          durationSeconds: 125,
+          hasSyncedLyrics: true,
+          instrumental: false,
+          confidence: "review",
+          durationDeltaMs: 5_000,
+          reasons: ["Manual search result"],
+        },
+      ],
+      message: "Confirm the recording you want.",
+      offsetMs: 0,
+      selection: null,
+    });
+    mocks.chooseLyricsCandidate.mockResolvedValue({
+      ...syncedLyrics("Manual choice"),
+      offsetMs: 0,
+      selection: {
+        source: "lrclib",
+        providerId: 91,
+        trackName: "Track (Live)",
+        artistName: "Artist",
+        albumName: "Live Album",
+        durationSeconds: 125,
+      },
+    });
+    renderNowPlaying();
+
+    expect(await screen.findByText("First line")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Find lyrics" }));
+    fireEvent.click(screen.getByRole("button", { name: "Search LRCLIB" }));
+    await waitFor(() =>
+      expect(mocks.searchLyrics).toHaveBeenCalledWith(
+        "00000000-0000-0000-0000-000000000001",
+        {
+          trackName: "Track",
+          artistName: "Artist",
+          albumName: "Album",
+          durationSeconds: 120,
+        },
+      ),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: /track \(live\).*review match/i,
+      }),
+    );
+    expect(await screen.findByText("Manual choice")).toBeInTheDocument();
+    expect(screen.getByText(/selected lrclib match/i)).toHaveTextContent(
+      "Track (Live) · Artist",
+    );
   });
 });
 

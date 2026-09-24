@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use unicode_normalization::UnicodeNormalization;
 
 use crate::domain::{lyrics::LyricsMatchConfidence, query::TrackDto};
@@ -10,7 +10,7 @@ use super::lrc::parse_lrc;
 const AUTO_DURATION_MS: f64 = 3_000.0;
 const REVIEW_DURATION_MS: f64 = 15_000.0;
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct LrclibTrack {
     pub id: u32,

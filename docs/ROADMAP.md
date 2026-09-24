@@ -1,7 +1,7 @@
 # Basis roadmap
 
 Baseline: 0.3.1, after MVP M0–M8 and polish P0–P8.
-Status: V1.2 implemented in source; native Windows/Arch verification remains.
+Status: V1.2 and V1.3 implemented in source; native/live-provider verification remains.
 
 The next program improves everyday playback, lyrics, and desktop integration
 without sacrificing local-first behavior or responsiveness on modest hardware.
@@ -73,6 +73,15 @@ Depends on reliable playback position and track identity.
   change to D55 before implementation.
 - Keep synchronized/plain/instrumental/missing/error states distinct. Preserve
   conservative automatic matching and enable deliberate user correction.
+
+Source implementation adds editable LRCLIB search, deliberate candidate
+selection, portable recording-bound choices, a bounded ±15-second per-track
+offset, reset controls, and optional next-item prefetch. Prefetch is disabled by
+default, runs only while playing, discards superseded targets, and uses an
+app-data cache limited to 64 lookups/8 MiB. Automatic matching remains unchanged.
+The automated recording-version, malformed-LRC, offline-cache, cancellation,
+and restart/reindex matrix is green; packaged live LRCLIB behavior remains in
+the exit matrix.
 
 Exit: regression matrix spans original/live/acoustic/remix recordings, differing
 release tags, durations, malformed LRC, offline/cache behavior, track-switch races,

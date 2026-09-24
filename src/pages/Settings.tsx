@@ -10,6 +10,7 @@ import {
 import { useState } from "react";
 import { AppearanceEditor } from "../components/settings/AppearanceEditor";
 import { LinuxDesktopIntegration } from "../components/settings/LinuxDesktopIntegration";
+import { LyricsSettings } from "../components/settings/LyricsSettings";
 import { UpdatePanel } from "../components/settings/UpdatePanel";
 import { useLibraryContext } from "../components/shell/LibraryContext";
 import { Button, Dialog, DialogActions } from "../components/ui";
@@ -122,6 +123,9 @@ export function Settings() {
         </SettingsSectionButton>
         <SettingsSectionButton target="settings-navigation">
           Navigation
+        </SettingsSectionButton>
+        <SettingsSectionButton target="settings-lyrics">
+          Lyrics
         </SettingsSectionButton>
         <SettingsSectionButton target="settings-updates">
           Updates
@@ -266,6 +270,7 @@ export function Settings() {
           })}
         </div>
       </section>
+      <LyricsSettings />
       <UpdatePanel />
       <LinuxDesktopIntegration />
 

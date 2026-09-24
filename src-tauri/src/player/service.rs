@@ -174,6 +174,10 @@ impl PlayerService {
         Ok(core.snapshot())
     }
 
+    pub fn lyrics_prefetch_track_id(&self) -> Result<Option<Uuid>, String> {
+        Ok(self.core()?.lyrics_prefetch_track_id())
+    }
+
     pub(super) fn media_state(&self) -> Result<super::media_controls::MediaState, String> {
         let core = self.core()?;
         Ok(super::media_controls::MediaState {
@@ -1054,6 +1058,19 @@ impl PlayerCore {
         self.item(queue_id)
     }
 
+    fn lyrics_prefetch_track_id(&self) -> Option<Uuid> {
+        if self.status != PlaybackStatus::Playing || self.repeat == RepeatMode::Track {
+            return None;
+        }
+        let cursor = self.cursor?;
+        let next_queue_id = self.play_order.get(cursor + 1).copied().or_else(|| {
+            (self.repeat == RepeatMode::Queue && self.play_order.len() > 1)
+                .then(|| self.play_order.first().copied())
+                .flatten()
+        })?;
+        self.item(next_queue_id).map(|item| item.track.id)
+    }
+
     fn current_item(&self) -> Option<&PlayerQueueItem> {
         self.cursor
             .and_then(|index| self.play_order.get(index))
@@ -1365,6 +1382,24 @@ mod tests {
         let mut empty = PlayerCore::default();
         empty.clear_upcoming();
         assert!(empty.queue.is_empty());
+    }
+
+    #[test]
+    fn lyric_prefetch_target_is_exactly_the_next_playing_queue_item() {
+        let tracks = (0..3).map(track).collect::<Vec<_>>();
+        let mut core = PlayerCore::default();
+        core.insert_tracks(tracks.clone(), tracks[0].id, QueueInsertMode::Replace)
+            .unwrap();
+        core.status = PlaybackStatus::Playing;
+        assert_eq!(core.lyrics_prefetch_track_id(), Some(tracks[1].id));
+
+        core.repeat = RepeatMode::Track;
+        assert_eq!(core.lyrics_prefetch_track_id(), None);
+        core.repeat = RepeatMode::Queue;
+        core.cursor = Some(2);
+        assert_eq!(core.lyrics_prefetch_track_id(), Some(tracks[0].id));
+        core.status = PlaybackStatus::Paused;
+        assert_eq!(core.lyrics_prefetch_track_id(), None);
     }
 
     #[test]

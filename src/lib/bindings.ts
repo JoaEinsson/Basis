@@ -28,7 +28,13 @@ export const commands = {
 } | null, string>(__TAURI_INVOKE("library_status")),
 	artworkThumbnail: (artworkKey: string, dimension: number) => typedError<string | null, string>(__TAURI_INVOKE("artwork_thumbnail", { artworkKey, dimension })),
 	lyricsResolve: (trackId: string, allowNetwork: boolean) => typedError<LyricsResolution, string>(__TAURI_INVOKE("lyrics_resolve", { trackId, allowNetwork })),
+	lyricsSearch: (trackId: string, query: LyricsSearchQuery) => typedError<LyricsResolution, string>(__TAURI_INVOKE("lyrics_search", { trackId, query })),
 	lyricsChooseCandidate: (trackId: string, candidateId: number) => typedError<LyricsResolution, string>(__TAURI_INVOKE("lyrics_choose_candidate", { trackId, candidateId })),
+	lyricsSetOffset: (trackId: string, offsetMs: number) => typedError<LyricsPreferenceState, string>(__TAURI_INVOKE("lyrics_set_offset", { trackId, offsetMs })),
+	lyricsClearSelection: (trackId: string) => typedError<LyricsResolution, string>(__TAURI_INVOKE("lyrics_clear_selection", { trackId })),
+	lyricsPrefetchPolicy: () => typedError<LyricsPrefetchPolicy, string>(__TAURI_INVOKE("lyrics_prefetch_policy")),
+	lyricsSetPrefetch: (enabled: boolean) => typedError<LyricsPrefetchPolicy, string>(__TAURI_INVOKE("lyrics_set_prefetch", { enabled })),
+	lyricsPrefetch: (trackId: string | null) => typedError<boolean, string>(__TAURI_INVOKE("lyrics_prefetch", { trackId })),
 	queryParse: (input: string) => typedError<Expr, string>(__TAURI_INVOKE("query_parse", { input })),
 	queryExecute: (request: QueryRequest) => typedError<QueryPage, string>(__TAURI_INVOKE("query_execute", { request })),
 	searchGlobal: (request: SearchRequest) => typedError<GlobalSearchResults, string>(__TAURI_INVOKE("search_global", { request })),
@@ -220,6 +226,7 @@ export type LyricsCandidate = {
 	albumName: string,
 	durationSeconds: number | null,
 	hasSyncedLyrics: boolean,
+	instrumental: boolean,
 	confidence: LyricsMatchConfidence,
 	durationDeltaMs: number | null,
 	reasons: string[],
@@ -240,10 +247,39 @@ export type LyricsLine = {
 
 export type LyricsMatchConfidence = "high" | "review";
 
+export type LyricsPreferenceState = {
+	offsetMs: number,
+	selection: LyricsSelection | null,
+};
+
+export type LyricsPrefetchPolicy = {
+	enabled: boolean,
+	cacheEntryLimit: number,
+	cacheBytesLimit: number,
+};
+
 export type LyricsResolution = {
 	document: LyricsDocument | null,
 	candidates: LyricsCandidate[],
 	message: string | null,
+	offsetMs: number,
+	selection: LyricsSelection | null,
+};
+
+export type LyricsSearchQuery = {
+	trackName: string,
+	artistName: string,
+	albumName: string | null,
+	durationSeconds: number | null,
+};
+
+export type LyricsSelection = {
+	source: LyricsSource,
+	providerId: number,
+	trackName: string,
+	artistName: string,
+	albumName: string,
+	durationSeconds: number | null,
 };
 
 export type LyricsSource = "sidecar" | "embedded" | "portable" | "lrclib";

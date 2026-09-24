@@ -35,6 +35,9 @@ import type {
   ViewDefinition,
   HistoryEvent,
   LyricsResolution,
+  LyricsSearchQuery,
+  LyricsPreferenceState,
+  LyricsPrefetchPolicy,
   UpdateCheckPermit,
   UpdatePolicy,
 } from "./types";
@@ -100,6 +103,40 @@ export async function chooseLyricsCandidate(
   return unwrapResult(
     await commands.lyricsChooseCandidate(trackId, candidateId),
   );
+}
+
+export async function searchLyrics(
+  trackId: string,
+  query: LyricsSearchQuery,
+): Promise<LyricsResolution> {
+  return unwrapResult(await commands.lyricsSearch(trackId, query));
+}
+
+export async function setLyricsOffset(
+  trackId: string,
+  offsetMs: number,
+): Promise<LyricsPreferenceState> {
+  return unwrapResult(await commands.lyricsSetOffset(trackId, offsetMs));
+}
+
+export async function clearLyricsSelection(
+  trackId: string,
+): Promise<LyricsResolution> {
+  return unwrapResult(await commands.lyricsClearSelection(trackId));
+}
+
+export async function getLyricsPrefetchPolicy(): Promise<LyricsPrefetchPolicy> {
+  return unwrapResult(await commands.lyricsPrefetchPolicy());
+}
+
+export async function setLyricsPrefetchEnabled(
+  enabled: boolean,
+): Promise<LyricsPrefetchPolicy> {
+  return unwrapResult(await commands.lyricsSetPrefetch(enabled));
+}
+
+export async function prefetchLyrics(trackId: string | null): Promise<boolean> {
+  return unwrapResult(await commands.lyricsPrefetch(trackId));
 }
 
 export async function parseLibraryQuery(input: string): Promise<Expr> {

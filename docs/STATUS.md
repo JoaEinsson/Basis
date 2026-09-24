@@ -1,6 +1,6 @@
 # Current status
 
-Updated: 2026-09-08. Repository baseline: tag `v0.3.1` plus uncommitted V1.2 work.
+Updated: 2026-09-09. Repository baseline: tag `v0.3.1` plus uncommitted V1.2/V1.3 work.
 
 ## Delivered baseline
 
@@ -65,6 +65,30 @@ media key while unfocused; on packaged Arch/KDE, verify MPRIS using the panel an
 `playerctl`; on both, disconnect/change the default output while playing, confirm
 it remains paused at the preserved position, then press Play and confirm recovery.
 Also repeat restart mute persistence and queue/playlist actions with real audio.
+
+V1.3 source implementation is ready for packaged/live-provider smoke testing:
+
+- Now Playing can search LRCLIB with editable recording metadata, review every
+  result deliberately, choose a source, and return to automatic matching;
+- the chosen provider identity and safe lyric document live under the relative
+  track path in portable `.musiclib` data and survive a local index-ID rebuild;
+- synchronized lyrics have per-track ±15-second timing adjustment in 500 ms
+  steps with reset, persistent feedback, highlighting, and timestamp seeking;
+- optional next-track prefetch is explicit, disabled by default, active only
+  during playback, limited to one play-order target, and cancels/discards stale
+  queue targets;
+- provider cache is disposable app-data bounded to 64 entries/8 MiB; opening
+  prefetched synchronized lyrics promotes it through the existing local LRC path;
+- automatic original/live/acoustic/remix matching remains conservative and no
+  song-specific production branch was added.
+
+V1.3 evidence on 2026-09-09: 25 frontend suites/86 tests passed; Rust all-targets
+passed with 73 library tests, 2 hardware tests ignored, and the updater-signature
+integration test. TypeScript, ESLint, Prettier, production build, Clippy with
+warnings denied, release configuration/manifest tests, and `git diff --check`
+passed. The remaining manual gate is a packaged online/offline LRCLIB smoke:
+choose a nonautomatic version, adjust timing, restart/reindex, confirm offline
+reuse, then enable prefetch and rapidly change/reorder the next queue item.
 
 Keep this file as a current snapshot: replace stale entries, add concrete
 commands/results to completed checks, and archive closed-cycle detail. Never

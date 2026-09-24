@@ -25,6 +25,8 @@ import {
   setPlaybackVolume,
   setPlaybackMuted,
   clearUpcomingPlayback,
+  getLyricsPrefetchPolicy,
+  prefetchLyrics,
 } from "../../lib/tauri";
 import type {
   PlayerSnapshot,
@@ -71,6 +73,7 @@ export function PlayerProvider({
   );
   const [error, setError] = useState<string | null>(null);
   const [queueOpen, setQueueOpen] = useState(false);
+  const [lyricsPrefetchEnabled, setLyricsPrefetchEnabled] = useState(false);
 
   useEffect(() => {
     if (!connect) return;
@@ -150,6 +153,50 @@ export function PlayerProvider({
     };
   }, [connect]);
 
+  useEffect(() => {
+    if (!connect) return;
+    let active = true;
+    void getLyricsPrefetchPolicy()
+      .then((policy) => {
+        if (active) setLyricsPrefetchEnabled(policy.enabled);
+      })
+      .catch(() => undefined);
+    const policyChanged = (event: Event) => {
+      const detail = (event as CustomEvent<{ enabled?: boolean }>).detail;
+      if (typeof detail?.enabled === "boolean") {
+        setLyricsPrefetchEnabled(detail.enabled);
+      }
+    };
+    window.addEventListener(
+      "basis:lyrics-prefetch-policy-changed",
+      policyChanged,
+    );
+    return () => {
+      active = false;
+      window.removeEventListener(
+        "basis:lyrics-prefetch-policy-changed",
+        policyChanged,
+      );
+    };
+  }, [connect]);
+
+  const prefetchTarget = nextLyricsPrefetchTrackId(snapshot);
+  useEffect(() => {
+    if (!connect) return;
+    if (!lyricsPrefetchEnabled || !prefetchTarget) {
+      void prefetchLyrics(null).catch(() => undefined);
+      return;
+    }
+    void prefetchLyrics(prefetchTarget).catch(() => undefined);
+  }, [connect, lyricsPrefetchEnabled, prefetchTarget]);
+
+  useEffect(() => {
+    if (!connect) return;
+    return () => {
+      void prefetchLyrics(null).catch(() => undefined);
+    };
+  }, [connect]);
+
   const perform = useCallback(
     async (request: () => Promise<PlayerSnapshot>) => {
       try {
@@ -209,6 +256,26 @@ export function PlayerProvider({
 
   return (
     <PlayerContext.Provider value={value}>{children}</PlayerContext.Provider>
+  );
+}
+
+export function nextLyricsPrefetchTrackId(snapshot: PlayerSnapshot | null) {
+  if (!snapshot?.currentTrack || snapshot.status !== "playing") return null;
+  const current = snapshot.playOrder.indexOf(snapshot.currentTrack.queueId);
+  if (current < 0) return null;
+  let nextQueueId = snapshot.playOrder[current + 1];
+  if (
+    !nextQueueId &&
+    snapshot.repeat === "queue" &&
+    snapshot.playOrder.length > 1
+  ) {
+    nextQueueId = snapshot.playOrder[0];
+  }
+  if (!nextQueueId || nextQueueId === snapshot.currentTrack.queueId)
+    return null;
+  return (
+    snapshot.queue.find((item) => item.queueId === nextQueueId)?.track.id ??
+    null
   );
 }
 

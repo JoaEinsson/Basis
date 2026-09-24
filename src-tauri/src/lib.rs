@@ -50,7 +50,7 @@ pub fn run() {
             if let Err(error) = player::media_controls::start(app.handle(), &player) {
                 eprintln!("Basis system media controls are unavailable: {error}");
             }
-            app.manage(Arc::new(lyrics::LyricsService::new()?));
+            app.manage(Arc::new(lyrics::LyricsService::new(&app_data_dir)?));
             if let Err(error) = library::service::restore_recent_library(app.handle()) {
                 eprintln!("Basis could not restore the recent library: {error}");
             }
@@ -82,7 +82,13 @@ fn api_builder() -> Builder<tauri::Wry> {
             commands::library::library_status,
             commands::library::artwork_thumbnail,
             commands::lyrics::lyrics_resolve,
+            commands::lyrics::lyrics_search,
             commands::lyrics::lyrics_choose_candidate,
+            commands::lyrics::lyrics_set_offset,
+            commands::lyrics::lyrics_clear_selection,
+            commands::lyrics::lyrics_prefetch_policy,
+            commands::lyrics::lyrics_set_prefetch,
+            commands::lyrics::lyrics_prefetch,
             commands::query::query_parse,
             commands::query::query_execute,
             commands::query::search_global,

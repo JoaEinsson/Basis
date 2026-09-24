@@ -2746,8 +2746,8 @@ button.list-entity {
 }
 
 .lyrics-pane {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  display: flex;
+  flex-direction: column;
   gap: var(--mv-space-4);
   min-height: 0;
   padding: var(--mv-space-6) 0;
@@ -2765,7 +2765,71 @@ button.list-entity {
   margin: 0;
 }
 
+.lyrics-heading-actions,
+.lyrics-offset-controls,
+.lyrics-offset-controls > div,
+.lyrics-selection-status {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--mv-space-2);
+}
+
+.lyrics-offset-controls,
+.lyrics-selection-status {
+  justify-content: space-between;
+  color: var(--mv-color-text-secondary);
+  font-size: var(--mv-font-size-sm);
+}
+
+.lyrics-offset-controls > div {
+  justify-content: flex-end;
+}
+
+.lyrics-search-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--mv-space-3);
+  padding-block: var(--mv-space-4);
+  border-block: var(--mv-border-width) solid var(--mv-color-border);
+}
+
+.lyrics-search-form label {
+  display: grid;
+  min-width: 0;
+  gap: var(--mv-space-1);
+  color: var(--mv-color-text-secondary);
+  font-size: var(--mv-font-size-sm);
+}
+
+.lyrics-search-form label small {
+  color: var(--mv-color-text-muted);
+  font-weight: var(--mv-font-weight-normal);
+}
+
+.lyrics-search-form button {
+  width: fit-content;
+  align-self: end;
+}
+
+.lyrics-manual-results {
+  max-height: min(42vh, 26rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.lyrics-manual-results .lyrics-candidates {
+  padding-block: 0;
+}
+
+.lyrics-action-error {
+  margin: 0;
+}
+
 .lyrics-scroll {
+  flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
   overflow-x: hidden;
@@ -2870,6 +2934,10 @@ button.list-entity {
   height: auto;
   padding: var(--mv-space-3);
   text-align: left;
+}
+
+.lyrics-candidates button:disabled {
+  opacity: var(--mv-opacity-disabled);
 }
 
 .lyrics-candidates span {
@@ -3698,6 +3766,15 @@ button.list-entity {
 
   .lyrics-pane,
   .lyrics-scroll {
+    overflow: visible;
+  }
+
+  .lyrics-search-form {
+    grid-template-columns: 1fr;
+  }
+
+  .lyrics-manual-results {
+    max-height: none;
     overflow: visible;
   }
 
