@@ -1,7 +1,7 @@
 # Current status
 
-Updated: 2026-09-24. Published baseline: `v0.3.1`. The source is prepared as
-`0.4.0` for the V1.2/V1.3 release candidate; it is not tagged or published.
+Updated: 2026-09-24. Published baseline: `v0.3.1`. The `v0.4.0` tag exists,
+but its quality job failed on RUSTSEC-2026-0285; no `v0.4.0` release exists.
 
 ## Delivered baseline
 
@@ -96,9 +96,13 @@ The next release uses `0.4.0` because it adds player and lyrics features since
 the Basis entry in Cargo.lock have been aligned. On 2026-09-24,
 `cargo metadata --locked --offline`, release configuration validation with
 `GITHUB_REF_NAME=v0.4.0`, the five updater-manifest tests, Prettier, and
-`git diff --check` passed. The remote has no `v0.4.0` tag. Before tagging,
-complete the packaged V1.2/V1.3 smoke tests above and repeat the full quality
-matrix against the release commit.
+`git diff --check` passed. On 2026-09-24, the failed release audit traced
+RUSTSEC-2026-0285 to rustls 0.23.43 through reqwest and the Tauri updater.
+Updating only rustls to 0.23.45 in Cargo.lock made `cargo audit` pass with
+eight pre-existing allowed warnings; 73 Rust library tests, the updater
+signature test, and Clippy with warnings denied passed. The corrected lockfile
+must be committed and included in the tag before re-running the release
+workflow. Packaged V1.2/V1.3 checks follow the generated release artifacts.
 
 Keep this file as a current snapshot: replace stale entries, add concrete
 commands/results to completed checks, and archive closed-cycle detail. Never
